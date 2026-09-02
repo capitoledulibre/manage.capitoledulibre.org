@@ -9,7 +9,7 @@
       {{if .Managers}}<p class="muted">Responsable{{if gt (len .Managers) 1}}s{{end}} : {{range $i, $m := .Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}</p>{{end}}
     </div>
   </div>
-  {{if .CanManage}}<a href="/manage/poles/{{.Pole.ID}}" role="button" class="secondary outline small">Gérer ce pôle</a>{{end}}
+  {{if .CanManage}}<a href="{{.Pole.ManageURL}}" role="button" class="secondary outline small">Gérer ce pôle</a>{{end}}
 </div>
 {{if .Pole.Description}}<p>{{nl2br .Pole.Description}}</p>{{end}}
 
@@ -19,7 +19,7 @@
 <article>
   <h3>Vous n'êtes pas encore dans ce pôle</h3>
   {{if .Pole.IsOpen}}
-  <form method="post" action="/poles/{{.Pole.ID}}/join"><button>Rejoindre ce pôle</button></form>
+  <form method="post" action="{{.Pole.URL}}/join"><button>Rejoindre ce pôle</button></form>
   {{else if .Pole.IsPrivate}}
   <p>Ce pôle se rejoint via un lien d'invitation : demandez-le au responsable.</p>
   {{else}}
@@ -38,11 +38,11 @@
 {{if or .Locations (gt .Total 0)}}
 <div class="filters">
   {{if .Locations}}
-  <a href="/poles/{{.Pole.ID}}{{if .OnlyOpen}}?open=1{{end}}" class="{{if not .Filter}}active{{end}}">Tout</a>
-  {{range .Locations}}<a href="/poles/{{$.Pole.ID}}?location={{.ID}}{{if $.OnlyOpen}}&open=1{{end}}" class="{{if eq .ID $.Filter}}active{{end}}">{{.Name}}</a>{{end}}
+  <a href="{{.Pole.URL}}{{if .OnlyOpen}}?open=1{{end}}" class="{{if not .Filter}}active{{end}}">Tout</a>
+  {{range .Locations}}<a href="{{$.Pole.URL}}?location={{.ID}}{{if $.OnlyOpen}}&open=1{{end}}" class="{{if eq .ID $.Filter}}active{{end}}">{{.Name}}</a>{{end}}
   <span class="muted">·</span>
   {{end}}
-  <a href="/poles/{{.Pole.ID}}?{{if .Filter}}location={{.Filter}}&{{end}}{{if not .OnlyOpen}}open=1{{end}}" class="{{if .OnlyOpen}}active{{end}}">À pourvoir seulement</a>
+  <a href="{{.Pole.URL}}?{{if .Filter}}location={{.Filter}}&{{end}}{{if not .OnlyOpen}}open=1{{end}}" class="{{if .OnlyOpen}}active{{end}}">À pourvoir seulement</a>
 </div>
 {{end}}
 
@@ -59,7 +59,7 @@
 <details style="margin-top:2rem">
   <summary class="muted">Quitter ce pôle</summary>
   <p class="hint">Vous serez désinscrit·e de tous les créneaux de ce pôle.</p>
-  <form method="post" action="/poles/{{.Pole.ID}}/leave" onsubmit="return confirm('Quitter ce pôle et annuler vos créneaux ?')"><button class="secondary outline">Quitter le pôle</button></form>
+  <form method="post" action="{{.Pole.URL}}/leave" onsubmit="return confirm('Quitter ce pôle et annuler vos créneaux ?')"><button class="secondary outline">Quitter le pôle</button></form>
 </details>
 {{end}}
 {{end}}

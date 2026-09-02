@@ -2,23 +2,23 @@
 {{define "content"}}
 <div class="page-header">
   <h1>Administration</h1>
-  <div class="actions"><a href="/admin/users" role="button" class="secondary outline small">Comptes ({{.UserCount}})</a><a href="/admin/editions/new" role="button" class="small">+ Nouvelle édition</a></div>
+  <div class="actions"><a href="/admin/users" role="button" class="secondary outline small">Comptes ({{.UserCount}})</a><a href="/admin/events/new" role="button" class="small">+ Nouvel événement</a></div>
 </div>
 
-<h2 style="font-size:1.2rem">Éditions</h2>
+<h2 style="font-size:1.2rem">Événements</h2>
 <div style="overflow-x:auto">
 <table class="compact">
-  <thead><tr><th>Édition</th><th>Dates</th><th>Statut</th><th>Gel</th><th></th></tr></thead>
+  <thead><tr><th>Événement</th><th>Dates</th><th>Statut</th><th>Gel</th><th></th></tr></thead>
   <tbody>
-  {{range .Editions}}
+  {{range .Events}}
   <tr>
-    <td><a href="/admin/editions/{{.ID}}"><b>{{.Name}}</b></a></td>
-    <td>{{.StartsOn}} → {{.EndsOn}}</td>
+    <td><a href="{{.AdminURL}}"><b>{{.Name}}</b></a></td>
+    <td>{{dateRange .StartsOn .EndsOn}}</td>
     <td><span class="badge {{if eq .Status "open"}}ok{{else if eq .Status "frozen"}}warn{{end}}">{{status .Status}}</span></td>
     <td>{{if .FreezeAt}}{{datetime .FreezeAt}}{{else}}<span class="muted">—</span>{{end}}</td>
-    <td><a href="/admin/editions/{{.ID}}">Tableau de bord</a></td>
+    <td><a href="{{.AdminURL}}">Tableau de bord</a></td>
   </tr>
-  {{else}}<tr><td colspan="5" class="muted">Aucune édition. Créez la première !</td></tr>{{end}}
+  {{else}}<tr><td colspan="5" class="muted">Aucun événement. Créez la première !</td></tr>{{end}}
   </tbody>
 </table>
 </div>
@@ -26,7 +26,8 @@
 <h2 style="font-size:1.2rem; margin-top:2rem">Paramètres</h2>
 <form method="post" action="/admin/settings" class="grid-2">
   <label>Nom de l'organisation / événement<input type="text" name="org_name" value="{{.OrgName}}" required></label>
-  <label>Nom du pôle par défaut <small class="muted">(créé avec chaque édition, regroupe tous les bénévoles)</small><input type="text" name="default_pole_name" value="{{.DefaultPoleName}}" required></label>
+  <label>Nom du pôle par défaut <small class="muted">(créé avec chaque événement, regroupe tous les bénévoles)</small><input type="text" name="default_pole_name" value="{{.DefaultPoleName}}" required></label>
+  <label>Lien vers le code source <small class="muted">(affiché en pied de page, optionnel)</small><input type="url" name="source_url" value="{{.SourceURL}}" placeholder="https://…"></label>
   <div><button class="small">Enregistrer</button></div>
 </form>
 {{end}}

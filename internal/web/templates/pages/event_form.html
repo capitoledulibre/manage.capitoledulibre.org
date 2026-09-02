@@ -1,0 +1,16 @@
+{{define "title"}}Nouvel événement – {{.Org}}{{end}}
+{{define "content"}}
+<p><a href="/admin">← Administration</a></p>
+<h1>Nouvel événement</h1>
+<form method="post" action="/admin/events" style="max-width:36rem">
+  <label>Nom<input type="text" name="name" value="{{.Event.Name}}" required placeholder="Example Conf 2026"></label>
+  <div class="grid-2">
+    <label>Premier jour<input type="date" name="starts_on" value="{{.Event.StartsOn}}" required></label>
+    <label>Dernier jour<input type="date" name="ends_on" value="{{.Event.EndsOn}}" required></label>
+  </div>
+  <label>Gel des inscriptions <small class="muted">(optionnel : après cette date, les bénévoles ne modifient plus leurs créneaux)</small>
+    <input type="datetime-local" name="freeze_at"></label>
+  <p class="hint">L'événement est créé en brouillon : les responsables préparent les créneaux, puis vous ouvrez les inscriptions depuis son tableau de bord.</p>
+  <button class="small">Créer l'événement</button>
+</form>
+{{end}}

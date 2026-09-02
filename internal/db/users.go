@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// User is a volunteer account, kept across editions.
+// User is a volunteer account, kept across events.
 type User struct {
 	ID          int64
 	Email       string
@@ -186,10 +186,10 @@ func (d *DB) DeleteSession(id string) error {
 	return err
 }
 
-// UserPoles maps user ids to the names of the poles they joined in an edition.
-func (d *DB) UserPoles(editionID int64) (map[int64][]string, error) {
+// UserPoles maps user ids to the names of the poles they joined in an event.
+func (d *DB) UserPoles(eventID int64) (map[int64][]string, error) {
 	rows, err := d.Query(`SELECT pm.user_id, p.name FROM pole_members pm JOIN poles p ON p.id = pm.pole_id
-		WHERE p.edition_id = ? AND p.is_default = 0 ORDER BY p.position, p.name`, editionID)
+		WHERE p.event_id = ? AND p.is_default = 0 ORDER BY p.position, p.name`, eventID)
 	if err != nil {
 		return nil, err
 	}

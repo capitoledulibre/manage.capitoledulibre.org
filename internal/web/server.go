@@ -99,9 +99,11 @@ func (s *Server) parseTemplates() error {
 			}
 			return filled * 100 / capacity
 		},
-		"status":   statusLabel,
-		"mode":     modeLabel,
-		"modeHelp": modeHelp,
+		"status":    statusLabel,
+		"longDate":  func(iso string) string { return longDate(iso, loc) },
+		"dateRange": func(from, to string) string { return dateRange(from, to, loc) },
+		"mode":      modeLabel,
+		"modeHelp":  modeHelp,
 		"firstName": func(u *db.User) string {
 			if u == nil {
 				return ""
@@ -174,11 +176,41 @@ func statusLabel(st string) string {
 	case db.StatusOpen:
 		return "Inscriptions ouvertes"
 	case db.StatusFrozen:
-		return "Gelée"
+		return "Gelé"
 	case db.StatusArchived:
-		return "Archivée"
+		return "Archivé"
 	}
 	return st
+}
+
+// longDate renders a YYYY-MM-DD date as "samedi 14 novembre 2026".
+func longDate(iso string, loc *time.Location) string {
+	t, err := time.ParseInLocation("2006-01-02", iso, loc)
+	if err != nil {
+		return iso
+	}
+	return fmt.Sprintf("%s %d", reminders.FormatDay(t, loc), t.Year())
+}
+
+// dateRange renders two YYYY-MM-DD dates as "du 13 au 15 novembre 2026".
+func dateRange(from, to string, loc *time.Location) string {
+	a, err1 := time.ParseInLocation("2006-01-02", from, loc)
+	b, err2 := time.ParseInLocation("2006-01-02", to, loc)
+	if err1 != nil || err2 != nil {
+		return from + " → " + to
+	}
+	monthYear := func(t time.Time) string {
+		parts := strings.Fields(reminders.FormatDay(t, loc)) // weekday day month
+		return parts[2] + " " + fmt.Sprint(t.Year())
+	}
+	switch {
+	case a.Equal(b):
+		return "le " + longDate(from, loc)
+	case a.Month() == b.Month() && a.Year() == b.Year():
+		return fmt.Sprintf("du %d au %d %s", a.Day(), b.Day(), monthYear(b))
+	default:
+		return fmt.Sprintf("du %d %s au %d %s", a.Day(), monthYear(a), b.Day(), monthYear(b))
+	}
 }
 
 func modeLabel(m string) string {
@@ -214,8 +246,8 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
 	static, _ := fs.Sub(assets, "static")
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
-	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", s.Uploads.Handler()))
+	mux.Handle("GET /static/{file}", http.StripPrefix("/static/", http.FileServerFS(static)))
+	mux.Handle("GET /uploads/{file}", http.StripPrefix("/uploads/", s.Uploads.Handler()))
 
 	// Auth
 	mux.HandleFunc("GET /login", s.loginForm)
@@ -230,30 +262,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /profile", s.requireLogin(s.profileForm))
 	mux.HandleFunc("POST /profile", s.requireLogin(s.profileSubmit))
 	mux.HandleFunc("POST /profile/delete", s.requireLogin(s.profileDelete))
-	mux.HandleFunc("GET /poles/{id}", s.requireLogin(s.polePage))
-	mux.HandleFunc("GET /poles/{id}/join", s.requireLogin(s.poleInvite))
-	mux.HandleFunc("POST /poles/{id}/join", s.requireLogin(s.poleJoin))
-	mux.HandleFunc("POST /poles/{id}/leave", s.requireLogin(s.poleLeave))
 	mux.HandleFunc("GET /slots/{id}", s.requireLogin(s.slotPage))
 	mux.HandleFunc("POST /slots/{id}/signup", s.requireLogin(s.slotSignup))
 	mux.HandleFunc("POST /slots/{id}/unsignup", s.requireLogin(s.slotUnsignup))
 	mux.HandleFunc("POST /tasks/{id}/toggle", s.requireLogin(s.taskToggle))
 
-	// Pole management (managers + admins)
-	mux.HandleFunc("GET /manage/poles/{id}", s.requireLogin(s.managePole))
-	mux.HandleFunc("POST /manage/poles/{id}", s.requireLogin(s.managePoleUpdate))
-	mux.HandleFunc("POST /manage/poles/{id}/key", s.requireLogin(s.managePoleKey))
-	mux.HandleFunc("POST /manage/poles/{id}/image", s.requireLogin(s.managePoleImage))
-	mux.HandleFunc("POST /manage/poles/{id}/image/delete", s.requireLogin(s.managePoleImageDelete))
-	mux.HandleFunc("GET /manage/poles/{id}/users", s.requireLogin(s.manageUserSearch))
-	mux.HandleFunc("POST /manage/poles/{id}/members", s.requireLogin(s.manageMemberAdd))
-	mux.HandleFunc("POST /manage/poles/{id}/members/{uid}/delete", s.requireLogin(s.manageMemberRemove))
-	mux.HandleFunc("POST /manage/poles/{id}/locations", s.requireLogin(s.manageLocationCreate))
+	// Slot-level management (by id; pole-level management lives under the pole URL)
 	mux.HandleFunc("POST /manage/locations/{id}/delete", s.requireLogin(s.manageLocationDelete))
-	mux.HandleFunc("POST /manage/poles/{id}/messages", s.requireLogin(s.managePoleMessage))
 	mux.HandleFunc("POST /manage/messages/{id}/delete", s.requireLogin(s.manageMessageDelete))
-	mux.HandleFunc("GET /manage/poles/{id}/slots/new", s.requireLogin(s.manageSlotNew))
-	mux.HandleFunc("POST /manage/poles/{id}/slots", s.requireLogin(s.manageSlotCreate))
 	mux.HandleFunc("GET /manage/slots/{id}", s.requireLogin(s.manageSlotEdit))
 	mux.HandleFunc("POST /manage/slots/{id}", s.requireLogin(s.manageSlotUpdate))
 	mux.HandleFunc("POST /manage/slots/{id}/delete", s.requireLogin(s.manageSlotDelete))
@@ -268,28 +284,93 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/settings", s.requireAdmin(s.adminSettings))
 	mux.HandleFunc("POST /admin/logo", s.requireAdmin(s.adminLogo))
 	mux.HandleFunc("POST /admin/logo/delete", s.requireAdmin(s.adminLogoDelete))
-	mux.HandleFunc("GET /admin/editions/{id}/planning", s.requireAdmin(s.adminPlanning))
-	mux.HandleFunc("POST /admin/editions/{id}/duplicate", s.requireAdmin(s.adminEditionDuplicate))
-	mux.HandleFunc("POST /admin/poles/{id}/copy", s.requireAdmin(s.adminPoleCopy))
-	mux.HandleFunc("GET /admin/editions/new", s.requireAdmin(s.adminEditionNew))
-	mux.HandleFunc("POST /admin/editions", s.requireAdmin(s.adminEditionCreate))
-	mux.HandleFunc("GET /admin/editions/{id}", s.requireAdmin(s.adminEdition))
-	mux.HandleFunc("POST /admin/editions/{id}", s.requireAdmin(s.adminEditionUpdate))
-	mux.HandleFunc("POST /admin/editions/{id}/delete", s.requireAdmin(s.adminEditionDelete))
-	mux.HandleFunc("POST /admin/editions/{id}/poles", s.requireAdmin(s.adminPoleCreate))
-	mux.HandleFunc("POST /admin/editions/{id}/messages", s.requireAdmin(s.adminEditionMessage))
-	mux.HandleFunc("GET /admin/editions/{id}/volunteers", s.requireAdmin(s.adminVolunteers))
-	mux.HandleFunc("GET /admin/editions/{id}/volunteers.csv", s.requireAdmin(s.adminVolunteersCSV))
+	mux.HandleFunc("GET /admin/events/new", s.requireAdmin(s.adminEventNew))
+	mux.HandleFunc("POST /admin/events", s.requireAdmin(s.adminEventCreate))
+	mux.HandleFunc("GET /admin/events/{event}", s.requireAdmin(s.adminEvent))
+	mux.HandleFunc("POST /admin/events/{event}", s.requireAdmin(s.adminEventUpdate))
+	mux.HandleFunc("POST /admin/events/{event}/delete", s.requireAdmin(s.adminEventDelete))
+	mux.HandleFunc("POST /admin/events/{event}/poles", s.requireAdmin(s.adminPoleCreate))
+	mux.HandleFunc("POST /admin/events/{event}/messages", s.requireAdmin(s.adminEventMessage))
+	mux.HandleFunc("GET /admin/events/{event}/volunteers", s.requireAdmin(s.adminVolunteers))
+	mux.HandleFunc("GET /admin/events/{event}/volunteers.csv", s.requireAdmin(s.adminVolunteersCSV))
+	mux.HandleFunc("GET /admin/events/{event}/planning", s.requireAdmin(s.adminPlanning))
+	mux.HandleFunc("POST /admin/events/{event}/duplicate", s.requireAdmin(s.adminEventDuplicate))
 	mux.HandleFunc("POST /admin/poles/{id}/delete", s.requireAdmin(s.adminPoleDelete))
 	mux.HandleFunc("POST /admin/poles/{id}/managers", s.requireAdmin(s.adminManagerAdd))
 	mux.HandleFunc("POST /admin/poles/{id}/managers/{uid}/delete", s.requireAdmin(s.adminManagerRemove))
+	mux.HandleFunc("POST /admin/poles/{id}/copy", s.requireAdmin(s.adminPoleCopy))
 	mux.HandleFunc("GET /admin/users", s.requireAdmin(s.adminUsers))
 	mux.HandleFunc("POST /admin/users/{id}/admin", s.requireAdmin(s.adminUserToggleAdmin))
 	mux.HandleFunc("POST /admin/users/{id}/delete", s.requireAdmin(s.adminUserDelete))
+	mux.HandleFunc("POST /admin/users/{id}/join", s.requireAdmin(s.adminUserJoinPole))
+
+	// Pretty URLs: /{event} and /{event}/{pole}/... Every other route above has a
+	// literal first segment, so it is more specific and wins over these.
+	mux.HandleFunc("GET /{event}", s.requireLogin(s.eventHome))
+	mux.HandleFunc("GET /{event}/{pole}", s.requireLogin(s.polePage))
+	mux.HandleFunc("GET /{event}/{pole}/{action}", s.requireLogin(s.poleDispatch))
+	mux.HandleFunc("POST /{event}/{pole}/{action}", s.requireLogin(s.poleDispatch))
+	mux.HandleFunc("GET /{event}/{pole}/{action}/{rest...}", s.requireLogin(s.poleDispatch))
+	mux.HandleFunc("POST /{event}/{pole}/{action}/{rest...}", s.requireLogin(s.poleDispatch))
 
 	// Cross-origin protection covers every state-changing request (CSRF).
 	cop := http.NewCrossOriginProtection()
 	return s.withUser(cop.Handler(mux))
+}
+
+// poleDispatch routes /{event}/{pole}/{action}[/{rest}] to the pole handlers.
+func (s *Server) poleDispatch(w http.ResponseWriter, r *http.Request) {
+	action, rest := r.PathValue("action"), r.PathValue("rest")
+	get, post := r.Method == http.MethodGet, r.Method == http.MethodPost
+	switch {
+	case action == "join" && rest == "" && get:
+		s.poleInvite(w, r)
+	case action == "join" && rest == "" && post:
+		s.poleJoin(w, r)
+	case action == "leave" && rest == "" && post:
+		s.poleLeave(w, r)
+	case action == "manage":
+		switch {
+		case rest == "" && get:
+			s.managePole(w, r)
+		case rest == "" && post:
+			s.managePoleUpdate(w, r)
+		case rest == "key" && post:
+			s.managePoleKey(w, r)
+		case rest == "image" && post:
+			s.managePoleImage(w, r)
+		case rest == "image/delete" && post:
+			s.managePoleImageDelete(w, r)
+		case rest == "members" && post:
+			s.manageMemberAdd(w, r)
+		case rest == "users" && get:
+			s.manageUserSearch(w, r)
+		case rest == "locations" && post:
+			s.manageLocationCreate(w, r)
+		case rest == "messages" && post:
+			s.managePoleMessage(w, r)
+		case rest == "slots/new" && get:
+			s.manageSlotNew(w, r)
+		case rest == "slots" && post:
+			s.manageSlotCreate(w, r)
+		case strings.HasPrefix(rest, "members/") && strings.HasSuffix(rest, "/delete") && post:
+			r.SetPathValue("uid", strings.TrimSuffix(strings.TrimPrefix(rest, "members/"), "/delete"))
+			s.manageMemberRemove(w, r)
+		default:
+			s.notFound(w, r)
+		}
+	default:
+		s.notFound(w, r)
+	}
+}
+
+// polePathID resolves /{event}/{pole} to a pole id (0 when unknown).
+func (s *Server) polePathID(r *http.Request) int64 {
+	p, err := s.DB.GetPoleBySlug(r.PathValue("event"), r.PathValue("pole"))
+	if err != nil {
+		return 0
+	}
+	return p.ID
 }
 
 // --- context / auth helpers ---------------------------------------------
@@ -364,6 +445,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, dat
 	data["DevMode"] = s.Cfg.DevMode
 	data["BaseURL"] = s.Cfg.BaseURL
 	data["Logo"] = s.DB.GetSetting("org_logo", "")
+	data["SourceURL"] = s.DB.GetSetting("source_url", "")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := t.ExecuteTemplate(w, "layout", data); err != nil {
 		log.Printf("render %s: %v", page, err)

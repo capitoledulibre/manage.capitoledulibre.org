@@ -1,9 +1,9 @@
 {{define "title"}}{{if .New}}Nouveau créneau{{else}}Modifier le créneau{{end}} – {{.Org}}{{end}}
 {{define "content"}}
-<p><a href="/manage/poles/{{.Pole.ID}}">← Gestion de {{.Pole.Name}}</a></p>
+<p><a href="{{.Pole.ManageURL}}">← Gestion de {{.Pole.Name}}</a></p>
 <h1>{{if .New}}Nouveau créneau{{else}}Modifier le créneau{{end}}</h1>
 
-<form method="post" action="{{if .New}}/manage/poles/{{.Pole.ID}}/slots{{else}}/manage/slots/{{.Slot.ID}}{{end}}">
+<form method="post" action="{{if .New}}{{.Pole.ManageURL}}/slots{{else}}/manage/slots/{{.Slot.ID}}{{end}}">
   <div class="grid-2">
     <label>Début<input type="datetime-local" name="starts_at" value="{{inputDTv .Slot.StartsAt}}" required></label>
     <label>Fin<input type="datetime-local" name="ends_at" value="{{inputDTv .Slot.EndsAt}}" required></label>

@@ -10,19 +10,19 @@ import (
 	"benevoles/internal/db"
 )
 
-// currentEdition returns the edition to display to the user. Admins see the
-// most recent edition even if it is a draft.
-func (s *Server) currentEdition(u *db.User) (db.Edition, error) {
-	ed, err := s.DB.CurrentEdition()
+// currentEvent returns the event to display to the user. Admins see the
+// most recent event even if it is a draft.
+func (s *Server) currentEvent(u *db.User) (db.Event, error) {
+	ev, err := s.DB.CurrentEvent()
 	if err == nil || !u.IsAdmin || !errors.Is(err, db.ErrNotFound) {
-		return ed, err
+		return ev, err
 	}
-	eds, err := s.DB.ListEditions()
+	eds, err := s.DB.ListEvents()
 	if err != nil {
-		return ed, err
+		return ev, err
 	}
 	if len(eds) == 0 {
-		return ed, db.ErrNotFound
+		return ev, db.ErrNotFound
 	}
 	return eds[0], nil
 }
@@ -38,22 +38,44 @@ type poleView struct {
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
-	ed, err := s.currentEdition(u)
+	ev, err := s.currentEvent(u)
 	if errors.Is(err, db.ErrNotFound) {
-		s.render(w, r, "no_edition", nil)
+		s.render(w, r, "no_event", nil)
 		return
 	}
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	coverage, err := s.DB.ListPoleCoverage(ed.ID)
+	s.renderHome(w, r, ev)
+}
+
+// eventHome shows a specific event (/{event}); drafts are for managers and admins.
+func (s *Server) eventHome(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	ev, err := s.DB.GetEventBySlug(r.PathValue("event"))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if !ev.IsVisibleToVolunteers() && !u.IsAdmin {
+		if managed, _ := s.DB.ManagedPoleIDs(ev.ID, u.ID); len(managed) == 0 {
+			s.notFound(w, r)
+			return
+		}
+	}
+	s.renderHome(w, r, ev)
+}
+
+func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, ev db.Event) {
+	u := currentUser(r)
+	coverage, err := s.DB.ListPoleCoverage(ev.ID)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	members, _ := s.DB.MemberPoleIDs(ed.ID, u.ID)
-	managed, _ := s.DB.ManagedPoleIDs(ed.ID, u.ID)
+	members, _ := s.DB.MemberPoleIDs(ev.ID, u.ID)
+	managed, _ := s.DB.ManagedPoleIDs(ev.ID, u.ID)
 	var poles []poleView
 	for _, c := range coverage {
 		// Restricted poles stay invisible to people who are not in them.
@@ -65,7 +87,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 			Slots: c.Slots, Missing: c.Capacity - c.Filled, Coverage: c,
 		})
 	}
-	mySlots, _ := s.DB.ListUserSlots(ed.ID, u.ID)
+	mySlots, _ := s.DB.ListUserSlots(ev.ID, u.ID)
 	var upcoming []db.MySlot
 	for _, sl := range mySlots {
 		if sl.EndsAt.After(time.Now()) {
@@ -75,9 +97,9 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	if len(upcoming) > 3 {
 		upcoming = upcoming[:3]
 	}
-	msgs, _ := s.DB.ListEditionMessages(ed.ID)
+	msgs, _ := s.DB.ListEventMessages(ev.ID)
 	s.render(w, r, "home", M{
-		"Edition": ed, "Poles": poles, "Messages": msgs,
+		"Event": ev, "Poles": poles, "Messages": msgs,
 		"MySlots": mySlots, "Upcoming": upcoming, "Joined": len(members) > 0,
 		"Error": r.URL.Query().Get("error"),
 	})
@@ -103,32 +125,32 @@ func groupMySlots(slots []db.MySlot, loc *time.Location) []dayGroup {
 
 func (s *Server) myPlanning(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
-	ed, err := s.currentEdition(u)
+	ev, err := s.currentEvent(u)
 	if errors.Is(err, db.ErrNotFound) {
-		s.render(w, r, "no_edition", nil)
+		s.render(w, r, "no_event", nil)
 		return
 	}
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	slots, err := s.DB.ListUserSlots(ed.ID, u.ID)
+	slots, err := s.DB.ListUserSlots(ev.ID, u.ID)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
 	today := time.Now().In(s.Cfg.Timezone).Format("2006-01-02")
-	s.render(w, r, "me", M{"Edition": ed, "Days": groupMySlots(slots, s.Cfg.Timezone), "Today": today, "Count": len(slots)})
+	s.render(w, r, "me", M{"Event": ev, "Days": groupMySlots(slots, s.Cfg.Timezone), "Today": today, "Count": len(slots)})
 }
 
 func (s *Server) myPlanningICS(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
-	ed, err := s.currentEdition(u)
+	ev, err := s.currentEvent(u)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	slots, err := s.DB.ListUserSlots(ed.ID, u.ID)
+	slots, err := s.DB.ListUserSlots(ev.ID, u.ID)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -142,7 +164,7 @@ func (s *Server) myPlanningICS(w http.ResponseWriter, r *http.Request) {
 	}
 	var b strings.Builder
 	b.WriteString("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//benevoles//FR\r\nCALSCALE:GREGORIAN\r\n")
-	fmt.Fprintf(&b, "X-WR-CALNAME:%s – %s\r\n", esc(org), esc(ed.Name))
+	fmt.Fprintf(&b, "X-WR-CALNAME:%s – %s\r\n", esc(org), esc(ev.Name))
 	stamp := time.Now().UTC().Format("20060102T150405Z")
 	for _, sl := range slots {
 		summary := sl.PoleName

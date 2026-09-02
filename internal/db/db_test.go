@@ -21,11 +21,11 @@ func openTest(t *testing.T) *DB {
 
 func TestSignupFlow(t *testing.T) {
 	d := openTest(t)
-	edID, err := d.CreateEdition("Test", "2026-11-14", "2026-11-15", nil, "Organisation")
+	edID, err := d.CreateEvent("Test", "2026-11-14", "2026-11-15", nil, "Organisation")
 	if err != nil {
 		t.Fatal(err)
 	}
-	poleID, err := d.CreatePole(Pole{EditionID: edID, Name: "Buvette", AccessKey: "k"})
+	poleID, err := d.CreatePole(Pole{EventID: edID, Name: "Buvette", AccessKey: "k"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestSignupFlow(t *testing.T) {
 	alice, _ := d.GetOrCreateUser("alice@example.org")
 	bob, _ := d.GetOrCreateUser("bob@example.org")
 
-	// Joining a pole also joins the edition's default pole.
+	// Joining a pole also joins the event's default pole.
 	if err := d.JoinPole(poleID, alice.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -86,17 +86,17 @@ func TestSignupsLocked(t *testing.T) {
 	past, future := now.Add(-time.Hour), now.Add(time.Hour)
 	cases := []struct {
 		name   string
-		ed     Edition
+		ed     Event
 		pole   *time.Time
 		locked bool
 	}{
-		{"open, no freeze", Edition{Status: StatusOpen}, nil, false},
-		{"open, edition freeze passed", Edition{Status: StatusOpen, FreezeAt: &past}, nil, true},
-		{"open, edition freeze ahead", Edition{Status: StatusOpen, FreezeAt: &future}, nil, false},
-		{"pole freeze overrides edition", Edition{Status: StatusOpen, FreezeAt: &future}, &past, true},
-		{"pole freeze ahead overrides passed edition freeze", Edition{Status: StatusOpen, FreezeAt: &past}, &future, false},
-		{"frozen status", Edition{Status: StatusFrozen}, nil, true},
-		{"draft status", Edition{Status: StatusDraft}, nil, true},
+		{"open, no freeze", Event{Status: StatusOpen}, nil, false},
+		{"open, event freeze passed", Event{Status: StatusOpen, FreezeAt: &past}, nil, true},
+		{"open, event freeze ahead", Event{Status: StatusOpen, FreezeAt: &future}, nil, false},
+		{"pole freeze overrides event", Event{Status: StatusOpen, FreezeAt: &future}, &past, true},
+		{"pole freeze ahead overrides passed event freeze", Event{Status: StatusOpen, FreezeAt: &past}, &future, false},
+		{"frozen status", Event{Status: StatusFrozen}, nil, true},
+		{"draft status", Event{Status: StatusDraft}, nil, true},
 	}
 	for _, c := range cases {
 		if got := c.ed.SignupsLocked(c.pole, now); got != c.locked {
@@ -117,5 +117,43 @@ func TestMagicLinkSingleUse(t *testing.T) {
 	}
 	if _, err := d.ConsumeMagicLink(tok); err == nil {
 		t.Fatal("second use should fail")
+	}
+}
+
+func TestSlugs(t *testing.T) {
+	for in, want := range map[string]string{
+		"Example Conf 2026": "example-conf-2026",
+		"Buvette & Crêpes":       "buvette-crepes",
+		"  Accueil  ":            "accueil",
+		"Salle Ada Lovelace":     "salle-ada-lovelace",
+		"日本語":                    "",
+	} {
+		if got := Slugify(in); got != want {
+			t.Errorf("Slugify(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if ValidSlug("admin") || ValidSlug("") || !ValidSlug("buvette-2") {
+		t.Error("ValidSlug reserved/empty handling is wrong")
+	}
+	d := openTest(t)
+	e1, _ := d.CreateEvent("EC 2026", "2026-11-14", "2026-11-15", nil, "Organisation")
+	e2, _ := d.CreateEvent("EC 2026", "2027-11-14", "2027-11-15", nil, "Organisation")
+	a, _ := d.GetEvent(e1)
+	b, _ := d.GetEvent(e2)
+	if a.Slug != "ec-2026" || b.Slug != "ec-2026-2" {
+		t.Fatalf("event slugs: %q %q", a.Slug, b.Slug)
+	}
+	p1, _ := d.CreatePole(Pole{EventID: e1, Name: "Buvette"})
+	p2, _ := d.CreatePole(Pole{EventID: e1, Name: "Buvette"})
+	x, _ := d.GetPole(p1)
+	y, _ := d.GetPole(p2)
+	if x.Slug != "buvette" || y.Slug != "buvette-2" || x.EventSlug != "ec-2026" || x.URL() != "/ec-2026/buvette" {
+		t.Fatalf("pole slugs: %+v %+v", x, y)
+	}
+	if z, err := d.GetPoleBySlug("ec-2026", "buvette-2"); err != nil || z.ID != p2 {
+		t.Fatalf("GetPoleBySlug: %v", err)
+	}
+	if got := (Pole{Name: "Salle Ada Lovelace"}).Initials(); got != "SA" {
+		t.Errorf("Initials = %q", got)
 	}
 }

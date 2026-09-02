@@ -7,15 +7,16 @@ what is still missing.
 
 - **Accounts kept across years** – volunteers log in with a magic link sent by
   e-mail, no password.
-- **Editions** – one per year, with a lifecycle: draft → open → frozen →
-  archived, and an optional automatic freeze date.
+- **Events** – one per year, with a lifecycle: draft → open → frozen →
+  archived, and an optional automatic freeze date. Events and poles have
+  URL slugs: `/example-2026`, `/example-2026/buvette`.
 - **Poles** (teams) – each with its own managers, icon, description, optional
   locations (rooms, desks…) and its own freeze date. Four access modes:
   *public* (anyone joins), *private* (join through a generated invitation
   link), *invitation* (managers add members), *restricted* (only
   administrators add members, the pole is hidden from others). Managers and
   administrators can always add or remove members directly. A default pole
-  created with every edition carries the organiser-wide shifts and
+  created with every event carries the organiser-wide shifts and
   automatically includes every volunteer.
 - **Slots** – time range × location × number of volunteers wanted, with a
   shared checklist of tasks and per-slot notices. Series of consecutive slots
@@ -26,7 +27,7 @@ what is still missing.
 - **Coverage dashboard** per pole and a **global planning** grid (every pole,
   every slot, holes highlighted) for organisers, volunteer list with CSV
   export, daily reminder e-mail with the next day's shifts.
-- **Year after year** – duplicate an edition (poles, locations, managers,
+- **Year after year** – duplicate an event (poles, locations, managers,
   default task lists, access modes) into a new draft, or copy a single pole.
 - **Branding** – organisation logo, an emoji icon or an uploaded image per pole.
 
@@ -49,9 +50,10 @@ administrator rights:
 ./benevoles make-admin you@example.org
 ```
 
-From the **Admin** menu: set the organisation name, create an edition, add
-poles and their managers, then switch the edition to *open* when the shifts
-are ready.
+From the **Admin** menu: set the organisation name, create an event, add
+poles and their managers, then switch the event to *open* when the shifts
+are ready. Administrators can also add any registered user to a pole from
+the user list, whatever the pole's access mode.
 
 ### Configuration
 
@@ -99,12 +101,26 @@ Back them up together: the `.db` file (SQLite in WAL mode: copy the `.db`,
 |---|---|---|---|
 | Join poles, sign up on slots, tick tasks | ✓ | ✓ | ✓ |
 | Manage slots, locations, notices and members of a pole | | ✓ (own poles) | ✓ |
-| Create editions and poles, name managers, global notices, user accounts | | | ✓ |
+| Create events and poles, name managers, global notices, user accounts | | | ✓ |
 
-Volunteers only see editions that are *open* or *frozen*. Managers and
-administrators can prepare a *draft* edition. When an edition or a pole is
+Volunteers only see events that are *open* or *frozen*. Managers and
+administrators can prepare a *draft* event. When an event or a pole is
 frozen (status or date), volunteers can no longer change their signups;
 managers can still edit everything.
+
+### URLs
+
+| Path | Page |
+|---|---|
+| `/` | the current event |
+| `/{event}` | a given event |
+| `/{event}/{pole}` | a pole and its slots |
+| `/{event}/{pole}/join?key=…` | invitation link of a private pole |
+| `/{event}/{pole}/manage` | pole management (managers, admins) |
+| `/admin/events/{event}` | event dashboard (admins) |
+
+Slugs are derived from names and can be edited; a few words used by the
+application (`admin`, `me`, `slots`, `manage`, …) are reserved.
 
 ## Development
 

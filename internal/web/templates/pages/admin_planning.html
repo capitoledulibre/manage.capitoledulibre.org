@@ -1,6 +1,6 @@
-{{define "title"}}Planning global – {{.Edition.Name}}{{end}}
+{{define "title"}}Planning global – {{.Event.Name}}{{end}}
 {{define "content"}}
-<p><a href="/admin/editions/{{.Edition.ID}}">← {{.Edition.Name}}</a></p>
+<p><a href="{{.Event.AdminURL}}">← {{.Event.Name}}</a></p>
 <div class="page-header">
   <div><h1>Planning global</h1><p class="muted">Tous les pôles, tous les créneaux. Chaque case indique les inscrits sur la capacité.</p></div>
   <div class="filters" style="margin:0">
@@ -17,7 +17,7 @@
     <tbody>
     {{range .Rows}}
     <tr class="c{{.Pole.Color}}">
-      <th><a href="/manage/poles/{{.Pole.ID}}">{{.Pole.Name}}</a>{{if .Location}}<small class="muted"> · {{.Location}}</small>{{end}}<br><small class="muted">{{.Filled}}/{{.Capacity}}</small></th>
+      <th><a href="{{.Pole.ManageURL}}">{{.Pole.Name}}</a>{{if .Location}}<small class="muted"> · {{.Location}}</small>{{end}}<br><small class="muted">{{.Filled}}/{{.Capacity}}</small></th>
       <td>
         {{range .Slots}}<a href="/manage/slots/{{.ID}}" class="chip {{if .IsFull}}ok{{else if eq .Filled 0}}empty{{else}}short{{end}}" title="{{if .Title}}{{.Title}} · {{end}}{{.Filled}} inscrit(s) sur {{.Capacity}}">{{time .StartsAt}}–{{time .EndsAt}} <b>{{.Filled}}/{{.Capacity}}</b></a>{{end}}
       </td>
@@ -28,6 +28,6 @@
   </div>
 </section>
 {{else}}
-<p class="empty">{{if .OnlyShort}}Tous les créneaux sont pourvus.{{else}}Aucun créneau dans cette édition.{{end}}</p>
+<p class="empty">{{if .OnlyShort}}Tous les créneaux sont pourvus.{{else}}Aucun créneau dans cet événement.{{end}}</p>
 {{end}}
 {{end}}

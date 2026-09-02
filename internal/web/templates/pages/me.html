@@ -1,7 +1,7 @@
 {{define "title"}}Mon planning – {{.Org}}{{end}}
 {{define "content"}}
 <div class="page-header">
-  <div><h1>Mon planning</h1><p class="muted">{{.Edition.Name}} · {{.Count}} créneau{{if gt .Count 1}}x{{end}}</p></div>
+  <div><h1>Mon planning</h1><p class="muted">{{.Event.Name}} · {{.Count}} créneau{{if gt .Count 1}}x{{end}}</p></div>
   {{if .Count}}<a href="/me.ics" role="button" class="secondary outline small">Ajouter à mon agenda (.ics)</a>{{end}}
 </div>
 {{range .Days}}

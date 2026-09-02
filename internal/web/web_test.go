@@ -156,55 +156,55 @@ func wantNot(t *testing.T, body, substr string) {
 func TestFullFlow(t *testing.T) {
 	e := newEnv(t)
 
-	// Administrator sets up an edition with a private pole and slots.
+	// Administrator sets up an event with a private pole and slots.
 	admin := e.login("admin@example.test", "Alice Admin")
-	want(t, admin.get("/", 200), "Aucune édition")
+	want(t, admin.get("/", 200), "Aucun événement")
 	admin.get("/admin", 403)
 	e.db.SetAdmin(1, true)
-	admin.post("/admin/editions", 303, url.Values{"name": {"Test 2026"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
-	want(t, admin.get("/admin/editions/1", 200), "Organisation")
-	admin.post("/admin/editions/1/poles", 303, url.Values{"name": {"Buvette"}, "access_mode": {"private"}, "manager_email": {"resp@example.test"}})
-	admin.post("/admin/editions/1/poles", 303, url.Values{"name": {"Accueil"}, "access_mode": {"invitation"}, "manager_email": {"resp@example.test"}})
-	admin.post("/admin/editions/1/poles", 303, url.Values{"name": {"Orga"}, "access_mode": {"restricted"}})
+	admin.post("/admin/events", 303, url.Values{"name": {"Test 2026"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
+	want(t, admin.get("/admin/events/test-2026", 200), "Organisation")
+	admin.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Buvette"}, "access_mode": {"private"}, "manager_email": {"resp@example.test"}})
+	admin.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Accueil"}, "access_mode": {"invitation"}, "manager_email": {"resp@example.test"}})
+	admin.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Orga"}, "access_mode": {"restricted"}})
 	pole, _ := e.db.GetPole(2)
 	if pole.AccessKey == "" {
 		t.Fatal("private pole should get a generated key")
 	}
-	admin.post("/manage/poles/2", 303, url.Values{"name": {"Buvette"}, "access_mode": {"private"}, "default_tasks": {"Ouvrir le bar\nCompter la caisse"}})
-	admin.post("/manage/poles/2/locations", 303, url.Values{"names": {"Bar A\nBar B"}})
-	want(t, admin.get("/manage/poles/2/slots/new", 200), "Compter la caisse")
-	admin.post("/manage/poles/2/slots", 303, url.Values{
+	admin.post("/test-2026/buvette/manage", 303, url.Values{"name": {"Buvette"}, "access_mode": {"private"}, "default_tasks": {"Ouvrir le bar\nCompter la caisse"}})
+	admin.post("/test-2026/buvette/manage/locations", 303, url.Values{"names": {"Bar A\nBar B"}})
+	want(t, admin.get("/test-2026/buvette/manage/slots/new", 200), "Compter la caisse")
+	admin.post("/test-2026/buvette/manage/slots", 303, url.Values{
 		"starts_at": {"2026-11-14T09:00"}, "ends_at": {"2026-11-14T11:00"}, "capacity": {"2"},
 		"repeat_until": {"2026-11-14T17:00"}, "all_locations": {"1"}, "tasks": {"Ouvrir le bar\nCompter la caisse"},
 	})
-	if strings.Count(admin.get("/manage/poles/2", 200), "Modifier</a>") != 8 {
+	if strings.Count(admin.get("/test-2026/buvette/manage", 200), "Modifier</a>") != 8 {
 		t.Fatal("expected 8 generated slots (4 hours x 2 locations)")
 	}
-	admin.post("/manage/poles/2/messages", 303, url.Values{"body": {"RDV 15 min avant"}})
-	admin.post("/admin/editions/1/messages", 303, url.Values{"body": {"Briefing vendredi 18h"}})
+	admin.post("/test-2026/buvette/manage/messages", 303, url.Values{"body": {"RDV 15 min avant"}})
+	admin.post("/admin/events/test-2026/messages", 303, url.Values{"body": {"Briefing vendredi 18h"}})
 	admin.post("/manage/slots/1/tasks", 303, url.Values{"labels": {"Tache admin"}})
 	want(t, admin.get("/manage/slots/1", 200), "Tache admin")
 
-	// A volunteer cannot see a draft edition.
+	// A volunteer cannot see a draft event.
 	vol := e.login("vol@example.test", "Victor Volontaire")
-	want(t, vol.get("/", 200), "Aucune édition")
-	vol.get("/poles/2", 404)
+	want(t, vol.get("/", 200), "Aucun événement")
+	vol.get("/test-2026/buvette", 404)
 
-	admin.post("/admin/editions/1", 303, url.Values{"name": {"Test 2026"}, "status": {"open"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
+	admin.post("/admin/events/test-2026", 303, url.Values{"name": {"Test 2026"}, "status": {"open"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
 	home := vol.get("/", 200)
 	want(t, home, "Briefing vendredi")
 	want(t, home, "Buvette")
 	wantNot(t, home, `id="pole-4"`) // restricted pole is hidden
 
 	// Access modes.
-	vol.post("/poles/2/join", 303, url.Values{"key": {"wrong"}})
+	vol.post("/test-2026/buvette/join", 303, url.Values{"key": {"wrong"}})
 	want(t, vol.get("/", 200), "pas valable")
-	want(t, vol.get("/poles/2/join?key=wrong", 200), "pas valable")
-	want(t, vol.get("/poles/2/join?key="+pole.AccessKey, 200), "Rejoindre le pôle")
-	vol.post("/poles/3/join", 303, nil)
+	want(t, vol.get("/test-2026/buvette/join?key=wrong", 200), "pas valable")
+	want(t, vol.get("/test-2026/buvette/join?key="+pole.AccessKey, 200), "Rejoindre le pôle")
+	vol.post("/test-2026/accueil/join", 303, nil)
 	want(t, vol.get("/", 200), "sur invitation")
-	vol.post("/poles/2/join", 303, url.Values{"key": {pole.AccessKey}})
-	polePage := vol.get("/poles/2", 200)
+	vol.post("/test-2026/buvette/join", 303, url.Values{"key": {pole.AccessKey}})
+	polePage := vol.get("/test-2026/buvette", 200)
 	want(t, polePage, "RDV 15 min avant")
 	want(t, polePage, "Je m'inscris")
 
@@ -222,43 +222,43 @@ func TestFullFlow(t *testing.T) {
 	want(t, slotPage, "Ouvrir le bar")
 	want(t, hx.post("/tasks/1/toggle", 200, nil), "fait par Victor")
 	hx.post("/tasks/3/toggle", 403, nil) // not signed up on slot 2
-	vol.get("/manage/poles/2", 403)
+	vol.get("/test-2026/buvette/manage", 403)
 	vol.get("/admin", 403)
 
 	// Non-htmx overlap confirmation page.
-	vol.post("/slots/3/signup", 303, url.Values{"back": {"/poles/2"}})
-	want(t, vol.post("/slots/7/signup", 200, url.Values{"back": {"/poles/2"}}), "Chevauchement")
+	vol.post("/slots/3/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	want(t, vol.post("/slots/7/signup", 200, url.Values{"back": {"/test-2026/buvette"}}), "Chevauchement")
 
 	// Freeze per pole.
 	settings := url.Values{"name": {"Buvette"}, "access_mode": {"private"}, "default_tasks": {"Ouvrir le bar\nCompter la caisse"}}
 	settings.Set("freeze_at", "2020-01-01T00:00")
-	admin.post("/manage/poles/2", 303, settings)
+	admin.post("/test-2026/buvette/manage", 303, settings)
 	want(t, hx.post("/slots/3/unsignup", 200, nil), "gelé")
 	settings.Set("freeze_at", "")
-	admin.post("/manage/poles/2", 303, settings)
+	admin.post("/test-2026/buvette/manage", 303, settings)
 
 	// Pole manager: member management with live search.
 	mgr := e.login("resp@example.test", "Rémi Responsable")
-	mgr.get("/manage/poles/2", 200)
-	mgr.get("/manage/poles/1", 403)
-	mgr.post("/manage/poles/3/members", 303, url.Values{"emails": {"vol@example.test\nnew2@example.test"}})
-	members := mgr.get("/manage/poles/3?tab=members", 200)
+	mgr.get("/test-2026/buvette/manage", 200)
+	mgr.get("/test-2026/organisation/manage", 403)
+	mgr.post("/test-2026/accueil/manage/members", 303, url.Values{"emails": {"vol@example.test\nnew2@example.test"}})
+	members := mgr.get("/test-2026/accueil/manage?tab=members", 200)
 	want(t, members, "vol@example.test")
 	want(t, members, "new2@example.test")
-	mgr.post("/manage/poles/3/members/3/delete", 303, nil) // Victor is user 3
-	wantNot(t, mgr.get("/manage/poles/3?tab=members", 200), "vol@example.test")
-	want(t, mgr.get("/manage/poles/3/users?q=vic", 200), "Victor")
-	wantNot(t, mgr.get("/manage/poles/3/users?q=v", 200), "Victor")
+	mgr.post("/test-2026/accueil/manage/members/3/delete", 303, nil) // Victor is user 3
+	wantNot(t, mgr.get("/test-2026/accueil/manage?tab=members", 200), "vol@example.test")
+	want(t, mgr.get("/test-2026/accueil/manage/users?q=vic", 200), "Victor")
+	wantNot(t, mgr.get("/test-2026/accueil/manage/users?q=v", 200), "Victor")
 	mhx := *mgr
 	mhx.hx = true
-	added := mhx.post("/manage/poles/3/members", 200, url.Values{"emails": {"vol@example.test"}, "q": {"vic"}})
+	added := mhx.post("/test-2026/accueil/manage/members", 200, url.Values{"emails": {"vol@example.test"}, "q": {"vic"}})
 	want(t, added, "members-table")
 	want(t, added, "Personne ajoutée")
-	wantNot(t, mgr.get("/manage/poles/3/users?q=vic", 200), "Ajouter")
-	mgr.post("/manage/poles/4/members", 403, url.Values{"emails": {"x@example.test"}})
-	admin.post("/manage/poles/4/members", 303, url.Values{"emails": {"vol@example.test"}})
+	wantNot(t, mgr.get("/test-2026/accueil/manage/users?q=vic", 200), "Ajouter")
+	mgr.post("/test-2026/orga/manage/members", 403, url.Values{"emails": {"x@example.test"}})
+	admin.post("/test-2026/orga/manage/members", 303, url.Values{"emails": {"vol@example.test"}})
 	want(t, vol.get("/", 200), `id="pole-4"`)
-	mgr.post("/manage/poles/2/key", 303, nil)
+	mgr.post("/test-2026/buvette/manage/key", 303, nil)
 	if p2, _ := e.db.GetPole(2); p2.AccessKey == pole.AccessKey {
 		t.Fatal("key should have been regenerated")
 	}
@@ -266,15 +266,15 @@ func TestFullFlow(t *testing.T) {
 	want(t, mgr.get("/manage/slots/1", 200), "new@example.test")
 
 	// Admin views, planning, duplication.
-	want(t, admin.get("/admin/editions/1", 200), "Buvette")
-	want(t, admin.get("/admin/editions/1/volunteers", 200), "Victor")
-	want(t, admin.get("/admin/editions/1/volunteers.csv", 200), "vol@example.test")
+	want(t, admin.get("/admin/events/test-2026", 200), "Buvette")
+	want(t, admin.get("/admin/events/test-2026/volunteers", 200), "Victor")
+	want(t, admin.get("/admin/events/test-2026/volunteers.csv", 200), "vol@example.test")
 	want(t, admin.get("/admin/users", 200), "Buvette")
-	planning := admin.get("/admin/editions/1/planning", 200)
+	planning := admin.get("/admin/events/test-2026/planning", 200)
 	want(t, planning, "Bar A")
 	want(t, planning, `class="chip empty"`)
-	admin.post("/admin/editions/1/duplicate", 303, url.Values{"name": {"Test 2027"}, "starts_on": {"2027-11-13"}, "ends_on": {"2027-11-14"}})
-	dup := admin.get("/admin/editions/2", 200)
+	admin.post("/admin/events/test-2026/duplicate", 303, url.Values{"name": {"Test 2027"}, "starts_on": {"2027-11-13"}, "ends_on": {"2027-11-14"}})
+	dup := admin.get("/admin/events/test-2027", 200)
 	want(t, dup, "Buvette")
 	want(t, dup, "Rémi Responsable")
 	if p, _ := e.db.GetPole(6); p.AccessKey == "" || p.AccessKey == pole.AccessKey || p.DefaultTasks == "" {
@@ -286,9 +286,26 @@ func TestFullFlow(t *testing.T) {
 	if slots, _ := e.db.ListSlots(6, 0); len(slots) != 0 {
 		t.Fatal("slots must not be duplicated")
 	}
-	admin.post("/admin/poles/2/copy", 303, url.Values{"edition_id": {"1"}})
-	want(t, admin.get("/admin/editions/1", 200), "Buvette (copie)")
+	admin.post("/admin/poles/2/copy", 303, url.Values{"event_id": {"1"}})
+	want(t, admin.get("/admin/events/test-2026", 200), "Buvette (copie)")
 	admin.get("/nope", 404)
+	admin.get("/nope/nope", 404)
+	want(t, vol.get("/test-2026", 200), "Buvette")
+	vol.get("/test-2027", 404) // draft event hidden from volunteers
+	want(t, admin.get("/test-2027", 200), "Test 2027")
+	want(t, admin.get("/", 200), `href="/test-2026/buvette/manage"`)
+	want(t, admin.get("/admin/users", 200), "Ajouter au pôle")
+	admin.post("/admin/users/3/join", 303, url.Values{"pole_id": {"3"}, "back": {"/admin/users"}})
+	if !e.db.IsPoleMember(3, 3) {
+		t.Fatal("admin should be able to add a user to a pole from the list")
+	}
+	// Slug edit and initials.
+	admin.post("/test-2026/buvette/manage", 303, url.Values{"name": {"Buvette"}, "slug": {"bar"}, "access_mode": {"private"}})
+	want(t, admin.get("/test-2026/bar/manage", 200), "Buvette")
+	admin.get("/test-2026/buvette", 404)
+	want(t, vol.get("/test-2026", 200), `<span class="pole-icon initials">B</span>`)
+	admin.post("/admin/events/test-2026", 303, url.Values{"name": {"Test 2026"}, "slug": {"ec"}, "status": {"open"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
+	want(t, vol.get("/ec/bar", 200), "Buvette")
 }
 
 func TestLoginRateLimit(t *testing.T) {
@@ -343,8 +360,8 @@ func TestUploads(t *testing.T) {
 	e := newEnv(t)
 	admin := e.login("admin@example.test", "Alice")
 	e.db.SetAdmin(1, true)
-	admin.post("/admin/editions", 303, url.Values{"name": {"Ed"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
-	admin.post("/admin/editions/1/poles", 303, url.Values{"name": {"Buvette"}, "access_mode": {"public"}})
+	admin.post("/admin/events", 303, url.Values{"name": {"Ed"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
+	admin.post("/admin/events/ed/poles", 303, url.Values{"name": {"Buvette"}, "access_mode": {"public"}})
 
 	admin.upload("/admin/logo", "logo", tinyPNG(t), 303)
 	logo := e.db.GetSetting("org_logo", "")
@@ -355,19 +372,19 @@ func TestUploads(t *testing.T) {
 	admin.get("/uploads/"+logo, 200)
 	admin.get("/uploads/../go.mod", 307) // ServeMux cleans the path instead of serving it
 
-	admin.upload("/manage/poles/2/image", "image", tinyPNG(t), 303)
+	admin.upload("/ed/buvette/manage/image", "image", tinyPNG(t), 303)
 	p, _ := e.db.GetPole(2)
 	if p.Image == "" {
 		t.Fatal("pole image not stored")
 	}
-	want(t, admin.get("/poles/2", 200), "/uploads/"+p.Image)
+	want(t, admin.get("/ed/buvette", 200), "/uploads/"+p.Image)
 
 	// Non-image content is refused and leaves the previous image in place.
-	admin.upload("/manage/poles/2/image", "image", []byte("<svg onload=alert(1)>"), 303)
+	admin.upload("/ed/buvette/manage/image", "image", []byte("<svg onload=alert(1)>"), 303)
 	if p2, _ := e.db.GetPole(2); p2.Image != p.Image {
 		t.Fatal("invalid upload must not replace the image")
 	}
-	admin.post("/manage/poles/2/image/delete", 303, nil)
+	admin.post("/ed/buvette/manage/image/delete", 303, nil)
 	if p3, _ := e.db.GetPole(2); p3.Image != "" {
 		t.Fatal("image not cleared")
 	}
@@ -375,6 +392,6 @@ func TestUploads(t *testing.T) {
 
 	// Volunteers cannot upload.
 	vol := e.login("vol@example.test", "V")
-	vol.upload("/manage/poles/2/image", "image", tinyPNG(t), 403)
+	vol.upload("/ed/buvette/manage/image", "image", tinyPNG(t), 403)
 	vol.upload("/admin/logo", "logo", tinyPNG(t), 403)
 }

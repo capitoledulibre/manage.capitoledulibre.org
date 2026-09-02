@@ -5,10 +5,10 @@ import (
 	"time"
 )
 
-// Message is a notice displayed on a page. Scope is edition, pole or slot.
+// Message is a notice displayed on a page. Scope is event, pole or slot.
 type Message struct {
 	ID        int64
-	EditionID int64
+	EventID   int64
 	PoleID    int64
 	SlotID    int64
 	Body      string
@@ -16,7 +16,7 @@ type Message struct {
 	CreatedAt time.Time
 }
 
-const messageCols = `m.id, m.edition_id, COALESCE(m.pole_id, 0), COALESCE(m.slot_id, 0), m.body, COALESCE(NULLIF(u.name, ''), u.email, ''), m.created_at`
+const messageCols = `m.id, m.event_id, COALESCE(m.pole_id, 0), COALESCE(m.slot_id, 0), m.body, COALESCE(NULLIF(u.name, ''), u.email, ''), m.created_at`
 
 func (d *DB) queryMessages(q string, args ...any) ([]Message, error) {
 	rows, err := d.Query(q, args...)
@@ -28,7 +28,7 @@ func (d *DB) queryMessages(q string, args ...any) ([]Message, error) {
 	for rows.Next() {
 		var m Message
 		var created string
-		if err := rows.Scan(&m.ID, &m.EditionID, &m.PoleID, &m.SlotID, &m.Body, &m.Author, &created); err != nil {
+		if err := rows.Scan(&m.ID, &m.EventID, &m.PoleID, &m.SlotID, &m.Body, &m.Author, &created); err != nil {
 			return nil, err
 		}
 		m.CreatedAt = ParseTime(created)
@@ -37,10 +37,10 @@ func (d *DB) queryMessages(q string, args ...any) ([]Message, error) {
 	return out, rows.Err()
 }
 
-// ListEditionMessages returns organizer-wide messages (no pole, no slot).
-func (d *DB) ListEditionMessages(editionID int64) ([]Message, error) {
+// ListEventMessages returns organizer-wide messages (no pole, no slot).
+func (d *DB) ListEventMessages(eventID int64) ([]Message, error) {
 	return d.queryMessages(`SELECT `+messageCols+` FROM messages m LEFT JOIN users u ON u.id = m.created_by
-		WHERE m.edition_id = ? AND m.pole_id IS NULL AND m.slot_id IS NULL ORDER BY m.created_at DESC`, editionID)
+		WHERE m.event_id = ? AND m.pole_id IS NULL AND m.slot_id IS NULL ORDER BY m.created_at DESC`, eventID)
 }
 
 // ListPoleMessages returns messages attached to a pole (not to a slot).
@@ -68,9 +68,9 @@ func (d *DB) GetMessage(id int64) (Message, error) {
 }
 
 // CreateMessage posts a message. poleID / slotID may be 0.
-func (d *DB) CreateMessage(editionID, poleID, slotID, authorID int64, body string) (int64, error) {
-	res, err := d.Exec(`INSERT INTO messages (edition_id, pole_id, slot_id, body, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		editionID, OptInt(poleID), OptInt(slotID), body, authorID, Now())
+func (d *DB) CreateMessage(eventID, poleID, slotID, authorID int64, body string) (int64, error) {
+	res, err := d.Exec(`INSERT INTO messages (event_id, pole_id, slot_id, body, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		eventID, OptInt(poleID), OptInt(slotID), body, authorID, Now())
 	if err != nil {
 		return 0, err
 	}

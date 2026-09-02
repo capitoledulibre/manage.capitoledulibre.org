@@ -82,7 +82,7 @@ func (d *DB) Migrate() error {
 			return err
 		}
 	}
-	return nil
+	return d.backfillSlugs()
 }
 
 // Now returns the current instant formatted for storage.

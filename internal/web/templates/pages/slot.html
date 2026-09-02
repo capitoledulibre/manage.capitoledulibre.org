@@ -1,6 +1,6 @@
 {{define "title"}}{{if .Slot.Title}}{{.Slot.Title}}{{else}}{{.Pole.Name}}{{end}} – {{.Org}}{{end}}
 {{define "content"}}
-<p><a href="/poles/{{.Pole.ID}}">← {{.Pole.Name}}</a></p>
+<p><a href="{{.Pole.URL}}">← {{.Pole.Name}}</a></p>
 <div class="page-header">
   <div>
     <h1><span class="c{{.Pole.Color}}" style="vertical-align:middle;margin-right:.4rem;display:inline-block">{{template "pole_icon" (dict "Pole" .Pole)}}</span>{{if .Slot.Title}}{{.Slot.Title}}{{else}}{{.Pole.Name}}{{end}}</h1>

@@ -10,18 +10,18 @@ import (
 )
 
 // manageContext loads a pole and checks the user may manage it.
-func (s *Server) manageContext(w http.ResponseWriter, r *http.Request, poleID int64) (db.Pole, db.Edition, bool) {
+func (s *Server) manageContext(w http.ResponseWriter, r *http.Request, poleID int64) (db.Pole, db.Event, bool) {
 	u := currentUser(r)
 	pole, err := s.DB.GetPole(poleID)
 	if err != nil {
 		s.fail(w, r, err)
-		return pole, db.Edition{}, false
+		return pole, db.Event{}, false
 	}
 	if !s.canManage(u, pole.ID) {
 		s.forbidden(w, r)
-		return pole, db.Edition{}, false
+		return pole, db.Event{}, false
 	}
-	ed, err := s.DB.GetEdition(pole.EditionID)
+	ed, err := s.DB.GetEvent(pole.EventID)
 	if err != nil {
 		s.fail(w, r, err)
 		return pole, ed, false
@@ -30,18 +30,18 @@ func (s *Server) manageContext(w http.ResponseWriter, r *http.Request, poleID in
 }
 
 // manageSlotContext loads a slot and checks the user may manage its pole.
-func (s *Server) manageSlotContext(w http.ResponseWriter, r *http.Request, slotID int64) (db.Slot, db.Pole, db.Edition, bool) {
+func (s *Server) manageSlotContext(w http.ResponseWriter, r *http.Request, slotID int64) (db.Slot, db.Pole, db.Event, bool) {
 	slot, err := s.DB.GetSlot(slotID, currentUser(r).ID)
 	if err != nil {
 		s.fail(w, r, err)
-		return slot, db.Pole{}, db.Edition{}, false
+		return slot, db.Pole{}, db.Event{}, false
 	}
 	pole, ed, ok := s.manageContext(w, r, slot.PoleID)
 	return slot, pole, ed, ok
 }
 
 func (s *Server) managePole(w http.ResponseWriter, r *http.Request) {
-	pole, ed, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, ed, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -71,7 +71,7 @@ func (s *Server) managePole(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, r, "manage_pole", M{
 		"CanAddMembers": u.IsAdmin || pole.ManagersCanAdd(), "AllUsers": allUsers,
-		"Pole": pole, "Edition": ed, "Days": groupSlots(slots, s.Cfg.Timezone), "Locations": locations,
+		"Pole": pole, "Event": ed, "Days": groupSlots(slots, s.Cfg.Timezone), "Locations": locations,
 		"Messages": msgs, "Members": members, "Managers": managers, "Volunteers": volunteers,
 		"Capacity": capacity, "Filled": filled, "Short": short, "SlotCount": len(slots),
 		"Tab": r.URL.Query().Get("tab"),
@@ -79,13 +79,16 @@ func (s *Server) managePole(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) managePoleUpdate(w http.ResponseWriter, r *http.Request) {
-	pole, _, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, _, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name != "" {
 		pole.Name = name
+	}
+	if r.Form.Has("slug") && !pole.IsDefault {
+		pole.Slug = strings.TrimSpace(r.FormValue("slug"))
 	}
 	pole.Description = strings.TrimSpace(r.FormValue("description"))
 	pole.Icon = strings.TrimSpace(r.FormValue("icon"))
@@ -104,12 +107,13 @@ func (s *Server) managePoleUpdate(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	pole, _ = s.DB.GetPole(pole.ID) // slug may have been normalised
 	s.flash(w, "Pôle enregistré.")
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d?tab=settings", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL()+"?tab=settings", http.StatusSeeOther)
 }
 
 func (s *Server) managePoleKey(w http.ResponseWriter, r *http.Request) {
-	pole, _, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, _, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -118,11 +122,11 @@ func (s *Server) managePoleKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.flash(w, "Nouveau lien d'invitation généré. L'ancien lien ne fonctionne plus.")
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d?tab=members", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL()+"?tab=members", http.StatusSeeOther)
 }
 
 func (s *Server) managePoleImage(w http.ResponseWriter, r *http.Request) {
-	pole, _, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, _, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -137,11 +141,11 @@ func (s *Server) managePoleImage(w http.ResponseWriter, r *http.Request) {
 		}
 		s.flash(w, "Image du pôle mise à jour.")
 	}
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d?tab=settings", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL()+"?tab=settings", http.StatusSeeOther)
 }
 
 func (s *Server) managePoleImageDelete(w http.ResponseWriter, r *http.Request) {
-	pole, _, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, _, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -150,14 +154,14 @@ func (s *Server) managePoleImageDelete(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d?tab=settings", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL()+"?tab=settings", http.StatusSeeOther)
 }
 
 // --- members ------------------------------------------------------------
 
 // manageUserSearch answers the live search of the "add members" box.
 func (s *Server) manageUserSearch(w http.ResponseWriter, r *http.Request) {
-	pole, _, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, _, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -170,7 +174,7 @@ func (s *Server) manageUserSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) {
-	pole, _, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, _, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -213,11 +217,11 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.flash(w, fmt.Sprintf("%d bénévoles ajoutés au pôle.", added))
 	}
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d?tab=members", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL()+"?tab=members", http.StatusSeeOther)
 }
 
 func (s *Server) manageMemberRemove(w http.ResponseWriter, r *http.Request) {
-	pole, _, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, _, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -229,13 +233,13 @@ func (s *Server) manageMemberRemove(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.flash(w, "Bénévole retiré·e du pôle et de ses créneaux.")
 	}
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d?tab=members", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL()+"?tab=members", http.StatusSeeOther)
 }
 
 // --- locations ----------------------------------------------------------
 
 func (s *Server) manageLocationCreate(w http.ResponseWriter, r *http.Request) {
-	pole, _, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, _, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -248,7 +252,7 @@ func (s *Server) manageLocationCreate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d?tab=settings", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL()+"?tab=settings", http.StatusSeeOther)
 }
 
 func (s *Server) manageLocationDelete(w http.ResponseWriter, r *http.Request) {
@@ -257,31 +261,32 @@ func (s *Server) manageLocationDelete(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	if _, _, ok := s.manageContext(w, r, loc.PoleID); !ok {
+	pole, _, ok := s.manageContext(w, r, loc.PoleID)
+	if !ok {
 		return
 	}
 	if err := s.DB.DeleteLocation(loc.ID); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d?tab=settings", loc.PoleID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL()+"?tab=settings", http.StatusSeeOther)
 }
 
 // --- messages -----------------------------------------------------------
 
 func (s *Server) managePoleMessage(w http.ResponseWriter, r *http.Request) {
-	pole, _, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, _, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
 	body := strings.TrimSpace(r.FormValue("body"))
 	if body != "" {
-		if _, err := s.DB.CreateMessage(pole.EditionID, pole.ID, 0, currentUser(r).ID, body); err != nil {
+		if _, err := s.DB.CreateMessage(pole.EventID, pole.ID, 0, currentUser(r).ID, body); err != nil {
 			s.serverError(w, r, err)
 			return
 		}
 	}
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d?tab=messages", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL()+"?tab=messages", http.StatusSeeOther)
 }
 
 func (s *Server) manageSlotMessage(w http.ResponseWriter, r *http.Request) {
@@ -291,7 +296,7 @@ func (s *Server) manageSlotMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	body := strings.TrimSpace(r.FormValue("body"))
 	if body != "" {
-		if _, err := s.DB.CreateMessage(pole.EditionID, pole.ID, slot.ID, currentUser(r).ID, body); err != nil {
+		if _, err := s.DB.CreateMessage(pole.EventID, pole.ID, slot.ID, currentUser(r).ID, body); err != nil {
 			s.serverError(w, r, err)
 			return
 		}
@@ -325,7 +330,7 @@ func (s *Server) manageMessageDelete(w http.ResponseWriter, r *http.Request) {
 // --- slots --------------------------------------------------------------
 
 func (s *Server) manageSlotNew(w http.ResponseWriter, r *http.Request) {
-	pole, ed, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, ed, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -333,14 +338,14 @@ func (s *Server) manageSlotNew(w http.ResponseWriter, r *http.Request) {
 	start, _ := time.ParseInLocation("2006-01-02", ed.StartsOn, s.Cfg.Timezone)
 	start = start.Add(9 * time.Hour)
 	s.render(w, r, "slot_form", M{
-		"Pole": pole, "Edition": ed, "Locations": locations,
+		"Pole": pole, "Event": ed, "Locations": locations,
 		"Slot": db.Slot{StartsAt: start, EndsAt: start.Add(2 * time.Hour), Capacity: 1},
 		"New":  true, "Tasks": pole.DefaultTasks,
 	})
 }
 
 func (s *Server) manageSlotCreate(w http.ResponseWriter, r *http.Request) {
-	pole, ed, ok := s.manageContext(w, r, pathID(r, "id"))
+	pole, ed, ok := s.manageContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -350,7 +355,7 @@ func (s *Server) manageSlotCreate(w http.ResponseWriter, r *http.Request) {
 	slot.StartsAt, okStart = s.formTime(r, "starts_at")
 	slot.EndsAt, okEnd = s.formTime(r, "ends_at")
 	renderErr := func(msg string) {
-		s.render(w, r, "slot_form", M{"Pole": pole, "Edition": ed, "Locations": locations, "Slot": slot, "New": true, "Error": msg,
+		s.render(w, r, "slot_form", M{"Pole": pole, "Event": ed, "Locations": locations, "Slot": slot, "New": true, "Error": msg,
 			"Tasks": r.FormValue("tasks"), "RepeatUntil": r.FormValue("repeat_until"), "AllLocations": r.FormValue("all_locations") == "1"})
 	}
 	if !okStart || !okEnd || !slot.EndsAt.After(slot.StartsAt) {
@@ -405,7 +410,7 @@ func (s *Server) manageSlotCreate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.flash(w, fmt.Sprintf("%d créneaux créés.", created))
 	}
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL(), http.StatusSeeOther)
 }
 
 func (s *Server) manageSlotEdit(w http.ResponseWriter, r *http.Request) {
@@ -419,7 +424,7 @@ func (s *Server) manageSlotEdit(w http.ResponseWriter, r *http.Request) {
 	msgs, _ := s.DB.ListSlotMessages(slot.ID)
 	members, _ := s.DB.ListPoleMembers(pole.ID)
 	s.render(w, r, "slot_form", M{
-		"Pole": pole, "Edition": ed, "Locations": locations, "Slot": slot,
+		"Pole": pole, "Event": ed, "Locations": locations, "Slot": slot,
 		"TaskList": tasks, "Volunteers": volunteers, "Messages": msgs, "Members": members,
 		"Error": r.URL.Query().Get("error"),
 	})
@@ -445,7 +450,7 @@ func (s *Server) manageSlotUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.flash(w, "Créneau enregistré.")
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL(), http.StatusSeeOther)
 }
 
 func (s *Server) manageSlotDelete(w http.ResponseWriter, r *http.Request) {
@@ -458,7 +463,7 @@ func (s *Server) manageSlotDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.flash(w, "Créneau supprimé.")
-	http.Redirect(w, r, fmt.Sprintf("/manage/poles/%d", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.ManageURL(), http.StatusSeeOther)
 }
 
 // --- tasks --------------------------------------------------------------

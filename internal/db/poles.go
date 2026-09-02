@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Pole access modes.
@@ -17,10 +18,12 @@ const (
 // Modes lists the access modes in display order.
 var Modes = []string{ModePublic, ModePrivate, ModeInvitation, ModeRestricted}
 
-// Pole is a team inside an edition.
+// Pole is a team inside an event.
 type Pole struct {
 	ID           int64
-	EditionID    int64
+	EventID      int64
+	EventSlug    string
+	Slug         string
 	Name         string
 	Description  string
 	AccessMode   string
@@ -32,6 +35,34 @@ type Pole struct {
 	FreezeAt     *time.Time
 	Position     int
 	CreatedAt    time.Time
+}
+
+// URL is the public page of the pole.
+func (p Pole) URL() string { return "/" + p.EventSlug + "/" + p.Slug }
+
+// ManageURL is the management page of the pole.
+func (p Pole) ManageURL() string { return p.URL() + "/manage" }
+
+// Initials returns one or two uppercase letters derived from the name, used
+// as the default icon.
+func (p Pole) Initials() string {
+	words := strings.Fields(p.Name)
+	var out []rune
+	for _, w := range words {
+		for _, r := range w {
+			if unicode.IsLetter(r) || unicode.IsDigit(r) {
+				out = append(out, unicode.ToUpper(r))
+				break
+			}
+		}
+		if len(out) == 2 {
+			break
+		}
+	}
+	if len(out) == 0 && len(words) > 0 {
+		out = []rune(words[0])[:1]
+	}
+	return string(out)
 }
 
 // IsOpen tells whether anyone can join by themselves.
@@ -46,18 +77,8 @@ func (p Pole) ManagersCanAdd() bool { return p.AccessMode != ModeRestricted }
 // Color returns a stable palette index (0-7) for the pole.
 func (p Pole) Color() int { return int(p.ID % 8) }
 
-var defaultIcons = []string{"🙌", "🎪", "🍻", "🎤", "📦", "🧭", "🎟️", "🛠️"}
-
-// DisplayIcon returns the configured icon or a default one.
-func (p Pole) DisplayIcon() string {
-	if p.Icon != "" {
-		return p.Icon
-	}
-	if p.IsDefault {
-		return "⭐"
-	}
-	return defaultIcons[p.Color()]
-}
+// DisplayIcon returns the configured emoji icon, or "" when initials should be shown.
+func (p Pole) DisplayIcon() string { return p.Icon }
 
 // DefaultTaskList splits DefaultTasks into non-empty labels.
 func (p Pole) DefaultTaskList() []string {
@@ -73,13 +94,13 @@ func (p Pole) DefaultTaskList() []string {
 // NewAccessKey generates a short random key for private poles.
 func NewAccessKey() string { return randomToken()[:12] }
 
-const poleCols = `id, edition_id, name, description, access_mode, COALESCE(access_key, ''), icon, default_tasks, image, is_default, freeze_at, position, created_at`
+const poleCols = `id, event_id, (SELECT slug FROM events WHERE events.id = poles.event_id), slug, name, description, access_mode, COALESCE(access_key, ''), icon, default_tasks, image, is_default, freeze_at, position, created_at`
 
 func scanPole(row interface{ Scan(...any) error }) (Pole, error) {
 	var p Pole
 	var freeze sql.NullString
 	var created string
-	if err := row.Scan(&p.ID, &p.EditionID, &p.Name, &p.Description, &p.AccessMode, &p.AccessKey, &p.Icon, &p.DefaultTasks, &p.Image, &p.IsDefault, &freeze, &p.Position, &created); err != nil {
+	if err := row.Scan(&p.ID, &p.EventID, &p.EventSlug, &p.Slug, &p.Name, &p.Description, &p.AccessMode, &p.AccessKey, &p.Icon, &p.DefaultTasks, &p.Image, &p.IsDefault, &freeze, &p.Position, &created); err != nil {
 		return p, err
 	}
 	p.FreezeAt = NullTime(freeze)
@@ -104,9 +125,14 @@ func (d *DB) queryPoles(q string, args ...any) ([]Pole, error) {
 	return out, rows.Err()
 }
 
-// ListPoles returns the poles of an edition, default pole first.
-func (d *DB) ListPoles(editionID int64) ([]Pole, error) {
-	return d.queryPoles(`SELECT `+poleCols+` FROM poles WHERE edition_id = ? ORDER BY position, name COLLATE NOCASE`, editionID)
+// ListPoles returns the poles of an event, default pole first.
+func (d *DB) ListPoles(eventID int64) ([]Pole, error) {
+	return d.queryPoles(`SELECT `+poleCols+` FROM poles WHERE event_id = ? ORDER BY position, name COLLATE NOCASE`, eventID)
+}
+
+// GetPoleBySlug returns a pole by event and pole slugs.
+func (d *DB) GetPoleBySlug(eventSlug, slug string) (Pole, error) {
+	return scanPole(d.QueryRow(`SELECT `+poleCols+` FROM poles WHERE slug = ? AND event_id = (SELECT id FROM events WHERE slug = ?)`, slug, eventSlug))
 }
 
 // GetPole returns one pole.
@@ -114,12 +140,12 @@ func (d *DB) GetPole(id int64) (Pole, error) {
 	return scanPole(d.QueryRow(`SELECT `+poleCols+` FROM poles WHERE id = ?`, id))
 }
 
-// DefaultPole returns the edition's default (organizer) pole.
-func (d *DB) DefaultPole(editionID int64) (Pole, error) {
-	return scanPole(d.QueryRow(`SELECT `+poleCols+` FROM poles WHERE edition_id = ? AND is_default = 1`, editionID))
+// DefaultPole returns the event's default (organizer) pole.
+func (d *DB) DefaultPole(eventID int64) (Pole, error) {
+	return scanPole(d.QueryRow(`SELECT `+poleCols+` FROM poles WHERE event_id = ? AND is_default = 1`, eventID))
 }
 
-// CreatePole adds a pole to an edition.
+// CreatePole adds a pole to an event.
 func (d *DB) CreatePole(p Pole) (int64, error) {
 	if p.AccessMode == "" {
 		p.AccessMode = ModePublic
@@ -127,8 +153,13 @@ func (d *DB) CreatePole(p Pole) (int64, error) {
 	if p.AccessMode == ModePrivate && p.AccessKey == "" {
 		p.AccessKey = NewAccessKey()
 	}
-	res, err := d.Exec(`INSERT INTO poles (edition_id, name, description, access_mode, access_key, icon, default_tasks, image, is_default, freeze_at, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
-		p.EditionID, p.Name, p.Description, p.AccessMode, OptString(p.AccessKey), p.Icon, p.DefaultTasks, p.Image, OptTime(p.FreezeAt), p.Position, Now())
+	base := p.Slug
+	if !ValidSlug(base) {
+		base = p.Name
+	}
+	p.Slug = d.UniquePoleSlug(p.EventID, base, 0)
+	res, err := d.Exec(`INSERT INTO poles (event_id, slug, name, description, access_mode, access_key, icon, default_tasks, image, is_default, freeze_at, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+		p.EventID, p.Slug, p.Name, p.Description, p.AccessMode, OptString(p.AccessKey), p.Icon, p.DefaultTasks, p.Image, OptTime(p.FreezeAt), p.Position, Now())
 	if err != nil {
 		return 0, err
 	}
@@ -140,8 +171,13 @@ func (d *DB) UpdatePole(p Pole) error {
 	if p.AccessMode == ModePrivate && p.AccessKey == "" {
 		p.AccessKey = NewAccessKey()
 	}
-	_, err := d.Exec(`UPDATE poles SET name = ?, description = ?, access_mode = ?, access_key = ?, icon = ?, default_tasks = ?, image = ?, freeze_at = ?, position = ? WHERE id = ?`,
-		p.Name, p.Description, p.AccessMode, OptString(p.AccessKey), p.Icon, p.DefaultTasks, p.Image, OptTime(p.FreezeAt), p.Position, p.ID)
+	base := p.Slug
+	if !ValidSlug(base) {
+		base = p.Name
+	}
+	p.Slug = d.UniquePoleSlug(p.EventID, base, p.ID)
+	_, err := d.Exec(`UPDATE poles SET slug = ?, name = ?, description = ?, access_mode = ?, access_key = ?, icon = ?, default_tasks = ?, image = ?, freeze_at = ?, position = ? WHERE id = ?`,
+		p.Slug, p.Name, p.Description, p.AccessMode, OptString(p.AccessKey), p.Icon, p.DefaultTasks, p.Image, OptTime(p.FreezeAt), p.Position, p.ID)
 	return err
 }
 
@@ -152,9 +188,9 @@ func (d *DB) SetPoleImage(id int64, image string) error {
 }
 
 // CopyPole duplicates a pole's settings, locations and managers into the
-// target edition (slots and members are not copied). A private pole gets a
+// target event (slots and members are not copied). A private pole gets a
 // fresh invitation key. It returns the new pole id.
-func (d *DB) CopyPole(poleID, targetEditionID int64) (int64, error) {
+func (d *DB) CopyPole(poleID, targetEventID int64) (int64, error) {
 	src, err := d.GetPole(poleID)
 	if err != nil {
 		return 0, err
@@ -166,8 +202,8 @@ func (d *DB) CopyPole(poleID, targetEditionID int64) (int64, error) {
 	defer tx.Rollback()
 	var newID int64
 	if src.IsDefault {
-		// The target edition already has a default pole: update it in place.
-		if err := tx.QueryRow(`SELECT id FROM poles WHERE edition_id = ? AND is_default = 1`, targetEditionID).Scan(&newID); err != nil {
+		// The target event already has a default pole: update it in place.
+		if err := tx.QueryRow(`SELECT id FROM poles WHERE event_id = ? AND is_default = 1`, targetEventID).Scan(&newID); err != nil {
 			return 0, err
 		}
 		if _, err := tx.Exec(`UPDATE poles SET description = ?, icon = ?, default_tasks = ?, image = ? WHERE id = ?`,
@@ -180,13 +216,13 @@ func (d *DB) CopyPole(poleID, targetEditionID int64) (int64, error) {
 			key = NewAccessKey()
 		}
 		var pos int
-		tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM poles WHERE edition_id = ?`, targetEditionID).Scan(&pos)
+		tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM poles WHERE event_id = ?`, targetEventID).Scan(&pos)
 		name := src.Name
-		if targetEditionID == src.EditionID {
+		if targetEventID == src.EventID {
 			name += " (copie)"
 		}
-		res, err := tx.Exec(`INSERT INTO poles (edition_id, name, description, access_mode, access_key, icon, default_tasks, image, is_default, freeze_at, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)`,
-			targetEditionID, name, src.Description, src.AccessMode, key, src.Icon, src.DefaultTasks, src.Image, pos, Now())
+		res, err := tx.Exec(`INSERT INTO poles (event_id, slug, name, description, access_mode, access_key, icon, default_tasks, image, is_default, freeze_at, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)`,
+			targetEventID, uniquePoleSlug(tx, targetEventID, name, 0), name, src.Description, src.AccessMode, key, src.Icon, src.DefaultTasks, src.Image, pos, Now())
 		if err != nil {
 			return 0, err
 		}
@@ -201,9 +237,9 @@ func (d *DB) CopyPole(poleID, targetEditionID int64) (int64, error) {
 	if _, err := tx.Exec(`INSERT OR IGNORE INTO pole_members (pole_id, user_id, joined_at) SELECT ?, user_id, ? FROM pole_managers WHERE pole_id = ?`, newID, Now(), poleID); err != nil {
 		return 0, err
 	}
-	// Managers must also belong to the target edition's default pole.
+	// Managers must also belong to the target event's default pole.
 	if _, err := tx.Exec(`INSERT OR IGNORE INTO pole_members (pole_id, user_id, joined_at)
-		SELECT dp.id, pm.user_id, ? FROM pole_managers pm, poles dp WHERE pm.pole_id = ? AND dp.edition_id = ? AND dp.is_default = 1`, Now(), poleID, targetEditionID); err != nil {
+		SELECT dp.id, pm.user_id, ? FROM pole_managers pm, poles dp WHERE pm.pole_id = ? AND dp.event_id = ? AND dp.is_default = 1`, Now(), poleID, targetEventID); err != nil {
 		return 0, err
 	}
 	return newID, tx.Commit()
@@ -250,9 +286,9 @@ func (d *DB) RemovePoleManager(poleID, userID int64) error {
 	return err
 }
 
-// ManagedPoleIDs returns the ids of the poles the user manages in an edition.
-func (d *DB) ManagedPoleIDs(editionID, userID int64) (map[int64]bool, error) {
-	rows, err := d.Query(`SELECT pm.pole_id FROM pole_managers pm JOIN poles p ON p.id = pm.pole_id WHERE p.edition_id = ? AND pm.user_id = ?`, editionID, userID)
+// ManagedPoleIDs returns the ids of the poles the user manages in an event.
+func (d *DB) ManagedPoleIDs(eventID, userID int64) (map[int64]bool, error) {
+	rows, err := d.Query(`SELECT pm.pole_id FROM pole_managers pm JOIN poles p ON p.id = pm.pole_id WHERE p.event_id = ? AND pm.user_id = ?`, eventID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +313,7 @@ func (d *DB) IsPoleMember(poleID, userID int64) bool {
 	return n > 0
 }
 
-// JoinPole adds a user to a pole. Joining any pole also joins the edition's
+// JoinPole adds a user to a pole. Joining any pole also joins the event's
 // default pole so organizer-wide slots are visible to everyone.
 func (d *DB) JoinPole(poleID, userID int64) error {
 	_, err := d.Exec(`INSERT OR IGNORE INTO pole_members (pole_id, user_id, joined_at) VALUES (?, ?, ?)`, poleID, userID, Now())
@@ -285,7 +321,7 @@ func (d *DB) JoinPole(poleID, userID int64) error {
 		return err
 	}
 	_, err = d.Exec(`INSERT OR IGNORE INTO pole_members (pole_id, user_id, joined_at)
-		SELECT dp.id, ?, ? FROM poles p JOIN poles dp ON dp.edition_id = p.edition_id AND dp.is_default = 1 WHERE p.id = ?`,
+		SELECT dp.id, ?, ? FROM poles p JOIN poles dp ON dp.event_id = p.event_id AND dp.is_default = 1 WHERE p.id = ?`,
 		userID, Now(), poleID)
 	return err
 }
@@ -306,9 +342,9 @@ func (d *DB) LeavePole(poleID, userID int64) error {
 	return tx.Commit()
 }
 
-// MemberPoleIDs returns the ids of the poles the user joined in an edition.
-func (d *DB) MemberPoleIDs(editionID, userID int64) (map[int64]bool, error) {
-	rows, err := d.Query(`SELECT pm.pole_id FROM pole_members pm JOIN poles p ON p.id = pm.pole_id WHERE p.edition_id = ? AND pm.user_id = ?`, editionID, userID)
+// MemberPoleIDs returns the ids of the poles the user joined in an event.
+func (d *DB) MemberPoleIDs(eventID, userID int64) (map[int64]bool, error) {
+	rows, err := d.Query(`SELECT pm.pole_id FROM pole_members pm JOIN poles p ON p.id = pm.pole_id WHERE p.event_id = ? AND pm.user_id = ?`, eventID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -452,9 +488,9 @@ func (c PoleCoverage) Percent() int {
 	return c.Filled * 100 / c.Capacity
 }
 
-// ListPoleCoverage computes coverage for every pole of an edition.
-func (d *DB) ListPoleCoverage(editionID int64) ([]PoleCoverage, error) {
-	poles, err := d.ListPoles(editionID)
+// ListPoleCoverage computes coverage for every pole of an event.
+func (d *DB) ListPoleCoverage(eventID int64) ([]PoleCoverage, error) {
+	poles, err := d.ListPoles(eventID)
 	if err != nil {
 		return nil, err
 	}

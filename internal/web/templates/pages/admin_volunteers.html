@@ -1,18 +1,21 @@
-{{define "title"}}Bénévoles – {{.Edition.Name}}{{end}}
+{{define "title"}}Bénévoles – {{.Event.Name}}{{end}}
 {{define "content"}}
-<p><a href="/admin/editions/{{.Edition.ID}}">← {{.Edition.Name}}</a></p>
+<p><a href="{{.Event.AdminURL}}">← {{.Event.Name}}</a></p>
 <div class="page-header">
   <h1>Bénévoles ({{len .Volunteers}})</h1>
-  <a href="/admin/editions/{{.Edition.ID}}/volunteers.csv" role="button" class="secondary outline small">Exporter en CSV</a>
+  <a href="{{.Event.AdminURL}}/volunteers.csv" role="button" class="secondary outline small">Exporter en CSV</a>
 </div>
 <input type="search" placeholder="Filtrer…" oninput="for(const r of document.querySelectorAll('tbody tr')) r.hidden = !r.textContent.toLowerCase().includes(this.value.toLowerCase())">
 <div style="overflow-x:auto">
 <table class="compact">
-  <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Pôles</th><th>Créneaux</th></tr></thead>
+  <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Pôles</th><th>Créneaux</th><th></th></tr></thead>
   <tbody>
   {{range .Volunteers}}
-  <tr><td>{{.User.DisplayName}}</td><td><a href="mailto:{{.User.Email}}">{{.User.Email}}</a></td><td>{{.User.Phone}}</td><td><small>{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</small></td><td>{{if eq .SlotCount 0}}<span class="badge warn">0</span>{{else}}{{.SlotCount}}{{end}}</td></tr>
-  {{else}}<tr><td colspan="5" class="muted">Personne n'a encore rejoint cette édition.</td></tr>{{end}}
+  <tr><td>{{.User.DisplayName}}</td><td><a href="mailto:{{.User.Email}}">{{.User.Email}}</a></td><td>{{.User.Phone}}</td><td><small>{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</small></td><td>{{if eq .SlotCount 0}}<span class="badge warn">0</span>{{else}}{{.SlotCount}}{{end}}</td>
+    <td><form method="post" action="/admin/users/{{.User.ID}}/join" class="actions"><input type="hidden" name="back" value="{{$.Event.AdminURL}}/volunteers">
+      <select name="pole_id" style="margin:0; width:auto; padding:.2rem 1.8rem .2rem .5rem; font-size:.85rem">{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
+      <button class="small secondary">Ajouter au pôle</button></form></td></tr>
+  {{else}}<tr><td colspan="6" class="muted">Personne n'a encore rejoint cet événement.</td></tr>{{end}}
   </tbody>
 </table>
 </div>

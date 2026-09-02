@@ -1,9 +1,9 @@
-{{define "title"}}{{.Edition.Name}} – {{.Org}}{{end}}
+{{define "title"}}{{.Event.Name}} – {{.Org}}{{end}}
 {{define "content"}}
-<p><a href="/admin">← Administration</a></p>
+<p><a href="/admin">← Administration</a> · <a href="{{.Event.URL}}">Page publique</a></p>
 <div class="page-header">
-  <div><h1>{{.Edition.Name}}</h1><p class="muted">{{.Edition.StartsOn}} → {{.Edition.EndsOn}} · <span class="badge {{if eq .Edition.Status "open"}}ok{{else if eq .Edition.Status "frozen"}}warn{{end}}">{{status .Edition.Status}}</span></p></div>
-  <div class="actions"><a href="/admin/editions/{{.Edition.ID}}/planning" role="button" class="small">Planning global</a><a href="/admin/editions/{{.Edition.ID}}/volunteers" role="button" class="secondary outline small">Liste des bénévoles</a></div>
+  <div><h1>{{.Event.Name}}</h1><p class="muted">{{dateRange .Event.StartsOn .Event.EndsOn}} · <span class="badge {{if eq .Event.Status "open"}}ok{{else if eq .Event.Status "frozen"}}warn{{end}}">{{status .Event.Status}}</span></p></div>
+  <div class="actions"><a href="{{.Event.AdminURL}}/planning" role="button" class="small">Planning global</a><a href="{{.Event.AdminURL}}/volunteers" role="button" class="secondary outline small">Liste des bénévoles</a></div>
 </div>
 
 <div class="stats">
@@ -26,21 +26,21 @@
   <tbody>
   {{range .Coverage}}
   <tr>
-    <td><span class="c{{.Pole.Color}}" style="margin-right:.3rem">{{.Pole.DisplayIcon}}</span><a href="/manage/poles/{{.Pole.ID}}"><b>{{.Pole.Name}}</b></a>
+    <td><span class="c{{.Pole.Color}} pole-cell">{{template "pole_icon" (dict "Pole" .Pole)}}<a href="{{.Pole.ManageURL}}"><b>{{.Pole.Name}}</b></a></span>
       {{if .Pole.IsDefault}}<span class="badge">défaut</span>{{else if not .Pole.IsOpen}}<span class="badge key">{{mode .Pole.AccessMode}}</span>{{end}}</td>
     <td><small>{{range $i, $m := .Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}{{if not .Managers}}<span class="muted">aucun</span>{{end}}</small></td>
     <td>{{.Members}}</td>
     <td>{{.Slots}}</td>
     <td style="white-space:nowrap"><span class="bar{{if .ShortSlot}} short{{end}}{{if and .Capacity (eq .Filled 0)}} empty{{end}}"><i style="width:{{.Percent}}%"></i></span> {{.Filled}}/{{.Capacity}}</td>
     <td>{{if .ShortSlot}}<span class="badge warn">{{.ShortSlot}}</span>{{else}}<span class="badge ok">0</span>{{end}}</td>
-    <td class="actions"><a href="/manage/poles/{{.Pole.ID}}">Gérer</a>
+    <td class="actions"><a href="{{.Pole.ManageURL}}">Gérer</a>
       <details class="inline-menu"><summary>copier vers…</summary>
-        <form method="post" action="/admin/poles/{{.Pole.ID}}/copy" class="actions">
-          <select name="edition_id" style="margin:0; width:auto">{{range $.Editions}}<option value="{{.ID}}" {{if eq .ID $.Edition.ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+        <form method="post" action="/admin{{.Pole.URL}}/copy" class="actions">
+          <select name="event_id" style="margin:0; width:auto">{{range $.Events}}<option value="{{.ID}}" {{if eq .ID $.Event.ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
           <button class="small secondary">Copier</button>
         </form>
       </details>
-      {{if not .Pole.IsDefault}}<form method="post" action="/admin/poles/{{.Pole.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer le pôle {{.Pole.Name}} et tous ses créneaux ?')"><button class="link danger">supprimer</button></form>{{end}}</td>
+      {{if not .Pole.IsDefault}}<form method="post" action="/admin{{.Pole.URL}}/delete" class="inline" onsubmit="return confirm('Supprimer le pôle {{.Pole.Name}} et tous ses créneaux ?')"><button class="link danger">supprimer</button></form>{{end}}</td>
   </tr>
   {{end}}
   </tbody>
@@ -48,7 +48,7 @@
 </div>
 
 <h3 style="font-size:1.1rem; margin-top:1.5rem">Ajouter un pôle</h3>
-<form method="post" action="/admin/editions/{{.Edition.ID}}/poles" class="panel">
+<form method="post" action="{{.Event.AdminURL}}/poles" class="panel">
   <div class="grid-2" style="grid-template-columns: 5rem 1fr">
     <label>Icône<input type="text" name="icon" placeholder="🍻" maxlength="4" style="text-align:center"></label>
     <label>Nom<input type="text" name="name" required placeholder="Buvette, Accueil, Salles…"></label>
@@ -64,44 +64,46 @@
 </form>
 
 {{else if eq .Tab "messages"}}
-<p class="hint">Les messages globaux s'affichent en haut de la page d'accueil pour tous les bénévoles de l'édition.</p>
-<form method="post" action="/admin/editions/{{.Edition.ID}}/messages">
+<p class="hint">Les messages globaux s'affichent en haut de la page d'accueil pour tous les bénévoles de l'événement.</p>
+<form method="post" action="{{.Event.AdminURL}}/messages">
   <textarea name="body" rows="3" required placeholder="Ex : le briefing bénévoles a lieu vendredi à 18h dans l'amphi A."></textarea>
   <button class="small">Publier</button>
 </form>
-{{template "messages" (dict "Messages" .Messages "CanDelete" true "Back" (print "/admin/editions/" .Edition.ID "?tab=messages"))}}
+{{template "messages" (dict "Messages" .Messages "CanDelete" true "Back" (print .Event.AdminURL "?tab=messages"))}}
 
 {{else if eq .Tab "settings"}}
-<form method="post" action="/admin/editions/{{.Edition.ID}}" style="max-width:36rem">
-  <label>Nom<input type="text" name="name" value="{{.Edition.Name}}" required></label>
+<form method="post" action="{{.Event.AdminURL}}" style="max-width:36rem">
+  <label>Nom<input type="text" name="name" value="{{.Event.Name}}" required></label>
+  <label>Adresse <small class="muted">(lettres, chiffres et tirets ; l'événement est accessible sur {{.BaseURL}}/…)</small>
+    <input type="text" name="slug" value="{{.Event.Slug}}" pattern="[a-z0-9-]+" required></label>
   <div class="grid-2">
-    <label>Premier jour<input type="date" name="starts_on" value="{{.Edition.StartsOn}}" required></label>
-    <label>Dernier jour<input type="date" name="ends_on" value="{{.Edition.EndsOn}}" required></label>
+    <label>Premier jour<input type="date" name="starts_on" value="{{.Event.StartsOn}}" required></label>
+    <label>Dernier jour<input type="date" name="ends_on" value="{{.Event.EndsOn}}" required></label>
   </div>
   <label>Statut
-    <select name="status">{{range .Statuses}}<option value="{{.}}" {{if eq . $.Edition.Status}}selected{{end}}>{{status .}}</option>{{end}}</select>
+    <select name="status">{{range .Statuses}}<option value="{{.}}" {{if eq . $.Event.Status}}selected{{end}}>{{status .}}</option>{{end}}</select>
   </label>
-  <p class="hint"><b>Brouillon</b> : visible des organisateurs et responsables seulement. <b>Inscriptions ouvertes</b> : les bénévoles voient l'édition et s'inscrivent. <b>Gelée</b> : visible, mais plus aucune modification par les bénévoles. <b>Archivée</b> : masquée.</p>
+  <p class="hint"><b>Brouillon</b> : visible des organisateurs et responsables seulement. <b>Inscriptions ouvertes</b> : les bénévoles voient l'événement et s'inscrivent. <b>Gelé</b> : visible, mais plus aucune modification par les bénévoles. <b>Archivé</b> : masqué.</p>
   <label>Gel automatique des inscriptions <small class="muted">(optionnel ; chaque pôle peut définir sa propre date)</small>
-    <input type="datetime-local" name="freeze_at" value="{{inputDT .Edition.FreezeAt}}"></label>
+    <input type="datetime-local" name="freeze_at" value="{{inputDT .Event.FreezeAt}}"></label>
   <button class="small">Enregistrer</button>
 </form>
 <div class="panel" style="max-width:36rem; margin-top:1.5rem">
-  <h3>Préparer l'édition suivante</h3>
-  <p class="hint">Crée une nouvelle édition en brouillon avec les mêmes pôles : réglages, icônes, modes d'accès, listes de tâches par défaut, emplacements et responsables. Les créneaux et les inscriptions ne sont pas repris.</p>
-  <form method="post" action="/admin/editions/{{.Edition.ID}}/duplicate">
+  <h3>Préparer l'événement suivant</h3>
+  <p class="hint">Crée une nouvel événement en brouillon avec les mêmes pôles : réglages, icônes, modes d'accès, listes de tâches par défaut, emplacements et responsables. Les créneaux et les inscriptions ne sont pas repris.</p>
+  <form method="post" action="{{.Event.AdminURL}}/duplicate">
     <label>Nom<input type="text" name="name" required value="{{.Org}} {{.NextYear}}"></label>
     <div class="grid-2">
       <label>Premier jour<input type="date" name="starts_on" required></label>
       <label>Dernier jour<input type="date" name="ends_on" required></label>
     </div>
-    <button class="small secondary">Dupliquer l'édition</button>
+    <button class="small secondary">Dupliquer l'événement</button>
   </form>
 </div>
 <div class="danger-zone">
-  <form method="post" action="/admin/editions/{{.Edition.ID}}/delete" onsubmit="return confirm('Supprimer définitivement cette édition, ses pôles, créneaux et inscriptions ?')" class="actions">
-    <span>Supprimer l'édition et toutes ses données (les comptes bénévoles sont conservés).</span>
-    <button class="small">Supprimer l'édition</button>
+  <form method="post" action="{{.Event.AdminURL}}/delete" onsubmit="return confirm('Supprimer définitivement cet événement, ses pôles, créneaux et inscriptions ?')" class="actions">
+    <span>Supprimer l'événement et toutes ses données (les comptes bénévoles sont conservés).</span>
+    <button class="small">Supprimer l'événement</button>
   </form>
 </div>
 {{end}}

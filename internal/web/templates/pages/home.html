@@ -2,14 +2,14 @@
 <section class="hero">
   <div>
     <h1>Bonjour {{firstName .User}}</h1>
-    <p>{{.Edition.Name}} · du {{.Edition.StartsOn}} au {{.Edition.EndsOn}}
-      {{if eq .Edition.Status "frozen"}}<span class="badge">Planning gelé</span>{{end}}
-      {{if eq .Edition.Status "draft"}}<span class="badge">Brouillon – visible des organisateurs seulement</span>{{end}}
+    <p>{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}
+      {{if eq .Event.Status "frozen"}}<span class="badge">Planning gelé</span>{{end}}
+      {{if eq .Event.Status "draft"}}<span class="badge">Brouillon – visible des organisateurs seulement</span>{{end}}
     </p>
   </div>
   <div class="hero-stats">
     <div><b>{{len .MySlots}}</b><small>mes créneaux</small></div>
-    {{if .User.IsAdmin}}<a href="/admin/editions/{{.Edition.ID}}" role="button" class="small">Tableau de bord</a>{{end}}
+    {{if .User.IsAdmin}}<a href="{{.Event.AdminURL}}" role="button" class="small">Tableau de bord</a>{{end}}
   </div>
 </section>
 
@@ -64,15 +64,15 @@
     <footer>
       <div class="actions">
       {{if .Member}}
-        <a href="/poles/{{.ID}}" role="button">Voir les créneaux</a>
+        <a href="{{.URL}}" role="button">Voir les créneaux</a>
       {{else if .IsOpen}}
-        <form method="post" action="/poles/{{.ID}}/join"><button>Rejoindre ce pôle</button></form>
+        <form method="post" action="{{.URL}}/join"><button>Rejoindre ce pôle</button></form>
       {{else if eq .AccessMode "private"}}
         <small class="muted">Demandez le lien d'invitation au responsable.</small>
       {{else}}
         <small class="muted">Le responsable vous ajoute sur demande.</small>
       {{end}}
-      {{if .Manager}}<a href="/manage/poles/{{.ID}}" role="button" class="secondary outline">Gérer</a>{{end}}
+      {{if .Manager}}<a href="{{.ManageURL}}" role="button" class="secondary outline">Gérer</a>{{end}}
       </div>
     </footer>
   </article>

@@ -9,15 +9,15 @@ import (
 	"benevoles/internal/db"
 )
 
-// poleContext loads a pole with its edition and checks the user may see it.
-func (s *Server) poleContext(w http.ResponseWriter, r *http.Request, poleID int64) (db.Pole, db.Edition, bool) {
+// poleContext loads a pole with its event and checks the user may see it.
+func (s *Server) poleContext(w http.ResponseWriter, r *http.Request, poleID int64) (db.Pole, db.Event, bool) {
 	u := currentUser(r)
 	pole, err := s.DB.GetPole(poleID)
 	if err != nil {
 		s.fail(w, r, err)
-		return pole, db.Edition{}, false
+		return pole, db.Event{}, false
 	}
-	ed, err := s.DB.GetEdition(pole.EditionID)
+	ed, err := s.DB.GetEvent(pole.EventID)
 	if err != nil {
 		s.fail(w, r, err)
 		return pole, ed, false
@@ -48,7 +48,7 @@ func groupSlots(slots []db.Slot, loc *time.Location) []slotDay {
 
 func (s *Server) polePage(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
-	pole, ed, ok := s.poleContext(w, r, pathID(r, "id"))
+	pole, ed, ok := s.poleContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
@@ -90,7 +90,7 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) {
 		missing += sl.Missing()
 	}
 	s.render(w, r, "pole", M{
-		"Pole": pole, "Edition": ed, "Member": member, "CanManage": manage,
+		"Pole": pole, "Event": ed, "Member": member, "CanManage": manage,
 		"Locked": ed.SignupsLocked(pole.FreezeAt, time.Now()),
 		"Days":   groupSlots(slots, s.Cfg.Timezone), "Locations": locations, "Filter": filter, "OnlyOpen": onlyOpen,
 		"Messages": msgs, "Managers": managers, "Mine": mine, "Missing": missing, "Total": len(slots),
@@ -101,29 +101,29 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) {
 // poleInvite shows the invitation page reached through a private pole's link.
 func (s *Server) poleInvite(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
-	pole, ed, ok := s.poleContext(w, r, pathID(r, "id"))
+	pole, ed, ok := s.poleContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
 	if s.DB.IsPoleMember(pole.ID, u.ID) {
-		http.Redirect(w, r, fmt.Sprintf("/poles/%d", pole.ID), http.StatusSeeOther)
+		http.Redirect(w, r, pole.URL(), http.StatusSeeOther)
 		return
 	}
 	key := r.URL.Query().Get("key")
 	valid := pole.IsOpen() || (pole.IsPrivate() && key != "" && key == pole.AccessKey)
 	managers, _ := s.DB.ListPoleManagers(pole.ID)
-	s.render(w, r, "join", M{"Pole": pole, "Edition": ed, "Key": key, "Valid": valid, "Managers": managers,
+	s.render(w, r, "join", M{"Pole": pole, "Event": ed, "Key": key, "Valid": valid, "Managers": managers,
 		"Closed": ed.Status != db.StatusOpen})
 }
 
 func (s *Server) poleJoin(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
-	pole, ed, ok := s.poleContext(w, r, pathID(r, "id"))
+	pole, ed, ok := s.poleContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
 	if ed.Status != db.StatusOpen && !s.canManage(u, pole.ID) {
-		s.flash(w, "Les inscriptions à cette édition sont fermées.")
+		s.flash(w, "Les inscriptions à cet événement sont fermées.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -145,23 +145,23 @@ func (s *Server) poleJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.flash(w, "Vous avez rejoint le pôle « "+pole.Name+" ». Choisissez vos créneaux !")
-	http.Redirect(w, r, fmt.Sprintf("/poles/%d", pole.ID), http.StatusSeeOther)
+	http.Redirect(w, r, pole.URL(), http.StatusSeeOther)
 }
 
 func (s *Server) poleLeave(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
-	pole, ed, ok := s.poleContext(w, r, pathID(r, "id"))
+	pole, ed, ok := s.poleContext(w, r, s.polePathID(r))
 	if !ok {
 		return
 	}
 	if pole.IsDefault {
 		s.flash(w, "Ce pôle regroupe tous les bénévoles et ne peut pas être quitté.")
-		http.Redirect(w, r, "/poles/"+r.PathValue("id"), http.StatusSeeOther)
+		http.Redirect(w, r, pole.URL(), http.StatusSeeOther)
 		return
 	}
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
 		s.flash(w, "Le planning est gelé : contactez un responsable pour vous désengager.")
-		http.Redirect(w, r, "/poles/"+r.PathValue("id"), http.StatusSeeOther)
+		http.Redirect(w, r, pole.URL(), http.StatusSeeOther)
 		return
 	}
 	if err := s.DB.LeavePole(pole.ID, u.ID); err != nil {
@@ -191,7 +191,7 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) {
 	tasks, _ := s.DB.ListTasks(slot.ID)
 	msgs, _ := s.DB.ListSlotMessages(slot.ID)
 	s.render(w, r, "slot", M{
-		"Slot": slot, "Pole": pole, "Edition": ed, "Member": member, "CanManage": manage,
+		"Slot": slot, "Pole": pole, "Event": ed, "Member": member, "CanManage": manage,
 		"Locked":     ed.SignupsLocked(pole.FreezeAt, time.Now()),
 		"Volunteers": volunteers, "Tasks": tasks, "Messages": msgs,
 		"CanTick": slot.Mine || manage,
@@ -200,7 +200,7 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) {
 }
 
 // cardData builds the data of the slot_card partial.
-func (s *Server) cardData(slot db.Slot, pole db.Pole, ed db.Edition, member bool) M {
+func (s *Server) cardData(slot db.Slot, pole db.Pole, ed db.Event, member bool) M {
 	return M{
 		"Slot": slot, "Pole": pole, "Member": member,
 		"Locked": ed.SignupsLocked(pole.FreezeAt, time.Now()),

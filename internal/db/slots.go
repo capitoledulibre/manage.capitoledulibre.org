@@ -147,16 +147,16 @@ func (d *DB) ListSlotVolunteers(slotID int64) ([]User, error) {
 // MySlot is a slot enriched with its pole, for the personal planning views.
 type MySlot struct {
 	Slot
-	PoleName  string
-	EditionID int64
+	PoleName string
+	EventID  int64
 }
 
-// ListUserSlots returns every slot the user is signed up on within an edition.
-func (d *DB) ListUserSlots(editionID, userID int64) ([]MySlot, error) {
-	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.edition_id
+// ListUserSlots returns every slot the user is signed up on within an event.
+func (d *DB) ListUserSlots(eventID, userID int64) ([]MySlot, error) {
+	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.event_id
 		FROM slots s JOIN poles p ON p.id = s.pole_id LEFT JOIN locations l ON l.id = s.location_id
 		JOIN signups sg ON sg.slot_id = s.id AND sg.user_id = ?
-		WHERE p.edition_id = ? ORDER BY s.starts_at`, userID, userID, editionID)
+		WHERE p.event_id = ? ORDER BY s.starts_at`, userID, userID, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func scanMySlots(rows *sql.Rows) ([]MySlot, error) {
 	for rows.Next() {
 		var m MySlot
 		var starts, ends, created string
-		if err := rows.Scan(&m.ID, &m.PoleID, &m.LocationID, &m.LocationName, &m.Title, &starts, &ends, &m.Capacity, &m.Filled, &m.Mine, &m.TaskCount, &m.TaskDone, &created, &m.PoleName, &m.EditionID); err != nil {
+		if err := rows.Scan(&m.ID, &m.PoleID, &m.LocationID, &m.LocationName, &m.Title, &starts, &ends, &m.Capacity, &m.Filled, &m.Mine, &m.TaskCount, &m.TaskDone, &created, &m.PoleName, &m.EventID); err != nil {
 			return nil, err
 		}
 		m.StartsAt = ParseTime(starts)
@@ -180,12 +180,12 @@ func scanMySlots(rows *sql.Rows) ([]MySlot, error) {
 	return out, rows.Err()
 }
 
-// ListEditionSlots returns every slot of an edition with its pole name, in
+// ListEventSlots returns every slot of an event with its pole name, in
 // chronological order, for the global planning view.
-func (d *DB) ListEditionSlots(editionID int64) ([]MySlot, error) {
-	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.edition_id
+func (d *DB) ListEventSlots(eventID int64) ([]MySlot, error) {
+	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.event_id
 		FROM slots s JOIN poles p ON p.id = s.pole_id LEFT JOIN locations l ON l.id = s.location_id
-		WHERE p.edition_id = ? ORDER BY s.starts_at, p.position, l.position, s.id`, 0, editionID)
+		WHERE p.event_id = ? ORDER BY s.starts_at, p.position, l.position, s.id`, 0, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -193,13 +193,13 @@ func (d *DB) ListEditionSlots(editionID int64) ([]MySlot, error) {
 	return scanMySlots(rows)
 }
 
-// OverlappingSlots returns the user's slots (in the same edition as poleID)
+// OverlappingSlots returns the user's slots (in the same event as poleID)
 // that overlap the given range, excluding excludeSlot.
 func (d *DB) OverlappingSlots(userID, poleID, excludeSlot int64, start, end time.Time) ([]MySlot, error) {
-	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.edition_id
+	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.event_id
 		FROM slots s JOIN poles p ON p.id = s.pole_id LEFT JOIN locations l ON l.id = s.location_id
 		JOIN signups sg ON sg.slot_id = s.id AND sg.user_id = ?
-		WHERE p.edition_id = (SELECT edition_id FROM poles WHERE id = ?)
+		WHERE p.event_id = (SELECT event_id FROM poles WHERE id = ?)
 		  AND s.id != ? AND s.starts_at < ? AND s.ends_at > ?
 		ORDER BY s.starts_at`, userID, userID, poleID, excludeSlot, FormatTime(end), FormatTime(start))
 	if err != nil {
@@ -228,9 +228,9 @@ func (d *DB) UsersWithSlotsBetween(from, to time.Time) ([]int64, error) {
 	return out, rows.Err()
 }
 
-// ListUserSlotsBetween returns the user's slots starting in [from, to), any edition.
+// ListUserSlotsBetween returns the user's slots starting in [from, to), any event.
 func (d *DB) ListUserSlotsBetween(userID int64, from, to time.Time) ([]MySlot, error) {
-	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.edition_id
+	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.event_id
 		FROM slots s JOIN poles p ON p.id = s.pole_id LEFT JOIN locations l ON l.id = s.location_id
 		JOIN signups sg ON sg.slot_id = s.id AND sg.user_id = ?
 		WHERE s.starts_at >= ? AND s.starts_at < ? ORDER BY s.starts_at`, userID, userID, FormatTime(from), FormatTime(to))
