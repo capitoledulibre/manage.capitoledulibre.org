@@ -1,0 +1,81 @@
+{{define "title"}}{{if .New}}Nouveau créneau{{else}}Modifier le créneau{{end}} – {{.Org}}{{end}}
+{{define "content"}}
+<p><a href="/manage/poles/{{.Pole.ID}}">← Gestion de {{.Pole.Name}}</a></p>
+<h1>{{if .New}}Nouveau créneau{{else}}Modifier le créneau{{end}}</h1>
+
+<form method="post" action="{{if .New}}/manage/poles/{{.Pole.ID}}/slots{{else}}/manage/slots/{{.Slot.ID}}{{end}}">
+  <div class="grid-2">
+    <label>Début<input type="datetime-local" name="starts_at" value="{{inputDTv .Slot.StartsAt}}" required></label>
+    <label>Fin<input type="datetime-local" name="ends_at" value="{{inputDTv .Slot.EndsAt}}" required></label>
+  </div>
+  <div class="grid-2">
+    <label>Nombre de bénévoles souhaités<input type="number" name="capacity" min="1" max="500" value="{{.Slot.Capacity}}" required></label>
+    <label>Emplacement
+      <select name="location_id" {{if not .Locations}}disabled{{end}}>
+        <option value="0">{{if .Locations}}Tout le pôle{{else}}Aucun emplacement défini{{end}}</option>
+        {{range .Locations}}<option value="{{.ID}}" {{if eq .ID $.Slot.LocationID}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </label>
+  </div>
+  <label>Intitulé <small class="muted">(optionnel, ex : « Accueil des conférenciers »)</small><input type="text" name="title" value="{{.Slot.Title}}"></label>
+
+  {{if .New}}
+  <label>Liste de tâches du créneau <small class="muted">(une par ligne ; les bénévoles inscrits les cochent le jour J. Pré-remplie avec la liste par défaut du pôle, modifiable dans ses réglages)</small>
+    <textarea name="tasks" rows="4" placeholder="Ouvrir la salle&#10;Vérifier le vidéoprojecteur&#10;Compter les participants">{{.Tasks}}</textarea></label>
+  <details {{if or .RepeatUntil .AllLocations}}open{{end}}>
+    <summary>Générer une série de créneaux</summary>
+    <label>Répéter des créneaux de même durée jusqu'à <small class="muted">(crée des créneaux consécutifs, chacun avec la même liste de tâches)</small>
+      <input type="datetime-local" name="repeat_until" value="{{.RepeatUntil}}"></label>
+    {{if .Locations}}<label><input type="checkbox" name="all_locations" value="1" {{if .AllLocations}}checked{{end}}> Créer ces créneaux pour chaque emplacement</label>{{end}}
+  </details>
+  {{end}}
+  <button class="small">{{if .New}}Créer{{else}}Enregistrer{{end}}</button>
+</form>
+
+{{if not .New}}
+<div class="grid-2" style="margin-top:2rem">
+  <section id="volunteers">
+    <h3 style="font-size:1.1rem">Bénévoles inscrits ({{.Slot.Filled}}/{{.Slot.Capacity}})</h3>
+    <ul>
+      {{range .Volunteers}}<li>{{.DisplayName}} <small class="muted">{{.Email}}{{if .Phone}} · {{.Phone}}{{end}}</small>
+        <form method="post" action="/manage/slots/{{$.Slot.ID}}/volunteers/{{.ID}}/delete" class="inline"><button class="link danger">retirer</button></form></li>
+      {{else}}<li class="muted">Personne pour l'instant.</li>{{end}}
+    </ul>
+    <form method="post" action="/manage/slots/{{.Slot.ID}}/volunteers" class="actions">
+      <input type="email" name="email" list="pole-members" placeholder="nom ou e-mail d'un bénévole" required style="margin:0" autocomplete="off">
+      <datalist id="pole-members">{{range .Members}}<option value="{{.User.Email}}">{{.User.DisplayName}}</option>{{end}}</datalist>
+      <button class="small secondary">Ajouter</button>
+    </form>
+    <p class="hint">Le bénévole est ajouté même si le créneau est complet, et rejoint le pôle si besoin.</p>
+  </section>
+  <section id="tasks">
+    <h3 style="font-size:1.1rem">Tâches</h3>
+    <ul class="tasks">
+      {{range .TaskList}}<li>{{.Label}}{{if .Done}} <span class="badge ok">fait</span>{{end}}
+        <form method="post" action="/manage/tasks/{{.ID}}/delete" class="inline"><button class="link danger">supprimer</button></form></li>
+      {{else}}<li class="muted">Aucune tâche.</li>{{end}}
+    </ul>
+    <form method="post" action="/manage/slots/{{.Slot.ID}}/tasks">
+      <textarea name="labels" rows="2" placeholder="Une tâche par ligne" required></textarea>
+      <button class="small secondary">Ajouter</button>
+    </form>
+  </section>
+</div>
+
+<section style="margin-top:1rem">
+  <h3 style="font-size:1.1rem">Messages du créneau</h3>
+  <form method="post" action="/manage/slots/{{.Slot.ID}}/messages">
+    <textarea name="body" rows="2" placeholder="Consigne visible sur la page du créneau" required></textarea>
+    <button class="small secondary">Publier</button>
+  </form>
+  {{template "messages" (dict "Messages" .Messages "CanDelete" true "Back" (print "/manage/slots/" .Slot.ID))}}
+</section>
+
+<div class="danger-zone">
+  <form method="post" action="/manage/slots/{{.Slot.ID}}/delete" onsubmit="return confirm('Supprimer ce créneau et ses inscriptions ?')" class="actions">
+    <span>Supprimer ce créneau ({{.Slot.Filled}} inscription{{if gt .Slot.Filled 1}}s{{end}} perdue{{if gt .Slot.Filled 1}}s{{end}}).</span>
+    <button class="small">Supprimer</button>
+  </form>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,81 @@
+{{define "content"}}
+<section class="hero">
+  <div>
+    <h1>Bonjour {{firstName .User}}</h1>
+    <p>{{.Edition.Name}} · du {{.Edition.StartsOn}} au {{.Edition.EndsOn}}
+      {{if eq .Edition.Status "frozen"}}<span class="badge">Planning gelé</span>{{end}}
+      {{if eq .Edition.Status "draft"}}<span class="badge">Brouillon – visible des organisateurs seulement</span>{{end}}
+    </p>
+  </div>
+  <div class="hero-stats">
+    <div><b>{{len .MySlots}}</b><small>mes créneaux</small></div>
+    {{if .User.IsAdmin}}<a href="/admin/editions/{{.Edition.ID}}" role="button" class="small">Tableau de bord</a>{{end}}
+  </div>
+</section>
+
+{{template "messages" (dict "Messages" .Messages)}}
+
+{{if not .Joined}}
+<article>
+  <h3>Bienvenue ! Par où commencer ?</h3>
+  <p>Choisissez ci-dessous le ou les pôles dans lesquels vous souhaitez donner un coup de main, puis inscrivez-vous sur les créneaux qui vous conviennent.
+  Certains pôles sont sur invitation : le responsable vous ajoute ou vous transmet un lien.</p>
+</article>
+{{else}}
+<section>
+  <div class="page-header">
+    <h2>Mes prochains créneaux</h2>
+    <a href="/me">Tout mon planning →</a>
+  </div>
+  {{if .Upcoming}}
+  {{range .Upcoming}}
+  <article class="slot mine">
+    <div class="slot-row">
+      <div class="slot-time">{{time .StartsAt}}<span class="dash">–</span>{{time .EndsAt}}</div>
+      <div class="slot-info"><a class="slot-title" href="/slots/{{.ID}}">{{.PoleName}}{{if .Title}} – {{.Title}}{{end}}</a>{{if .LocationName}}<span class="badge">{{.LocationName}}</span>{{end}}<span class="slot-meta" style="text-transform:capitalize">{{day .StartsAt}}</span></div>
+    </div>
+  </article>
+  {{end}}
+  {{else}}<p class="empty">Vous n'êtes inscrit·e sur aucun créneau à venir. Choisissez un pôle ci-dessous !</p>{{end}}
+</section>
+{{end}}
+
+<h2 style="margin-top:2rem">Les pôles</h2>
+<div class="poles">
+  {{range .Poles}}
+  <article class="pole-card c{{.Color}}" id="pole-{{.ID}}">
+    <div class="pole-head">
+      {{template "pole_icon" (dict "Pole" .Pole)}}
+      <div><h3>{{.Name}}</h3>
+        {{if .IsDefault}}<span class="badge">tous les bénévoles</span>
+        {{else if eq .AccessMode "private"}}<span class="badge key">sur lien d'invitation</span>
+        {{else if eq .AccessMode "invitation"}}<span class="badge key">sur invitation</span>
+        {{else if eq .AccessMode "restricted"}}<span class="badge danger">restreint</span>{{end}}
+        {{if .Member}}<span class="badge ok">✓ membre</span>{{end}}
+      </div>
+    </div>
+    {{if .Description}}<p class="grow">{{nl2br .Description}}</p>{{else}}<div class="grow"></div>{{end}}
+    {{if .Coverage.Managers}}<p class="hint">Responsable{{if gt (len .Coverage.Managers) 1}}s{{end}} : {{range $i, $m := .Coverage.Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}</p>{{end}}
+    {{if .Slots}}
+    <p class="hint">{{.Slots}} créneau{{if gt .Slots 1}}x{{end}}
+      {{if gt .Missing 0}}· <span style="color:var(--warn)">il manque {{.Missing}} bénévole{{if gt .Missing 1}}s{{end}}</span>{{else}}· <span style="color:var(--ok)">complet</span>{{end}}</p>
+    <span class="bar{{if gt .Missing 0}} short{{end}}"><i style="width:{{.Coverage.Percent}}%"></i></span>
+    {{else}}<p class="hint">Aucun créneau publié pour le moment.</p>{{end}}
+    <footer>
+      <div class="actions">
+      {{if .Member}}
+        <a href="/poles/{{.ID}}" role="button">Voir les créneaux</a>
+      {{else if .IsOpen}}
+        <form method="post" action="/poles/{{.ID}}/join"><button>Rejoindre ce pôle</button></form>
+      {{else if eq .AccessMode "private"}}
+        <small class="muted">Demandez le lien d'invitation au responsable.</small>
+      {{else}}
+        <small class="muted">Le responsable vous ajoute sur demande.</small>
+      {{end}}
+      {{if .Manager}}<a href="/manage/poles/{{.ID}}" role="button" class="secondary outline">Gérer</a>{{end}}
+      </div>
+    </footer>
+  </article>
+  {{end}}
+</div>
+{{end}}

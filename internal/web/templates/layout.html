@@ -1,0 +1,35 @@
+{{define "layout"}}<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{block "title" .}}{{.Org}}{{end}}</title>
+<link rel="stylesheet" href="/static/pico.min.css">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<nav class="container topnav">
+  <ul>
+    <li><a href="/" class="brand">{{if .Logo}}<img class="logo-img" src="/uploads/{{.Logo}}" alt="">{{else}}<span class="logo"></span>{{end}}<strong>{{.Org}}</strong></a></li>
+  </ul>
+  <ul>
+    {{if .User}}
+    <li><a href="/" {{if eq .Path "/"}}aria-current="page"{{end}}>Pôles</a></li>
+    <li><a href="/me" {{if eq .Path "/me"}}aria-current="page"{{end}}>Mon planning</a></li>
+    <li><a href="/profile" {{if eq .Path "/profile"}}aria-current="page"{{end}}>Profil</a></li>
+    {{if .User.IsAdmin}}<li><a href="/admin" class="admin-link" {{if eq .Path "/admin"}}aria-current="page"{{end}}>Admin</a></li>{{end}}
+    <li><form method="post" action="/logout"><button class="link muted">Déconnexion</button></form></li>
+    {{else}}
+    <li><a href="/login">Connexion</a></li>
+    {{end}}
+  </ul>
+</nav>
+<main class="container">
+  {{if .Flash}}<div class="flash" role="status">{{.Flash}}</div>{{end}}
+  {{if .Error}}<div class="flash error" role="alert">{{.Error}}</div>{{end}}
+  {{template "content" .}}
+</main>
+<footer class="container footer"><small>{{.Org}} · gestion des bénévoles · <a href="https://example.org/volunteers">logiciel libre</a></small></footer>
+</body>
+</html>{{end}}

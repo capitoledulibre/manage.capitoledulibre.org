@@ -1,0 +1,9 @@
+{{define "title"}}Vérifiez vos e-mails – {{.Org}}{{end}}
+{{define "content"}}
+<article class="login-box">
+  <h2>Vérifiez vos e-mails</h2>
+  <p>Un lien de connexion a été envoyé à <strong>{{.Email}}</strong>. Il est valable 30 minutes.</p>
+  <p class="hint">Rien reçu ? Vérifiez vos courriers indésirables, puis <a href="/login">demandez un nouveau lien</a>.</p>
+  {{if .Link}}<p class="flash">Mode développement : <a href="{{.Link}}">se connecter directement</a></p>{{end}}
+</article>
+{{end}}

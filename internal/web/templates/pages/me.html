@@ -1,0 +1,24 @@
+{{define "title"}}Mon planning – {{.Org}}{{end}}
+{{define "content"}}
+<div class="page-header">
+  <div><h1>Mon planning</h1><p class="muted">{{.Edition.Name}} · {{.Count}} créneau{{if gt .Count 1}}x{{end}}</p></div>
+  {{if .Count}}<a href="/me.ics" role="button" class="secondary outline small">Ajouter à mon agenda (.ics)</a>{{end}}
+</div>
+{{range .Days}}
+<section class="day{{if eq .Day $.Today}} today{{end}}">
+  <h3><span class="pill">{{parseDay .Day}}{{if eq .Day $.Today}} · aujourd'hui{{end}}</span></h3>
+  {{range .Slots}}
+  <article class="slot mine">
+    <div class="slot-row">
+      <div class="slot-time">{{time .StartsAt}}<span class="dash">–</span>{{time .EndsAt}}</div>
+      <div class="slot-info"><a class="slot-title" href="/slots/{{.ID}}">{{.PoleName}}{{if .Title}} – {{.Title}}{{end}}</a>{{if .LocationName}}<span class="badge">{{.LocationName}}</span>{{end}}</div>
+      <div class="slot-fill"><small>{{.Filled}}/{{.Capacity}} bénévoles</small></div>
+      <div class="slot-action"><a href="/slots/{{.ID}}" role="button" class="secondary outline small">Détails</a></div>
+    </div>
+  </article>
+  {{end}}
+</section>
+{{else}}
+<p class="empty">Vous n'êtes inscrit·e sur aucun créneau pour l'instant. <a href="/">Choisissez un pôle</a> pour commencer.</p>
+{{end}}
+{{end}}

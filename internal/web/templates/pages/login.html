@@ -1,0 +1,15 @@
+{{define "title"}}Connexion – {{.Org}}{{end}}
+{{define "content"}}
+<article class="login-box">
+  <h2>Connexion</h2>
+  <p>Indiquez votre adresse e-mail : nous vous envoyons un lien de connexion. Pas de mot de passe à retenir.</p>
+  <form method="post" action="/login">
+    <input type="hidden" name="next" value="{{.Next}}">
+    <label>Adresse e-mail
+      <input type="email" name="email" value="{{.Email}}" required autofocus autocomplete="email" placeholder="vous@exemple.org">
+    </label>
+    <button type="submit">Recevoir mon lien de connexion</button>
+  </form>
+  <p class="hint">Première visite ? Votre compte sera créé automatiquement.</p>
+</article>
+{{end}}

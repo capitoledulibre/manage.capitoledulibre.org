@@ -1,0 +1,19 @@
+{{define "title"}}Rejoindre {{.Pole.Name}} – {{.Org}}{{end}}
+{{define "content"}}
+<article class="login-box c{{.Pole.Color}}" style="text-align:center">
+  {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
+  <h2 style="margin-top:.75rem">{{.Pole.Name}}</h2>
+  <p class="muted">{{.Edition.Name}}</p>
+  {{if .Pole.Description}}<p>{{nl2br .Pole.Description}}</p>{{end}}
+  {{if .Managers}}<p class="hint">Responsable{{if gt (len .Managers) 1}}s{{end}} : {{range $i, $m := .Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}</p>{{end}}
+  {{if .Closed}}
+    <p class="flash error">Les inscriptions à cette édition sont fermées.</p>
+  {{else if .Valid}}
+    <p>Vous êtes invité·e à rejoindre ce pôle.</p>
+    <form method="post" action="/poles/{{.Pole.ID}}/join"><input type="hidden" name="key" value="{{.Key}}"><button>Rejoindre le pôle</button></form>
+  {{else}}
+    <p class="flash error">Ce lien d'invitation n'est pas valable. Demandez-en un nouveau au responsable du pôle.</p>
+  {{end}}
+  <p><a href="/">← Retour aux pôles</a></p>
+</article>
+{{end}}

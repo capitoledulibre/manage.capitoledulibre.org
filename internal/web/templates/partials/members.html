@@ -1,0 +1,44 @@
+{{define "user_search"}}
+<div id="member-search-results">
+  {{if .Added}}<p class="copy-ok">✓ {{if eq .Added 1}}Personne ajoutée{{else}}{{.Added}} personnes ajoutées{{end}} au pôle.</p>{{end}}
+  {{if .Users}}
+  <ul class="search-results">
+    {{range .Users}}
+    <li>
+      <span><b>{{if .Name}}{{.Name}}{{else}}<i class="muted">sans nom</i>{{end}}</b> <small class="muted">&lt;{{.Email}}&gt;</small></span>
+      <form method="post" action="/manage/poles/{{$.Pole.ID}}/members" hx-post="/manage/poles/{{$.Pole.ID}}/members" hx-target="#member-search-results" hx-swap="outerHTML">
+        <input type="hidden" name="emails" value="{{.Email}}"><input type="hidden" name="q" value="{{$.Q}}">
+        <button class="small">Ajouter</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{else if ge (len .Q) 2}}
+  <p class="hint">Personne ne correspond à « {{.Q}} » parmi les comptes hors du pôle. Utilisez l'e-mail ci-dessous pour inviter une nouvelle personne.</p>
+  {{end}}
+</div>
+{{end}}
+
+{{define "member_added"}}
+{{template "user_search" .}}
+{{template "members_table" .}}
+{{end}}
+
+{{define "members_table"}}
+<div id="members-table" hx-swap-oob="true" style="overflow-x:auto">
+<table class="compact">
+  <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Créneaux</th><th></th></tr></thead>
+  <tbody>
+  {{range .Members}}
+  <tr><td>{{.User.DisplayName}}{{if .IsManager}} <span class="badge">resp.</span>{{end}}</td><td><a href="mailto:{{.User.Email}}">{{.User.Email}}</a></td><td>{{.User.Phone}}</td>
+    <td>{{if eq .SlotCount 0}}<span class="badge warn">0</span>{{else}}{{.SlotCount}}{{end}}</td>
+    <td>{{if not $.Pole.IsDefault}}<form method="post" action="/manage/poles/{{$.Pole.ID}}/members/{{.User.ID}}/delete" onsubmit="return confirm('Retirer {{.User.DisplayName}} du pôle et de ses créneaux ?')"><button class="link danger">retirer</button></form>{{end}}</td></tr>
+  {{else}}<tr><td colspan="5" class="muted">Personne n'a encore rejoint ce pôle.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+
+{{define "user_datalist"}}
+<datalist id="{{.ID}}">{{range .Users}}<option value="{{.Email}}">{{.DisplayName}}</option>{{end}}</datalist>
+{{end}}

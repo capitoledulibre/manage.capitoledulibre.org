@@ -1,0 +1,33 @@
+{{define "title"}}Planning global – {{.Edition.Name}}{{end}}
+{{define "content"}}
+<p><a href="/admin/editions/{{.Edition.ID}}">← {{.Edition.Name}}</a></p>
+<div class="page-header">
+  <div><h1>Planning global</h1><p class="muted">Tous les pôles, tous les créneaux. Chaque case indique les inscrits sur la capacité.</p></div>
+  <div class="filters" style="margin:0">
+    <a href="?" class="{{if not .OnlyShort}}active{{end}}">Tout</a>
+    <a href="?short=1" class="{{if .OnlyShort}}active{{end}}">Incomplets seulement</a>
+  </div>
+</div>
+<p class="legend"><span class="chip ok">complet</span> <span class="chip short">incomplet</span> <span class="chip empty">personne</span></p>
+{{range .Days}}
+<section class="day">
+  <h3><span class="pill">{{parseDay .Day}}</span> <small class="muted">{{.Filled}}/{{.Capacity}} places pourvues</small></h3>
+  <div style="overflow-x:auto">
+  <table class="compact planning">
+    <tbody>
+    {{range .Rows}}
+    <tr class="c{{.Pole.Color}}">
+      <th><a href="/manage/poles/{{.Pole.ID}}">{{.Pole.Name}}</a>{{if .Location}}<small class="muted"> · {{.Location}}</small>{{end}}<br><small class="muted">{{.Filled}}/{{.Capacity}}</small></th>
+      <td>
+        {{range .Slots}}<a href="/manage/slots/{{.ID}}" class="chip {{if .IsFull}}ok{{else if eq .Filled 0}}empty{{else}}short{{end}}" title="{{if .Title}}{{.Title}} · {{end}}{{.Filled}} inscrit(s) sur {{.Capacity}}">{{time .StartsAt}}–{{time .EndsAt}} <b>{{.Filled}}/{{.Capacity}}</b></a>{{end}}
+      </td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</section>
+{{else}}
+<p class="empty">{{if .OnlyShort}}Tous les créneaux sont pourvus.{{else}}Aucun créneau dans cette édition.{{end}}</p>
+{{end}}
+{{end}}

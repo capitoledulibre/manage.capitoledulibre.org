@@ -1,0 +1,7 @@
+{{define "content"}}
+<article class="login-box">
+  <h2>Aucune édition en cours</h2>
+  <p>Les inscriptions ne sont pas encore ouvertes. Revenez un peu plus tard !</p>
+  {{if .User.IsAdmin}}<a href="/admin/editions/new" role="button">Créer une édition</a>{{end}}
+</article>
+{{end}}

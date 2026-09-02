@@ -1,0 +1,26 @@
+{{define "title"}}Comptes – {{.Org}}{{end}}
+{{define "content"}}
+<p><a href="/admin">← Administration</a></p>
+<h1>Comptes ({{len .Users}})</h1>
+<p class="hint">Les comptes sont conservés d'une édition à l'autre. Un administrateur a tous les droits sur toutes les éditions.{{if .Edition}} Pour ajouter quelqu'un à un pôle, passez par l'onglet « Bénévoles » du pôle (<a href="/admin/editions/{{.Edition.ID}}">édition {{.Edition.Name}}</a>).{{end}}</p>
+<input type="search" placeholder="Filtrer…" oninput="for(const r of document.querySelectorAll('tbody tr')) r.hidden = !r.textContent.toLowerCase().includes(this.value.toLowerCase())">
+<div style="overflow-x:auto">
+<table class="compact">
+  <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Pôles{{if .Edition}} ({{.Edition.Name}}){{end}}</th><th>Dernière connexion</th><th>Rôle</th><th></th></tr></thead>
+  <tbody>
+  {{range .Users}}
+  <tr>
+    <td>{{.Name}}</td><td>{{.Email}}</td><td>{{.Phone}}</td>
+    <td><small>{{range $i, $p := index $.UserPoles .ID}}{{if $i}}, {{end}}{{$p}}{{end}}</small></td>
+    <td>{{if .LastLoginAt}}{{date .LastLoginAt}}{{else}}<span class="muted">jamais</span>{{end}}</td>
+    <td>{{if .IsAdmin}}<span class="badge ok">admin</span>{{end}}</td>
+    <td class="actions">
+      <form method="post" action="/admin/users/{{.ID}}/admin" class="inline"><button class="link">{{if .IsAdmin}}retirer admin{{else}}rendre admin{{end}}</button></form>
+      {{if ne .ID $.User.ID}}<form method="post" action="/admin/users/{{.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer le compte {{.Email}} et toutes ses inscriptions ?')"><button class="link danger">supprimer</button></form>{{end}}
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{end}}

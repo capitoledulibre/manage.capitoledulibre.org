@@ -1,0 +1,166 @@
+{{define "title"}}Gérer {{.Pole.Name}} – {{.Org}}{{end}}
+{{define "content"}}
+<p><a href="/poles/{{.Pole.ID}}">← Page publique du pôle</a>{{if .User.IsAdmin}} · <a href="/admin/editions/{{.Edition.ID}}">Tableau de bord de l'édition</a>{{end}}</p>
+<div class="page-header c{{.Pole.Color}}">
+  <div class="page-title">
+    {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
+    <div><h1>{{.Pole.Name}}</h1><p class="muted">{{.Edition.Name}} · <span class="badge">{{status .Edition.Status}}</span> · <span class="badge key">{{mode .Pole.AccessMode}}</span>{{if .Pole.IsDefault}} <span class="badge">pôle par défaut : tous les bénévoles</span>{{end}}</p></div>
+  </div>
+  <a href="/manage/poles/{{.Pole.ID}}/slots/new" role="button" class="small">+ Nouveau créneau</a>
+</div>
+
+<div class="stats">
+  <div><b>{{len .Members}}</b><small>bénévoles inscrits</small></div>
+  <div><b>{{.SlotCount}}</b><small>créneaux</small></div>
+  <div><b>{{.Filled}}<span class="muted" style="font-size:1rem">/{{.Capacity}}</span></b><small>places pourvues</small></div>
+  <div><b style="color:{{if .Short}}var(--warn){{else}}var(--ok){{end}}">{{.Short}}</b><small>créneaux incomplets</small></div>
+</div>
+
+<nav class="tabs">
+  <a href="?tab=planning" class="{{if or (not .Tab) (eq .Tab "planning")}}active{{end}}">Planning</a>
+  <a href="?tab=members" class="{{if eq .Tab "members"}}active{{end}}">Bénévoles</a>
+  <a href="?tab=messages" class="{{if eq .Tab "messages"}}active{{end}}">Messages</a>
+  <a href="?tab=settings" class="{{if eq .Tab "settings"}}active{{end}}">Réglages</a>
+</nav>
+
+{{if or (not .Tab) (eq .Tab "planning")}}
+  {{range .Days}}
+  <section class="day">
+    <h3><span class="pill">{{parseDay .Day}}</span></h3>
+    <div style="overflow-x:auto">
+    <table class="compact">
+      <thead><tr><th>Horaire</th><th>Emplacement</th><th>Intitulé</th><th>Bénévoles</th><th>Inscrits</th><th>Tâches</th><th></th></tr></thead>
+      <tbody>
+      {{range .Slots}}
+      <tr class="{{if not .IsFull}}short{{end}}">
+        <td style="white-space:nowrap"><b>{{time .StartsAt}}</b> – {{time .EndsAt}}</td>
+        <td>{{.LocationName}}</td>
+        <td><a href="/slots/{{.ID}}">{{.Title}}</a></td>
+        <td style="white-space:nowrap"><span class="bar{{if not .IsFull}} short{{end}}{{if eq .Filled 0}} empty{{end}}"><i style="width:{{pct .Filled .Capacity}}%"></i></span> {{.Filled}}/{{.Capacity}}</td>
+        <td><small>{{range $i, $u := index $.Volunteers .ID}}{{if $i}}, {{end}}{{$u.DisplayName}}{{end}}</small></td>
+        <td>{{if .TaskCount}}<span class="badge {{if eq .TaskDone .TaskCount}}ok{{end}}">{{.TaskDone}}/{{.TaskCount}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td><a href="/manage/slots/{{.ID}}">Modifier</a></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    </div>
+  </section>
+  {{else}}
+  <p class="empty">Aucun créneau. <a href="/manage/poles/{{.Pole.ID}}/slots/new">Créez le premier</a> : vous pourrez générer toute une journée de créneaux en une fois, avec leur liste de tâches.</p>
+  {{end}}
+
+{{else if eq .Tab "members"}}
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Ajouter des bénévoles</h3>
+      {{if .CanAddMembers}}
+      <p class="hint">Les personnes sont ajoutées directement au pôle, quel que soit son mode d'accès.</p>
+      <input type="search" name="q" placeholder="Rechercher un bénévole connu : prénom, nom ou e-mail…" autocomplete="off"
+        hx-get="/manage/poles/{{.Pole.ID}}/users" hx-trigger="input changed delay:250ms, search" hx-target="#member-search-results" hx-swap="outerHTML">
+      <div id="member-search-results"></div>
+      <details>
+        <summary class="hint">Inviter des personnes qui n'ont pas encore de compte</summary>
+        <form method="post" action="/manage/poles/{{.Pole.ID}}/members">
+          <textarea name="emails" rows="3" placeholder="Une adresse e-mail par ligne&#10;alice@exemple.org&#10;bob@exemple.org" required></textarea>
+          <button class="small secondary">Ajouter au pôle</button>
+        </form>
+      </details>
+      {{else}}
+      <p class="hint">Ce pôle est <b>restreint</b> : seuls les administrateurs peuvent y ajouter des bénévoles.</p>
+      {{end}}
+    </div>
+    <div class="panel">
+      <h3>Comment rejoindre ce pôle</h3>
+      <p><span class="badge key">{{mode .Pole.AccessMode}}</span> <small class="muted">{{modeHelp .Pole.AccessMode}}</small></p>
+      {{if .Pole.IsPrivate}}
+      <p class="hint">Transmettez ce lien aux bénévoles concernés :</p>
+      <div class="invite">
+        <input type="text" readonly id="invite-url" value="{{.BaseURL}}/poles/{{.Pole.ID}}/join?key={{.Pole.AccessKey}}" onclick="this.select()">
+        <button class="small secondary outline" type="button" onclick="navigator.clipboard.writeText(document.getElementById('invite-url').value).then(()=>{this.textContent='Copié ✓'})">Copier</button>
+      </div>
+      <form method="post" action="/manage/poles/{{.Pole.ID}}/key" onsubmit="return confirm('Générer un nouveau lien ? L\'ancien ne fonctionnera plus.')" style="margin-top:.5rem"><button class="link muted">Régénérer le lien</button></form>
+      {{end}}
+      <p class="hint" style="margin-top:.5rem">Modifiable dans l'onglet Réglages.</p>
+    </div>
+  </div>
+
+  <h3>Responsables</h3>
+  <ul>
+    {{range .Managers}}<li>{{.DisplayName}} <small class="muted">{{.Email}}{{if .Phone}} · {{.Phone}}{{end}}</small>
+      {{if $.User.IsAdmin}}<form method="post" action="/admin/poles/{{$.Pole.ID}}/managers/{{.ID}}/delete" class="inline"><button class="link danger">retirer</button></form>{{end}}</li>
+    {{else}}<li class="muted">Aucun responsable désigné.</li>{{end}}
+  </ul>
+  {{if .User.IsAdmin}}
+  <form method="post" action="/admin/poles/{{.Pole.ID}}/managers" class="actions">
+    <input type="email" name="email" list="all-users" placeholder="e-mail du nouveau responsable" required style="margin:0; max-width:24rem" autocomplete="off">
+    {{template "user_datalist" (dict "ID" "all-users" "Users" .AllUsers)}}
+    <button class="small secondary">Ajouter un responsable</button>
+  </form>
+  {{end}}
+
+  <h3 style="margin-top:1.5rem">Bénévoles du pôle ({{len .Members}})</h3>
+  {{template "members_table" .}}
+
+{{else if eq .Tab "messages"}}
+  <p class="hint">Les messages du pôle s'affichent en haut de la page du pôle pour tous ses bénévoles. Pour un message propre à un créneau, passez par la page de modification du créneau.</p>
+  <form method="post" action="/manage/poles/{{.Pole.ID}}/messages">
+    <textarea name="body" rows="3" placeholder="Ex : rendez-vous 15 minutes avant votre créneau à l'accueil bénévoles, bâtiment U2." required></textarea>
+    <button class="small">Publier</button>
+  </form>
+  {{template "messages" (dict "Messages" .Messages "CanDelete" true "Back" (print "/manage/poles/" .Pole.ID "?tab=messages"))}}
+
+{{else if eq .Tab "settings"}}
+  <div class="grid-2">
+    <form method="post" action="/manage/poles/{{.Pole.ID}}" class="panel">
+      <h3>Le pôle</h3>
+      <div class="grid-2" style="grid-template-columns: 5rem 1fr">
+        <label>Icône<input type="text" name="icon" value="{{.Pole.Icon}}" placeholder="{{.Pole.DisplayIcon}}" maxlength="4" style="text-align:center"></label>
+        <label>Nom<input type="text" name="name" value="{{.Pole.Name}}" required></label>
+      </div>
+      <label>Description <small class="muted">(affichée aux bénévoles)</small><textarea name="description" rows="3">{{.Pole.Description}}</textarea></label>
+      {{if not .Pole.IsDefault}}
+      <fieldset class="modes">
+        <legend>Qui peut rejoindre ce pôle ?</legend>
+        {{range $m := .Modes}}
+        {{if or (ne $m "restricted") $.User.IsAdmin (eq $.Pole.AccessMode "restricted")}}
+        <label><input type="radio" name="access_mode" value="{{$m}}" {{if eq $m $.Pole.AccessMode}}checked{{end}}><span>{{mode $m}}<small>{{modeHelp $m}}</small></span></label>
+        {{end}}
+        {{end}}
+      </fieldset>
+      {{end}}
+      <label>Liste de tâches par défaut <small class="muted">(une par ligne, proposée à chaque nouveau créneau du pôle)</small>
+        <textarea name="default_tasks" rows="4" placeholder="Ouvrir la salle&#10;Vérifier le matériel&#10;Ranger en fin de créneau">{{.Pole.DefaultTasks}}</textarea></label>
+      <label>Gel des inscriptions pour ce pôle <small class="muted">(optionnel, remplace la date de l'édition{{if .Edition.FreezeAt}} : {{datetime .Edition.FreezeAt}}{{end}})</small>
+        <input type="datetime-local" name="freeze_at" value="{{inputDT .Pole.FreezeAt}}"></label>
+      <button class="small">Enregistrer</button>
+    </form>
+    <div>
+    <div class="panel">
+      <h3>Image du pôle</h3>
+      <p class="hint">Remplace l'icône sur les cartes et les pages du pôle. PNG, JPEG, GIF ou WebP, carré de préférence, 2 Mo maximum.</p>
+      <div class="actions">
+        {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
+        <form method="post" action="/manage/poles/{{.Pole.ID}}/image" enctype="multipart/form-data" class="actions">
+          <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required style="margin:0">
+          <button class="small secondary">Envoyer</button>
+        </form>
+        {{if .Pole.Image}}<form method="post" action="/manage/poles/{{.Pole.ID}}/image/delete"><button class="link danger">retirer l'image</button></form>{{end}}
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Emplacements</h3>
+      <p class="hint">Pour subdiviser le calendrier (salles, stands, postes). Facultatif.</p>
+      <ul>
+        {{range .Locations}}<li>{{.Name}} <form method="post" action="/manage/locations/{{.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer cet emplacement ? Ses créneaux seront conservés sans emplacement.')"><button class="link danger">supprimer</button></form></li>
+        {{else}}<li class="muted">Aucun emplacement : les créneaux s'appliquent à tout le pôle.</li>{{end}}
+      </ul>
+      <form method="post" action="/manage/poles/{{.Pole.ID}}/locations">
+        <textarea name="names" rows="3" placeholder="Un emplacement par ligne&#10;Salle A&#10;Salle B" required></textarea>
+        <button class="small secondary">Ajouter</button>
+      </form>
+    </div>
+    </div>
+  </div>
+{{end}}
+{{end}}
