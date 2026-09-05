@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -50,6 +51,9 @@ type Server struct {
 
 	base  *template.Template
 	pages map[string]*template.Template
+
+	// mailWG tracks notifications sent off the request goroutine.
+	mailWG sync.WaitGroup
 }
 
 // M is a convenience alias for template data.

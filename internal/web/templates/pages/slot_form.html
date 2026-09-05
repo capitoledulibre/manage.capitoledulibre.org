@@ -41,7 +41,7 @@
     <h2>Bénévoles inscrits ({{.Slot.Filled}}/{{.Slot.Capacity}})</h2>
     <ul>
       {{range .Volunteers}}<li>{{.DisplayName}} <small class="muted">{{.Email}}{{if .Phone}} · {{.Phone}}{{end}}</small>
-        <form method="post" action="/manage/slots/{{$.Slot.ID}}/volunteers/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} de ce créneau ? La personne reste dans le pôle.')"><button class="link danger">retirer</button></form></li>
+        <form method="post" action="/manage/slots/{{$.Slot.ID}}/volunteers/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} de ce créneau ? La personne sera prévenue par e-mail et reste dans le pôle.')"><button class="link danger">retirer</button></form></li>
       {{else}}<li class="muted">Personne pour l'instant.</li>{{end}}
     </ul>
 
@@ -98,7 +98,7 @@
 </section>
 
 <div class="danger-zone">
-  <form method="post" action="/manage/slots/{{.Slot.ID}}/delete" onsubmit="return confirm('Supprimer ce créneau ? {{if gt .Slot.Filled 1}}{{.Slot.Filled}} inscriptions seront perdues et les bénévoles ne seront pas prévenus.{{else if .Slot.Filled}}1 inscription sera perdue et le bénévole ne sera pas prévenu.{{else}}Aucune inscription ne sera perdue.{{end}}')" class="actions">
+  <form method="post" action="/manage/slots/{{.Slot.ID}}/delete" onsubmit="return confirm('Supprimer ce créneau ? {{if gt .Slot.Filled 1}}Les {{.Slot.Filled}} bénévoles inscrits seront désinscrits et prévenus par e-mail.{{else if .Slot.Filled}}Le bénévole inscrit sera désinscrit et prévenu par e-mail.{{else}}Personne n’est inscrit.{{end}}')" class="actions">
     <span>Supprimer ce créneau{{if .Slot.Filled}} ({{.Slot.Filled}} inscription{{if gt .Slot.Filled 1}}s{{end}} perdue{{if gt .Slot.Filled 1}}s{{end}}){{end}}.</span>
     <button class="small">Supprimer</button>
   </form>

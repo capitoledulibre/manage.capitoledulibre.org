@@ -32,7 +32,7 @@
   {{range .Members}}
   <tr><td>{{.User.DisplayName}}{{if .IsManager}} <span class="badge">resp.</span>{{end}}</td><td><a href="mailto:{{.User.Email}}">{{.User.Email}}</a></td><td>{{.User.Phone}}</td>
     <td>{{if eq .SlotCount 0}}<span class="badge warn" title="aucun créneau choisi">0</span>{{else}}{{.SlotCount}}{{end}}</td>
-    <td>{{if not $.Pole.IsDefault}}<form method="post" action="{{$.Pole.ManageURL}}/members/{{.User.ID}}/delete" onsubmit="return confirm('Retirer {{.User.DisplayName}} du pôle ?{{if gt .SlotCount 1}} Ses {{.SlotCount}} inscriptions sur ce pôle seront annulées et la personne ne sera pas prévenue.{{else if .SlotCount}} Son inscription sur ce pôle sera annulée et la personne ne sera pas prévenue.{{end}}')"><button class="link danger">retirer</button></form>{{end}}</td></tr>
+    <td>{{if not $.Pole.IsDefault}}<form method="post" action="{{$.Pole.ManageURL}}/members/{{.User.ID}}/delete" onsubmit="return confirm('Retirer {{.User.DisplayName}} du pôle ?{{if gt .SlotCount 1}} Ses {{.SlotCount}} inscriptions sur ce pôle seront annulées.{{else if .SlotCount}} Son inscription sur ce pôle sera annulée.{{end}} La personne sera prévenue par e-mail.')"><button class="link danger">retirer</button></form>{{end}}</td></tr>
   {{else}}<tr><td colspan="5" class="muted">Personne n'a encore rejoint ce pôle.</td></tr>{{end}}
   </tbody>
 </table>

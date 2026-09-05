@@ -511,3 +511,23 @@ func (d *DB) ListPoleCoverage(eventID int64) ([]PoleCoverage, error) {
 	}
 	return out, nil
 }
+
+// UserSlotIDsInPole lists the slots of a pole the user is signed up on. It is
+// read before a removal so the notification can state what is being cancelled.
+func (d *DB) UserSlotIDsInPole(poleID, userID int64) ([]int64, error) {
+	rows, err := d.Query(`SELECT s.id FROM signups sg JOIN slots s ON s.id = sg.slot_id
+		WHERE s.pole_id = ? AND sg.user_id = ? ORDER BY s.starts_at`, poleID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}

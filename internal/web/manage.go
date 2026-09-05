@@ -230,11 +230,19 @@ func (s *Server) manageMemberRemove(w http.ResponseWriter, r *http.Request) {
 	}
 	if pole.IsDefault {
 		s.flash(w, "Impossible de retirer quelqu'un du pôle par défaut.")
-	} else if err := s.DB.LeavePole(pole.ID, pathID(r, "uid")); err != nil {
-		s.serverError(w, r, err)
-		return
 	} else {
-		s.flash(w, "Bénévole retiré·e du pôle et de ses créneaux.")
+		// Count the signups before they are cancelled, so the e-mail can say
+		// exactly what the person is losing.
+		u, _ := s.DB.GetUser(pathID(r, "uid"))
+		freed, _ := s.DB.UserSlotIDsInPole(pole.ID, pathID(r, "uid"))
+		if err := s.DB.LeavePole(pole.ID, pathID(r, "uid")); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		if u.ID != 0 {
+			s.notifyPoleRemoved(u, pole, len(freed))
+		}
+		s.flash(w, "Bénévole retiré·e du pôle et de ses créneaux, et prévenu·e par e-mail.")
 	}
 	http.Redirect(w, r, pole.ManageURL()+"?tab=members", http.StatusSeeOther)
 }
@@ -473,11 +481,20 @@ func (s *Server) manageSlotDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Read the volunteers before the cascade removes their signups.
+	volunteers, _ := s.DB.ListSlotVolunteers(slot.ID)
 	if err := s.DB.DeleteSlot(slot.ID); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, "Créneau supprimé.")
+	s.notifySlotDeleted(volunteers, pole, slot)
+	msg := "Créneau supprimé."
+	if n := len(volunteers); n == 1 {
+		msg = "Créneau supprimé. Le bénévole inscrit a été prévenu par e-mail."
+	} else if n > 1 {
+		msg = fmt.Sprintf("Créneau supprimé. Les %d bénévoles inscrits ont été prévenus par e-mail.", n)
+	}
+	s.flash(w, msg)
 	http.Redirect(w, r, pole.ManageURL(), http.StatusSeeOther)
 }
 
@@ -562,7 +579,7 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) manageSlotRemoveVolunteer(w http.ResponseWriter, r *http.Request) {
-	slot, _, _, ok := s.manageSlotContext(w, r, pathID(r, "id"))
+	slot, pole, _, ok := s.manageSlotContext(w, r, pathID(r, "id"))
 	if !ok {
 		return
 	}
@@ -572,7 +589,8 @@ func (s *Server) manageSlotRemoveVolunteer(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if u.ID != 0 {
-		s.flash(w, u.DisplayName()+" a été retiré·e de ce créneau. La personne reste dans le pôle.")
+		s.notifySignupRemoved(u, pole, slot)
+		s.flash(w, u.DisplayName()+" a été retiré·e de ce créneau et prévenu·e par e-mail. La personne reste dans le pôle.")
 	}
 	http.Redirect(w, r, fmt.Sprintf("/manage/slots/%d#volunteers", slot.ID), http.StatusSeeOther)
 }

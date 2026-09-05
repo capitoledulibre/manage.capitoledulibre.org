@@ -78,6 +78,9 @@ func main() {
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			log.Printf("shutdown: %v", err)
 		}
+		// Notifications are sent off the request goroutine; give them a chance
+		// to reach the SMTP server before the process exits.
+		srv.WaitMail()
 
 	case "make-admin":
 		if len(os.Args) < 3 {

@@ -21,16 +21,19 @@ import (
 	"benevoles/internal/db"
 )
 
+// sentMail is one recorded message.
+type sentMail struct{ To, Subject, Body string }
+
 // fakeMailer records sent e-mails.
 type fakeMailer struct {
 	mu    sync.Mutex
-	mails []string
+	mails []sentMail
 }
 
 func (f *fakeMailer) Send(to, subject, body string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.mails = append(f.mails, body)
+	f.mails = append(f.mails, sentMail{To: to, Subject: subject, Body: body})
 	return nil
 }
 
@@ -40,11 +43,33 @@ func (f *fakeMailer) lastLink(t *testing.T) string {
 	if len(f.mails) == 0 {
 		t.Fatal("no e-mail sent")
 	}
-	m := regexp.MustCompile(`https?://\S+/auth/\S+`).FindString(f.mails[len(f.mails)-1])
+	last := f.mails[len(f.mails)-1].Body
+	m := regexp.MustCompile(`https?://\S+/auth/\S+`).FindString(last)
 	if m == "" {
-		t.Fatalf("no login link in e-mail: %q", f.mails[len(f.mails)-1])
+		t.Fatalf("no login link in e-mail: %q", last)
 	}
 	return m
+}
+
+// reset forgets everything recorded so far, so a test can assert on what one
+// specific action sent.
+func (f *fakeMailer) reset() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.mails = nil
+}
+
+// to returns the messages addressed to one recipient.
+func (f *fakeMailer) to(addr string) []sentMail {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []sentMail
+	for _, m := range f.mails {
+		if m.To == addr {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 type env struct {
@@ -52,7 +77,12 @@ type env struct {
 	ts     *httptest.Server
 	db     *db.DB
 	mailer *fakeMailer
+	srv    *Server
 }
+
+// waitMail blocks until the notifications queued by the last action have been
+// attempted; they are sent off the request goroutine on purpose.
+func (e *env) waitMail() { e.srv.WaitMail() }
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
@@ -72,8 +102,8 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	ts := httptest.NewServer(srv.Handler())
-	t.Cleanup(func() { ts.Close(); d.Close() })
-	return &env{t: t, ts: ts, db: d, mailer: mailer}
+	t.Cleanup(func() { ts.Close(); srv.WaitMail(); d.Close() })
+	return &env{t: t, ts: ts, db: d, mailer: mailer, srv: srv}
 }
 
 // client is a browser-like HTTP client with its own cookie jar.
@@ -561,4 +591,52 @@ func TestCalendarSubscription(t *testing.T) {
 		t.Fatal("the calendar secret was not renewed")
 	}
 	want(t, anon.get("/calendar/"+newTok+".ics", 200), "BEGIN:VCALENDAR")
+}
+
+// TestCancellationNotifications: a volunteer must never silently lose a shift.
+func TestCancellationNotifications(t *testing.T) {
+	e := newEnv(t)
+	admin, _, _ := setupEvent(t, e, "3")
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	vol.post("/test-2026/buvette/join", 303, nil)
+	vol.post("/slots/1/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+
+	// Removed from a slot by a manager.
+	e.mailer.reset()
+	admin.post("/manage/slots/1/volunteers/2/delete", 303, nil)
+	e.waitMail()
+	mails := e.mailer.to("vol@example.test")
+	if len(mails) != 1 {
+		t.Fatalf("expected 1 notification, got %d", len(mails))
+	}
+	want(t, mails[0].Subject, "Inscription annulée")
+	want(t, mails[0].Body, "samedi 21 novembre")
+
+	// A second slot, created before any deletion: SQLite reuses a freed
+	// INTEGER PRIMARY KEY, so ids are only stable while nothing is dropped.
+	admin.post("/test-2026/buvette/manage/slots", 303, url.Values{
+		"starts_at": {"2026-11-22T09:00"}, "ends_at": {"2026-11-22T11:00"}, "capacity": {"2"}})
+
+	// The whole slot disappearing.
+	vol.post("/slots/1/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	e.mailer.reset()
+	admin.post("/manage/slots/1/delete", 303, nil)
+	e.waitMail()
+	mails = e.mailer.to("vol@example.test")
+	if len(mails) != 1 {
+		t.Fatalf("expected 1 cancellation notice, got %d", len(mails))
+	}
+	want(t, mails[0].Subject, "Créneau annulé")
+
+	// Removed from the pole, which cancels the slots held there.
+	vol.post("/slots/2/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	e.mailer.reset()
+	admin.post("/test-2026/buvette/manage/members/2/delete", 303, nil)
+	e.waitMail()
+	mails = e.mailer.to("vol@example.test")
+	if len(mails) != 1 {
+		t.Fatalf("expected 1 pole removal notice, got %d", len(mails))
+	}
+	want(t, mails[0].Subject, "Retrait du pôle")
+	want(t, mails[0].Body, "inscription(s) sur les créneaux de ce pôle ont été annulées")
 }
