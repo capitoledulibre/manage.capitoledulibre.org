@@ -1,21 +1,39 @@
 {{define "layout"}}<!doctype html>
-<html lang="fr">
+<!-- data-theme is a static default so the cascade is deterministic even
+     with JavaScript disabled; the inline script below overwrites it. -->
+<html lang="fr" data-theme="light" data-theme-pref="system">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{block "title" .}}{{.Org}}{{end}}</title>
 <script>
-// Apply the saved theme before the first paint: "light" / "dark" set the
-// attribute Pico CSS understands, "system" (default) removes it.
-(function(){try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t)}}catch(e){}})();
+// Resolve the theme before the first paint. "system" is resolved here rather
+// than left to CSS so that data-theme is always set: the stylesheet then needs
+// a single dark palette, and Pico's own prefers-color-scheme block - which is
+// more specific than :root and would otherwise override our brand colours in
+// system dark mode - never applies. data-theme-pref keeps the user's choice
+// for the toggle icon.
+(function(){
+  var pref = "system";
+  try { pref = localStorage.getItem("theme") || "system"; } catch (e) {}
+  if (pref !== "light" && pref !== "dark") { pref = "system"; }
+  var d = document.documentElement, resolved = pref;
+  if (pref === "system") {
+    resolved = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  d.setAttribute("data-theme-pref", pref);
+  d.setAttribute("data-theme", resolved);
+})();
 </script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f5fd6'/%3E%3Cpath d='M9 17l4.5 4.5L23 12' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/static/pico.min.css">
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
-<header class="topbar">
-<nav class="container">
+<a class="skip-link" href="#main">Aller au contenu</a>
+<header class="topbar" id="topbar">
+<nav class="container" aria-label="Navigation principale">
   <ul>
     <li><a href="/" class="brand">{{if .Logo}}<img class="logo-img" src="/uploads/{{.Logo}}" alt="">{{else}}<span class="logo"></span>{{end}}<strong>{{.Org}}</strong></a></li>
   </ul>
@@ -23,21 +41,38 @@
     {{if .User}}
     <li><a href="/" {{if eq .Path "/"}}aria-current="page"{{end}}>Pôles</a></li>
     <li><a href="/me" {{if eq .Path "/me"}}aria-current="page"{{end}}>Mon planning</a></li>
-    <li><a href="/profile" {{if eq .Path "/profile"}}aria-current="page"{{end}}>Profil</a></li>
-    {{if .User.IsAdmin}}<li><a href="/admin" {{if eq .Path "/admin"}}aria-current="page"{{end}}>Admin</a></li>{{end}}
-    <li><form method="post" action="/logout" style="margin:0"><button class="menu">Déconnexion</button></form></li>
+    <li>
+      {{/* Everything that is not primary navigation lives in this menu, which
+           keeps the bar to four targets even on a 320 px screen. */}}
+      <details class="dropdown account">
+        <summary class="menu" aria-label="Mon compte ({{.User.DisplayName}})">
+          <span class="avatar" aria-hidden="true">{{initials .User}}</span>
+          <span class="account-name">{{firstName .User}}</span>
+        </summary>
+        <ul>
+          <li><a href="/profile" {{if eq .Path "/profile"}}aria-current="page"{{end}}>Mon profil</a></li>
+          {{if .User.IsAdmin}}<li aria-hidden="true"><div class="sep"></div></li>
+          <li><a href="/admin" {{if eq .Path "/admin"}}aria-current="page"{{end}}>Administration</a></li>{{end}}
+          <li aria-hidden="true"><div class="sep"></div></li>
+          <li><form method="post" action="/logout"><button class="menu">Déconnexion</button></form></li>
+        </ul>
+      </details>
+    </li>
     {{else}}
     <li><a href="/login">Connexion</a></li>
     {{end}}
     <li><button type="button" class="menu theme-toggle" id="theme-toggle" title="Thème : système" aria-label="Changer de thème">
-      <svg class="icon icon-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
-      <svg class="icon icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-      <svg class="icon icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="icon icon-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
+      <svg class="icon icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="icon icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
     </button></li>
   </ul>
 </nav>
 </header>
-<main class="container">
+<main class="container" id="main">
+  {{/* htmx swaps replace a card in place, which announces nothing and drops
+       the keyboard focus. Handlers push a sentence here out of band. */}}
+  <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
   {{if .Flash}}<div class="flash" role="status">{{.Flash}}</div>{{end}}
   {{if .Error}}<div class="flash error" role="alert">{{.Error}}</div>{{end}}
   {{template "content" .}}
@@ -45,18 +80,63 @@
 <footer class="container footer"><small>{{.Org}} · gestion des bénévoles{{if .SourceURL}} · <a href="{{.SourceURL}}">code source</a>{{end}}</small></footer>
 <script>
 (function(){
-  var order=["system","light","dark"], labels={system:"système",light:"clair",dark:"sombre"};
-  var btn=document.getElementById("theme-toggle"); if(!btn) return;
-  function current(){try{return localStorage.getItem("theme")||"system"}catch(e){return "system"}}
-  function apply(t){
-    if(t==="system"){document.documentElement.removeAttribute("data-theme")}else{document.documentElement.setAttribute("data-theme",t)}
-    btn.title="Thème : "+labels[t]+" (cliquer pour changer)";
+  var root = document.documentElement;
+
+  // --- theme toggle: system -> light -> dark ---
+  var order = ["system","light","dark"], labels = {system:"système", light:"clair", dark:"sombre"};
+  var media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  var btn = document.getElementById("theme-toggle");
+  function current(){ try { return localStorage.getItem("theme") || "system"; } catch (e) { return "system"; } }
+  function apply(pref){
+    root.setAttribute("data-theme-pref", pref);
+    root.setAttribute("data-theme", pref === "system" ? (media && media.matches ? "dark" : "light") : pref);
+    if (btn) { btn.title = "Thème : " + labels[pref] + " (cliquer pour changer)"; }
   }
-  apply(current());
-  btn.addEventListener("click",function(){
-    var next=order[(order.indexOf(current())+1)%order.length];
-    try{localStorage.setItem("theme",next)}catch(e){}
-    apply(next);
+  if (btn) {
+    apply(current());
+    btn.addEventListener("click", function(){
+      var next = order[(order.indexOf(current()) + 1) % order.length];
+      try { localStorage.setItem("theme", next); } catch (e) {}
+      apply(next);
+    });
+  }
+  // Follow the system while "system" is the chosen preference.
+  if (media && media.addEventListener) {
+    media.addEventListener("change", function(){ if (current() === "system") { apply("system"); } });
+  }
+
+  // --- sticky day headers need the real height of the top bar, which changes
+  //     when the bar wraps onto a second line on a narrow screen ---
+  var bar = document.getElementById("topbar");
+  function measure(){ if (bar) { root.style.setProperty("--topbar-h", bar.offsetHeight + "px"); } }
+  measure();
+  window.addEventListener("resize", measure);
+  window.addEventListener("load", measure);
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(measure); }
+
+  // --- close the account menu on outside click or Escape ---
+  document.addEventListener("click", function(e){
+    document.querySelectorAll("details.dropdown[open]").forEach(function(d){
+      if (!d.contains(e.target)) { d.open = false; }
+    });
+  });
+  document.addEventListener("keydown", function(e){
+    if (e.key !== "Escape") { return; }
+    document.querySelectorAll("details.dropdown[open]").forEach(function(d){
+      d.open = false;
+      var s = d.querySelector("summary");
+      if (s) { s.focus(); }
+    });
+  });
+
+  // --- keyboard focus after an htmx swap: put it back on the equivalent
+  //     control of the freshly rendered card instead of losing it to <body> ---
+  document.body.addEventListener("htmx:afterSwap", function(e){
+    var t = e.detail && e.detail.target;
+    if (!t || !t.querySelector) { return; }
+    if (document.activeElement && document.activeElement !== document.body) { return; }
+    var next = t.querySelector("[data-autofocus], .slot-action button, button");
+    if (next) { next.focus({preventScroll: true}); }
   });
 })();
 </script>
