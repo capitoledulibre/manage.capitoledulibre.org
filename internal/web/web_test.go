@@ -329,6 +329,28 @@ func TestFullFlow(t *testing.T) {
 	if !e.db.IsPoleMember(3, 3) {
 		t.Fatal("admin should be able to add a user to a pole from the list")
 	}
+	// Admin registers a volunteer who never signed up, straight into a pole.
+	want(t, admin.get("/admin/users", 200), "Enregistrer un bénévole")
+	admin.post("/admin/users/new", 303, url.Values{"name": {"Zoé Nouvelle"}, "email": {"zoe@example.test"}, "phone": {"0600"}, "pole_id": {"3"}})
+	zoe, err := e.db.GetUserByEmail("zoe@example.test")
+	if err != nil || zoe.Name != "Zoé Nouvelle" || zoe.Phone != "0600" || !e.db.IsPoleMember(3, zoe.ID) {
+		t.Fatalf("volunteer not registered properly: %+v %v", zoe, err)
+	}
+	// Re-registering an existing account never overwrites what the person typed.
+	admin.post("/admin/users/new", 303, url.Values{"name": {"Autre Nom"}, "email": {"vol@example.test"}})
+	if v, _ := e.db.GetUserByEmail("vol@example.test"); v.Name != "Victor Volontaire" {
+		t.Fatal("existing name must be kept")
+	}
+	admin.post("/admin/users/new", 303, url.Values{"name": {"X"}, "email": {"not-an-email"}})
+	// Registered from an event without choosing a pole: attached to the event anyway.
+	admin.post("/admin/users/new", 303, url.Values{"name": {"Sam Sans-Pôle"}, "email": {"sam@example.test"}, "event_id": {"1"}, "pole_id": {"0"}})
+	want(t, admin.get("/admin/events/test-2026/volunteers", 200), "Sam Sans-Pôle")
+	// Managers can add "Name <email>" lines.
+	mgr.post("/test-2026/accueil/manage/members", 303, url.Values{"emails": {"Yann Dupont <yann@example.test>\nplain@example.test"}})
+	if y, _ := e.db.GetUserByEmail("yann@example.test"); y.Name != "Yann Dupont" || !e.db.IsPoleMember(3, y.ID) {
+		t.Fatalf("named member not added: %+v", y)
+	}
+
 	// Slug edit and initials.
 	admin.post("/test-2026/buvette/manage", 303, url.Values{"name": {"Buvette"}, "slug": {"bar"}, "access_mode": {"private"}})
 	want(t, admin.get("/test-2026/bar/manage", 200), "Buvette")
