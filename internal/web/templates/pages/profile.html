@@ -1,18 +1,21 @@
 {{define "title"}}Mon profil – {{.Org}}{{end}}
 {{define "content"}}
 <article class="login-box">
-  <h2>Mon profil</h2>
+  <h1>Mon profil</h1>
   <form method="post" action="/profile">
     <input type="hidden" name="next" value="{{.Next}}">
-    <label>Adresse e-mail<input type="email" value="{{.User.Email}}" disabled></label>
-    <label>Nom et prénom<input type="text" name="name" value="{{.User.Name}}" required autofocus autocomplete="name"></label>
-    <label>Téléphone <small class="muted">(visible des responsables uniquement)</small><input type="tel" name="phone" value="{{.User.Phone}}" autocomplete="tel"></label>
+    <label for="profile-email">Adresse e-mail</label>
+    <input id="profile-email" type="email" value="{{.User.Email}}" disabled>
+    <label for="profile-name">Nom et prénom</label>
+    <input id="profile-name" type="text" name="name" value="{{.User.Name}}" required autofocus autocomplete="name">
+    <label for="profile-phone">Téléphone <small class="muted">(visible des responsables uniquement)</small></label>
+    <input id="profile-phone" type="tel" name="phone" value="{{.User.Phone}}" autocomplete="tel">
     <button type="submit">Enregistrer</button>
   </form>
-  <details>
+  <details class="mt-md">
     <summary class="muted">Supprimer mon compte</summary>
-    <p class="hint">Votre compte et toutes vos inscriptions seront supprimés définitivement.</p>
-    <form method="post" action="/profile/delete" onsubmit="return confirm('Supprimer définitivement votre compte ?')"><button class="secondary outline">Supprimer mon compte</button></form>
+    <p class="hint">Votre compte, vos inscriptions et votre présence dans les pôles seront supprimés définitivement.</p>
+    <form method="post" action="/profile/delete" onsubmit="return confirm('Supprimer définitivement votre compte et toutes vos inscriptions ?')"><button class="secondary outline">Supprimer mon compte</button></form>
   </details>
 </article>
 {{end}}

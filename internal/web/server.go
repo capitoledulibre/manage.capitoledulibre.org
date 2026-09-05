@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"benevoles/internal/config"
 	"benevoles/internal/db"
@@ -114,6 +115,7 @@ func (s *Server) parseTemplates() error {
 			}
 			return strings.Fields(name)[0]
 		},
+		"initials": userInitials,
 		"nl2br": func(s string) template.HTML {
 			return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(s), "\n", "<br>"))
 		},
@@ -125,6 +127,16 @@ func (s *Server) parseTemplates() error {
 			return out
 		},
 		"add": func(a, b int) int { return a + b },
+		// urgent marks a slot that still needs volunteers and starts soon.
+		// Highlighting every not-yet-full slot painted whole plannings amber
+		// on day one, which drowned the signal.
+		"urgent": func(sl db.Slot) bool {
+			if sl.IsFull() {
+				return false
+			}
+			d := time.Until(sl.StartsAt)
+			return d > 0 && d < 48*time.Hour
+		},
 		"dict": func(kv ...any) M {
 			m := M{}
 			for i := 0; i+1 < len(kv); i += 2 {
@@ -303,6 +315,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/users/{id}/admin", s.requireAdmin(s.adminUserToggleAdmin))
 	mux.HandleFunc("POST /admin/users/{id}/delete", s.requireAdmin(s.adminUserDelete))
 	mux.HandleFunc("POST /admin/users/{id}/join", s.requireAdmin(s.adminUserJoinPole))
+	mux.HandleFunc("POST /admin/users/new", s.requireAdmin(s.adminUserCreate))
 
 	// Pretty URLs: /{event} and /{event}/{pole}/... Every other route above has a
 	// literal first segment, so it is more specific and wins over these.
@@ -505,6 +518,13 @@ func (s *Server) popFlash(w http.ResponseWriter, r *http.Request) string {
 
 // --- form helpers -------------------------------------------------------
 
+// safePath tells whether a user-supplied "back"/"next" value can be used as a
+// redirect target. It must be a rooted path on this site: a leading "//"
+// (or "/\") is a protocol-relative URL and would send the visitor off-site.
+func safePath(p string) bool {
+	return strings.HasPrefix(p, "/") && !strings.HasPrefix(p, "//") && !strings.HasPrefix(p, `/\`)
+}
+
 func pathID(r *http.Request, name string) int64 {
 	n, _ := strconv.ParseInt(r.PathValue(name), 10, 64)
 	return n
@@ -551,4 +571,30 @@ func redirect(w http.ResponseWriter, r *http.Request, to string) {
 		return
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
+// userInitials returns one or two uppercase letters for the account menu
+// avatar, derived from the name or, failing that, from the e-mail.
+func userInitials(u *db.User) string {
+	if u == nil {
+		return ""
+	}
+	source := strings.TrimSpace(u.Name)
+	if source == "" {
+		source = strings.SplitN(u.Email, "@", 2)[0]
+		source = strings.NewReplacer(".", " ", "-", " ", "_", " ", "+", " ").Replace(source)
+	}
+	var out []rune
+	for _, word := range strings.Fields(source) {
+		for _, r := range word {
+			if unicode.IsLetter(r) || unicode.IsDigit(r) {
+				out = append(out, unicode.ToUpper(r))
+				break
+			}
+		}
+		if len(out) == 2 {
+			break
+		}
+	}
+	return string(out)
 }

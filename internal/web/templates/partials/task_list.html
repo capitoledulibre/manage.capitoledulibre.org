@@ -1,9 +1,10 @@
 {{define "task_list"}}
+{{if .Announce}}<div id="announcer" class="sr-only" role="status" aria-live="polite" hx-swap-oob="true">{{.Announce}}</div>{{end}}
 <ul class="tasks" id="tasks">
   {{range .Tasks}}
   <li>
     {{if $.CanTick}}
-    <form method="post" action="/tasks/{{.ID}}/toggle" hx-post="/tasks/{{.ID}}/toggle" hx-target="#tasks" hx-swap="outerHTML">
+    <form method="post" action="/tasks/{{.ID}}/toggle" hx-post="/tasks/{{.ID}}/toggle" hx-target="#tasks" hx-swap="outerHTML" hx-indicator="#tasks">
       <label><input type="checkbox" {{if .Done}}checked{{end}} onchange="this.form.requestSubmit()"> <span class="{{if .Done}}done{{end}}">{{.Label}}</span></label>
       {{if .Done}}<small class="muted">fait par {{.DoneBy}} à {{time .DoneAt}}</small>{{end}}
     </form>

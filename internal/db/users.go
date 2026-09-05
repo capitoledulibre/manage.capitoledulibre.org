@@ -90,22 +90,37 @@ func (d *DB) CountAdmins() (int, error) {
 	return n, err
 }
 
-// ListUsers returns all users ordered by name then e-mail.
+// ListUsers returns all users ordered by name then e-mail. Callers rendering
+// a page should prefer SearchUsers, which pages the result.
 func (d *DB) ListUsers() ([]User, error) {
-	rows, err := d.Query(`SELECT ` + userCols + ` FROM users u ORDER BY u.name COLLATE NOCASE, u.email COLLATE NOCASE`)
-	if err != nil {
-		return nil, err
+	return d.queryUsers(`SELECT ` + userCols + ` FROM users u ORDER BY u.name COLLATE NOCASE, u.email COLLATE NOCASE`)
+}
+
+// SearchUsers returns one page of users matching q on the name or the e-mail.
+// An empty q matches everyone.
+func (d *DB) SearchUsers(q string, limit, offset int) ([]User, error) {
+	if q == "" {
+		return d.queryUsers(`SELECT `+userCols+` FROM users u
+			ORDER BY u.name COLLATE NOCASE, u.email COLLATE NOCASE LIMIT ? OFFSET ?`, limit, offset)
 	}
-	defer rows.Close()
-	var out []User
-	for rows.Next() {
-		u, err := scanUser(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, u)
+	pattern := "%" + escapeLike(q) + "%"
+	return d.queryUsers(`SELECT `+userCols+` FROM users u
+		WHERE u.name LIKE ? ESCAPE '\' OR u.email LIKE ? ESCAPE '\'
+		ORDER BY u.name COLLATE NOCASE, u.email COLLATE NOCASE LIMIT ? OFFSET ?`,
+		pattern, pattern, limit, offset)
+}
+
+// CountUsers counts the users SearchUsers would return, ignoring paging.
+func (d *DB) CountUsers(q string) (int, error) {
+	var n int
+	if q == "" {
+		err := d.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&n)
+		return n, err
 	}
-	return out, rows.Err()
+	pattern := "%" + escapeLike(q) + "%"
+	err := d.QueryRow(`SELECT COUNT(*) FROM users u
+		WHERE u.name LIKE ? ESCAPE '\' OR u.email LIKE ? ESCAPE '\'`, pattern, pattern).Scan(&n)
+	return n, err
 }
 
 // DeleteUser removes a user and everything attached to it.
@@ -221,3 +236,24 @@ func escapeLike(s string) string {
 	s = strings.ReplaceAll(s, `%`, `\%`)
 	return strings.ReplaceAll(s, `_`, `\_`)
 }
+
+// EnsureVolunteer returns the user with this e-mail, creating it if needed,
+// and fills in the name and phone when they are still empty. Existing values
+// entered by the volunteer are never overwritten.
+func (d *DB) EnsureVolunteer(email, name, phone string) (User, error) {
+	u, err := d.GetOrCreateUser(email)
+	if err != nil {
+		return u, err
+	}
+	if u.Name == "" && name != "" {
+		u.Name = name
+	}
+	if u.Phone == "" && phone != "" {
+		u.Phone = phone
+	}
+	if err := d.UpdateProfile(u.ID, u.Name, u.Phone); err != nil {
+		return u, err
+	}
+	return u, nil
+}
+

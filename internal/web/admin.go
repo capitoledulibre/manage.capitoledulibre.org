@@ -4,7 +4,10 @@ import (
 	"encoding/csv"
 	"fmt"
 	"net/http"
+	"net/mail"
+	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -147,7 +150,7 @@ func (s *Server) adminEventDuplicate(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	startsOn, endsOn := r.FormValue("starts_on"), r.FormValue("ends_on")
 	if name == "" || startsOn == "" || endsOn == "" || endsOn < startsOn {
-		s.flash(w, "Indiquez un nom et des dates valides pour la nouvel événement.")
+		s.flash(w, "Indiquez un nom et des dates valides pour le nouvel événement.")
 		http.Redirect(w, r, src.AdminURL()+"?tab=settings", http.StatusSeeOther)
 		return
 	}
@@ -409,13 +412,42 @@ func (s *Server) adminVolunteersCSV(w http.ResponseWriter, r *http.Request) {
 
 // --- users --------------------------------------------------------------
 
+// usersPerPage bounds the account list. Accounts are kept from one event to
+// the next, so the table grows for ever and used to be rendered whole and
+// filtered in the browser.
+const usersPerPage = 50
+
 func (s *Server) adminUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := s.DB.ListUsers()
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	page := formInt(r, "page", 1)
+	if page < 1 {
+		page = 1
+	}
+	total, err := s.DB.CountUsers(q)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	data := M{"Users": users}
+	offset := (page - 1) * usersPerPage
+	if offset > total {
+		page, offset = 1, 0
+	}
+	users, err := s.DB.SearchUsers(q, usersPerPage, offset)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	// Row actions redirect back to the exact list the administrator was
+	// looking at, search and page included.
+	back := "/admin/users"
+	if q != "" || page > 1 {
+		back += "?" + url.Values{"q": {q}, "page": {strconv.Itoa(page)}}.Encode()
+	}
+	data := M{
+		"Users": users, "Q": q, "Page": page, "Total": total, "Back": back,
+		"From": offset + 1, "To": offset + len(users),
+		"HasPrev": page > 1, "HasNext": offset+len(users) < total,
+	}
 	if ev, err := s.currentEvent(currentUser(r)); err == nil {
 		data["Event"] = ev
 		data["UserPoles"], _ = s.DB.UserPoles(ev.ID)
@@ -432,8 +464,8 @@ func (s *Server) adminUserToggleAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	if u.IsAdmin {
 		if n, _ := s.DB.CountAdmins(); n <= 1 {
-			s.flash(w, "Impossible de retirer le dernier administrateur.")
-			http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
+			s.flash(w, "Impossible de retirer le dernier administrateur : désignez-en un autre d'abord.")
+			http.Redirect(w, r, usersBack(r), http.StatusSeeOther)
 			return
 		}
 	}
@@ -441,7 +473,20 @@ func (s *Server) adminUserToggleAdmin(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
+	if u.IsAdmin {
+		s.flash(w, "Droits d'administration retirés à "+u.DisplayName()+".")
+	} else {
+		s.flash(w, u.DisplayName()+" est maintenant administrateur·rice : accès à tous les événements et à tous les comptes.")
+	}
+	http.Redirect(w, r, usersBack(r), http.StatusSeeOther)
+}
+
+// usersBack keeps the search and the page the administrator was looking at.
+func usersBack(r *http.Request) string {
+	if back := r.FormValue("back"); safePath(back) && strings.HasPrefix(back, "/admin/users") {
+		return back
+	}
+	return "/admin/users"
 }
 
 func (s *Server) adminUserDelete(w http.ResponseWriter, r *http.Request) {
@@ -452,15 +497,15 @@ func (s *Server) adminUserDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	if u.ID == currentUser(r).ID {
 		s.flash(w, "Vous ne pouvez pas supprimer votre propre compte depuis cette page.")
-		http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
+		http.Redirect(w, r, usersBack(r), http.StatusSeeOther)
 		return
 	}
 	if err := s.DB.DeleteUser(u.ID); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, "Compte supprimé.")
-	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
+	s.flash(w, "Compte de "+u.DisplayName()+" supprimé.")
+	http.Redirect(w, r, usersBack(r), http.StatusSeeOther)
 }
 
 // adminUserJoinPole adds a user to a pole from the user lists, bypassing the access mode.
@@ -481,8 +526,64 @@ func (s *Server) adminUserJoinPole(w http.ResponseWriter, r *http.Request) {
 	}
 	s.flash(w, u.DisplayName()+" a été ajouté·e au pôle « "+pole.Name+" ».")
 	back := r.FormValue("back")
-	if back == "" || !strings.HasPrefix(back, "/") {
+	if !safePath(back) {
 		back = "/admin/users"
 	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// adminUserCreate registers a volunteer on their behalf (no self sign-up
+// needed) and optionally puts them in a pole.
+func (s *Server) adminUserCreate(w http.ResponseWriter, r *http.Request) {
+	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	back := r.FormValue("back")
+	if !safePath(back) {
+		back = "/admin/users"
+	}
+	if addr, err := mail.ParseAddress(email); err != nil || addr.Address != email {
+		s.flash(w, "Adresse e-mail invalide.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	u, err := s.DB.EnsureVolunteer(email, strings.TrimSpace(r.FormValue("name")), strings.TrimSpace(r.FormValue("phone")))
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	msg := u.DisplayName() + " est enregistré·e"
+	switch poleID, eventID := formInt64(r, "pole_id"), formInt64(r, "event_id"); {
+	case poleID != 0:
+		pole, err := s.DB.GetPole(poleID)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		if err := s.DB.JoinPole(pole.ID, u.ID); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		msg += " et ajouté·e au pôle « " + pole.Name + " »"
+	case eventID != 0:
+		// No pole chosen: still attach the person to the event through its
+		// default pole so they show up in the event's volunteer list.
+		ev, err := s.DB.GetEvent(eventID)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		def, err := s.DB.DefaultPole(ev.ID)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		if err := s.DB.JoinPole(def.ID, u.ID); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		msg += " comme bénévole de « " + ev.Name + " », sans pôle pour l'instant"
+	default:
+		msg += ". Sans événement ni pôle, la personne n'apparaît que dans Admin → Comptes"
+	}
+	s.flash(w, msg+". Elle se connectera simplement avec son adresse e-mail.")
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }

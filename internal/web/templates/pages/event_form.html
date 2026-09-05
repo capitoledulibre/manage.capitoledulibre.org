@@ -1,16 +1,17 @@
 {{define "title"}}Nouvel événement – {{.Org}}{{end}}
 {{define "content"}}
-<p><a href="/admin">← Administration</a></p>
+<p class="breadcrumb"><a href="/admin">← Administration</a></p>
 <h1>Nouvel événement</h1>
-<form method="post" action="/admin/events" style="max-width:36rem">
-  <label>Nom<input type="text" name="name" value="{{.Event.Name}}" required placeholder="Example Conf 2026"></label>
+<form method="post" action="/admin/events" class="narrow">
+  <label for="ev-name">Nom</label>
+  <input id="ev-name" type="text" name="name" value="{{.Event.Name}}" required placeholder="Example Conf 2026">
   <div class="grid-2">
-    <label>Premier jour<input type="date" name="starts_on" value="{{.Event.StartsOn}}" required></label>
-    <label>Dernier jour<input type="date" name="ends_on" value="{{.Event.EndsOn}}" required></label>
+    <div><label for="ev-start">Premier jour</label><input id="ev-start" type="date" name="starts_on" value="{{.Event.StartsOn}}" required></div>
+    <div><label for="ev-end">Dernier jour</label><input id="ev-end" type="date" name="ends_on" value="{{.Event.EndsOn}}" required></div>
   </div>
-  <label>Gel des inscriptions <small class="muted">(optionnel : après cette date, les bénévoles ne modifient plus leurs créneaux)</small>
-    <input type="datetime-local" name="freeze_at"></label>
+  <label for="ev-freeze">Gel des inscriptions <small class="muted">(optionnel : après cette date, les bénévoles ne modifient plus leurs créneaux)</small></label>
+  <input id="ev-freeze" type="datetime-local" name="freeze_at">
   <p class="hint">L'événement est créé en brouillon : les responsables préparent les créneaux, puis vous ouvrez les inscriptions depuis son tableau de bord.</p>
-  <button class="small">Créer l'événement</button>
+  <button type="submit" class="primary-action">Créer l'événement</button>
 </form>
 {{end}}

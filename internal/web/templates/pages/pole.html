@@ -1,6 +1,6 @@
 {{define "title"}}{{.Pole.Name}} – {{.Org}}{{end}}
 {{define "content"}}
-<p><a href="/">← Tous les pôles</a></p>
+<p class="breadcrumb"><a href="/">← Tous les pôles</a></p>
 <div class="page-header c{{.Pole.Color}}">
   <div class="page-title">
     {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
@@ -17,8 +17,9 @@
 
 {{if not .Member}}
 <article>
-  <h3>Vous n'êtes pas encore dans ce pôle</h3>
+  <h2>Vous n'êtes pas encore dans ce pôle</h2>
   {{if .Pole.IsOpen}}
+  <p>Rejoignez-le pour vous inscrire sur les créneaux ci-dessous. Vous pourrez le quitter à tout moment.</p>
   <form method="post" action="{{.Pole.URL}}/join"><button>Rejoindre ce pôle</button></form>
   {{else if .Pole.IsPrivate}}
   <p>Ce pôle se rejoint via un lien d'invitation : demandez-le au responsable.</p>
@@ -30,25 +31,25 @@
 <div class="stats">
   <div><b>{{.Mine}}</b><small>mes créneaux ici</small></div>
   <div><b>{{.Total}}</b><small>créneaux</small></div>
-  <div><b style="color:{{if .Missing}}var(--warn){{else}}var(--ok){{end}}">{{.Missing}}</b><small>bénévoles manquants</small></div>
+  <div><b class="{{if .Missing}}txt-warn{{else}}txt-ok{{end}}">{{.Missing}}</b><small>bénévoles manquants</small></div>
 </div>
-{{if .Locked}}<div class="flash error">Le planning est gelé : les inscriptions ne peuvent plus être modifiées. Contactez un responsable si besoin.</div>{{end}}
+{{if .Locked}}<div class="flash error" role="alert">Le planning est gelé : les inscriptions ne peuvent plus être modifiées. Contactez un responsable si besoin.</div>{{end}}
 {{end}}
 
 {{if or .Locations (gt .Total 0)}}
-<div class="filters">
+<nav class="filters" aria-label="Filtrer les créneaux">
   {{if .Locations}}
-  <a href="{{.Pole.URL}}{{if .OnlyOpen}}?open=1{{end}}" class="{{if not .Filter}}active{{end}}">Tout</a>
-  {{range .Locations}}<a href="{{$.Pole.URL}}?location={{.ID}}{{if $.OnlyOpen}}&open=1{{end}}" class="{{if eq .ID $.Filter}}active{{end}}">{{.Name}}</a>{{end}}
-  <span class="muted">·</span>
+  <a href="{{.Pole.URL}}{{if .OnlyOpen}}?open=1{{end}}" class="{{if not .Filter}}active{{end}}"{{if not .Filter}} aria-current="true"{{end}}>Tous les emplacements</a>
+  {{range .Locations}}<a href="{{$.Pole.URL}}?location={{.ID}}{{if $.OnlyOpen}}&open=1{{end}}" class="{{if eq .ID $.Filter}}active{{end}}"{{if eq .ID $.Filter}} aria-current="true"{{end}}>{{.Name}}</a>{{end}}
+  <span class="muted" aria-hidden="true">·</span>
   {{end}}
-  <a href="{{.Pole.URL}}?{{if .Filter}}location={{.Filter}}&{{end}}{{if not .OnlyOpen}}open=1{{end}}" class="{{if .OnlyOpen}}active{{end}}">À pourvoir seulement</a>
-</div>
+  <a href="{{.Pole.URL}}?{{if .Filter}}location={{.Filter}}&{{end}}{{if not .OnlyOpen}}open=1{{end}}" class="{{if .OnlyOpen}}active{{end}}"{{if .OnlyOpen}} aria-current="true"{{end}}>À pourvoir seulement</a>
+</nav>
 {{end}}
 
 {{range .Days}}
 <section class="day">
-  <h3><span class="pill">{{parseDay .Day}}</span></h3>
+  <h2><span class="pill">{{parseDay .Day}}</span></h2>
   {{range .Slots}}{{template "slot_card" (dict "Slot" . "Pole" $.Pole "Member" $.Member "Locked" $.Locked "Back" $.Path)}}{{end}}
 </section>
 {{else}}
@@ -56,9 +57,9 @@
 {{end}}
 
 {{if and .Member (not .Pole.IsDefault) (not .Locked)}}
-<details style="margin-top:2rem">
+<details class="mt-lg">
   <summary class="muted">Quitter ce pôle</summary>
-  <p class="hint">Vous serez désinscrit·e de tous les créneaux de ce pôle.</p>
+  <p class="hint">Vous serez désinscrit·e de tous les créneaux de ce pôle{{if .Mine}} ({{.Mine}} pour l'instant){{end}}.</p>
   <form method="post" action="{{.Pole.URL}}/leave" onsubmit="return confirm('Quitter ce pôle et annuler vos créneaux ?')"><button class="secondary outline">Quitter le pôle</button></form>
 </details>
 {{end}}

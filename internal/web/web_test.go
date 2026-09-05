@@ -395,3 +395,111 @@ func TestUploads(t *testing.T) {
 	vol.upload("/ed/buvette/manage/image", "image", tinyPNG(t), 403)
 	vol.upload("/admin/logo", "logo", tinyPNG(t), 403)
 }
+
+// TestPagesRender walks the pages the main flow does not visit and checks the
+// markup added for accessibility and for the sign-up journey: the login page
+// naming its destination, the labelled form controls, the paged account list
+// and the live region used by the htmx swaps.
+func TestPagesRender(t *testing.T) {
+	e := newEnv(t)
+
+	// Anonymous: the login page names the event once one is open, and names
+	// the pole when the visitor arrives through an invitation link.
+	anon := e.client()
+	want(t, anon.get("/login", 200), "Espace bénévoles")
+	want(t, anon.get("/login", 200), `<label for="login-email">`)
+	want(t, anon.get("/login", 200), `class="skip-link"`)
+
+	admin := e.login("admin@example.test", "Admine")
+	e.db.SetAdmin(1, true)
+	want(t, admin.get("/", 200), "Aucun événement en cours")
+	admin.post("/admin/events", 303, url.Values{
+		"name": {"Test 2026"}, "starts_on": {"2026-11-21"}, "ends_on": {"2026-11-22"}})
+	admin.post("/admin/events/test-2026", 303, url.Values{
+		"name": {"Test 2026"}, "slug": {"test-2026"}, "starts_on": {"2026-11-21"},
+		"ends_on": {"2026-11-22"}, "status": {"open"}})
+	admin.post("/admin/events/test-2026/poles", 303, url.Values{
+		"name": {"Buvette"}, "access_mode": {"private"}})
+
+	pole, err := e.db.GetPoleBySlug("test-2026", "buvette")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The invitation link goes through the login wall: the destination has to
+	// survive it and be shown, otherwise the volunteer's first screen is a
+	// bare form with no context.
+	invite := "/test-2026/buvette/join?key=" + pole.AccessKey
+	loginWithNext := anon.get("/login?next="+url.QueryEscape(invite), 200)
+	want(t, loginWithNext, "invité·e à rejoindre le pôle")
+	want(t, loginWithNext, "Buvette")
+
+	// Account list: paged, searched server-side, with the confirmation on the
+	// administrator toggle. A second account is needed: the row of the signed-in
+	// administrator hides the destructive actions.
+	e.login("vol@example.test", "Victor Bénévole")
+	users := admin.get("/admin/users", 200)
+	want(t, users, `role="search"`)
+	want(t, users, "rendre admin")
+	want(t, users, "droits d’administration")
+	want(t, admin.get("/admin/users?q=zzzz", 200), "Aucun compte ne correspond")
+	want(t, admin.get("/admin/users?q=admin", 200), "admin@example.test")
+
+	// Volunteer journey: the slot card carries the sign-up control, and the
+	// htmx response carries the live-region update.
+	admin.post("/test-2026/buvette/manage/slots", 303, url.Values{
+		"starts_at": {"2026-11-21T09:00"}, "ends_at": {"2026-11-21T12:00"}, "capacity": {"2"}})
+	admin.post("/test-2026/buvette/join", 303, url.Values{"key": {pole.AccessKey}})
+	card := admin.get("/test-2026/buvette", 200)
+	want(t, card, "Je m'inscris")
+	want(t, card, `aria-label="Filtrer les créneaux"`)
+
+	hx := e.client()
+	hx.hx = true
+	hx.http.Jar = admin.http.Jar
+	frag := hx.post("/slots/1/signup", 200, url.Values{"back": {"/test-2026/buvette"}})
+	want(t, frag, `id="announcer"`)
+	want(t, frag, "Inscription enregistrée")
+	want(t, frag, "Me désinscrire")
+	frag = hx.post("/slots/1/unsignup", 200, url.Values{"back": {"/test-2026/buvette"}})
+	want(t, frag, "Désinscription enregistrée")
+	want(t, frag, "Je m'inscris")
+
+	// Manager screens not covered elsewhere.
+	want(t, admin.get("/manage/slots/1", 200), "Inscrire quelqu'un qui n'a pas encore de compte")
+	want(t, admin.get("/test-2026/buvette/manage?tab=settings", 200), `for="p-name"`)
+	want(t, admin.get("/test-2026/buvette/manage?tab=members", 200), "invite-url")
+	want(t, admin.get("/admin/events/test-2026/volunteers", 200), `for="vol-filter"`)
+	want(t, admin.get("/admin/events/new", 200), `for="ev-name"`)
+	want(t, admin.get("/profile", 200), `for="profile-name"`)
+
+	// An e-mail is still the way to put someone with no account on a slot,
+	// but it is now an explicit, separate intent.
+	admin.post("/manage/slots/1/volunteers", 303, url.Values{
+		"email": {"newbie@example.test"}, "name": {"Nouvelle Recrue"}})
+	want(t, admin.get("/manage/slots/1", 200), "newbie@example.test")
+	// A name typed into the e-mail field no longer creates an account.
+	admin.post("/manage/slots/1/volunteers", 303, url.Values{"email": {"Nouvelle Recrue"}})
+	if _, err := e.db.GetUserByEmail("nouvelle recrue"); err == nil {
+		t.Fatal("a non-address was accepted as an e-mail and created an account")
+	}
+}
+
+func TestSafePath(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want bool
+	}{
+		{"/", true},
+		{"/example-2026/buvette", true},
+		{"/admin/users?q=a&page=2", true},
+		{"", false},
+		{"relative", false},
+		{"//evil.example", false}, // protocol-relative: off-site
+		{`/\evil.example`, false}, // some browsers treat this as "//"
+		{"https://evil.example", false},
+	} {
+		if got := safePath(tc.in); got != tc.want {
+			t.Errorf("safePath(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}

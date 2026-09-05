@@ -1,0 +1,20 @@
+{{define "new_volunteer"}}
+<details class="panel" {{if .Open}}open{{end}}>
+  <summary><b>Enregistrer un bénévole</b> <small class="muted">— sans qu'il ait à s'inscrire lui-même</small></summary>
+  <form method="post" action="/admin/users/new" class="mt-md">
+    <input type="hidden" name="back" value="{{.Back}}">
+    {{if .Event}}<input type="hidden" name="event_id" value="{{.Event.ID}}">{{end}}
+    <div class="grid-2">
+      <div><label for="nv-name">Nom et prénom</label><input id="nv-name" type="text" name="name" required autocomplete="off"></div>
+      <div><label for="nv-email">E-mail</label><input id="nv-email" type="email" name="email" required autocomplete="off" placeholder="alice@exemple.org"></div>
+    </div>
+    <div class="grid-2">
+      <div><label for="nv-phone">Téléphone <small class="muted">(optionnel)</small></label><input id="nv-phone" type="tel" name="phone" autocomplete="off"></div>
+      <div><label for="nv-pole">Pôle <small class="muted">(optionnel)</small></label>
+        <select id="nv-pole" name="pole_id"><option value="0">{{if .Event}}— aucun pour l'instant ({{.Event.Name}} seulement) —{{else}}— aucun —{{end}}</option>{{range .Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></div>
+    </div>
+    <button type="submit" class="primary-action">Enregistrer le bénévole</button>
+    <p class="hint">Un compte est créé avec ces informations. La personne se connectera avec son adresse e-mail, comme tout le monde. Si le compte existe déjà, il est simplement complété.</p>
+  </form>
+</details>
+{{end}}

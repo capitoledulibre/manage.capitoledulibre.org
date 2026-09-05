@@ -1,4 +1,7 @@
 {{define "slot_card"}}
+{{/* Announce the outcome of an htmx swap: the card is replaced in place, so
+     without this nothing is spoken and the flash message never appears. */}}
+{{if .Announce}}<div id="announcer" class="sr-only" role="status" aria-live="polite" hx-swap-oob="true">{{.Announce}}</div>{{end}}
 <article class="slot c{{.Pole.Color}}{{if .Slot.Mine}} mine{{else if .Slot.IsFull}} full{{end}}" id="slot-{{.Slot.ID}}">
   <div class="slot-row">
     <div class="slot-time">{{time .Slot.StartsAt}}<span class="dash">–</span>{{time .Slot.EndsAt}}</div>
@@ -7,29 +10,54 @@
       {{if .Slot.LocationName}}<span class="badge">{{.Slot.LocationName}}</span>{{end}}
       {{if .Slot.TaskCount}}<span class="slot-meta">{{.Slot.TaskDone}}/{{.Slot.TaskCount}} tâche{{if gt .Slot.TaskCount 1}}s{{end}}</span>{{end}}
     </div>
-    <div class="slot-fill" title="{{.Slot.Filled}} inscrit(s) sur {{.Slot.Capacity}}">
-      {{if le .Slot.Capacity 10}}<span class="dots">{{range seq .Slot.Capacity}}<i class="{{if le . $.Slot.Filled}}on{{end}}"></i>{{end}}</span>
-      {{else}}<span class="bar"><i style="width:{{pct .Slot.Filled .Slot.Capacity}}%"></i></span>{{end}}
-      <small>{{.Slot.Filled}}/{{.Slot.Capacity}}</small>
+    <div class="slot-fill">
+      {{if le .Slot.Capacity 10}}<span class="dots" aria-hidden="true">{{range seq .Slot.Capacity}}<i class="{{if le . $.Slot.Filled}}on{{end}}"></i>{{end}}</span>
+      {{else}}<span class="bar" aria-hidden="true"><i style="width:{{pct .Slot.Filled .Slot.Capacity}}%"></i></span>{{end}}
+      <small>{{.Slot.Filled}}/{{.Slot.Capacity}}<span class="sr-only"> {{if gt .Slot.Filled 1}}bénévoles inscrit·es{{else}}bénévole inscrit·e{{end}} sur {{.Slot.Capacity}} souhaité{{if gt .Slot.Capacity 1}}s{{end}}</span></small>
     </div>
     <div class="slot-action">
       {{if .Slot.Mine}}
-        {{if .Locked}}<span class="badge ok">✓ Inscrit·e</span>
-        {{else}}<form method="post" action="/slots/{{.Slot.ID}}/unsignup" hx-post="/slots/{{.Slot.ID}}/unsignup" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"><input type="hidden" name="back" value="{{.Back}}"><button class="secondary outline">✓ Inscrit·e · annuler</button></form>{{end}}
+        <span class="badge ok">✓ Inscrit·e</span>
+        {{if not .Locked}}
+        {{/* State and action are two separate things: one button carrying both
+             read as a status pill and was ambiguous to screen readers. */}}
+        <form method="post" action="/slots/{{.Slot.ID}}/unsignup"
+              hx-post="/slots/{{.Slot.ID}}/unsignup" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"
+              hx-indicator="#slot-{{.Slot.ID}}" hx-disabled-elt="find button">
+          <input type="hidden" name="back" value="{{.Back}}">
+          <button class="secondary outline" data-autofocus>Me désinscrire<span class="spinner" aria-hidden="true"></span></button>
+        </form>
+        {{end}}
       {{else if .Locked}}<small class="muted">Planning gelé</small>
-      {{else if not .Member}}<small class="muted">Rejoignez le pôle</small>
+      {{else if not .Member}}
+        {{if .Pole.IsOpen}}
+        {{/* A dead "Rejoignez le pôle" label left the volunteer to find the
+             join button on their own; the action is offered right here. */}}
+        <form method="post" action="{{.Pole.URL}}/join">
+          <button class="secondary outline">Rejoindre le pôle pour m'inscrire</button>
+        </form>
+        {{else}}<small class="muted">Rejoignez le pôle</small>{{end}}
       {{else if .Slot.IsFull}}<span class="badge">Complet</span>
-      {{else}}<form method="post" action="/slots/{{.Slot.ID}}/signup" hx-post="/slots/{{.Slot.ID}}/signup" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"><input type="hidden" name="back" value="{{.Back}}"><button>Je m'inscris</button></form>{{end}}
+      {{else}}
+        <form method="post" action="/slots/{{.Slot.ID}}/signup"
+              hx-post="/slots/{{.Slot.ID}}/signup" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"
+              hx-indicator="#slot-{{.Slot.ID}}" hx-disabled-elt="find button">
+          <input type="hidden" name="back" value="{{.Back}}">
+          <button data-autofocus>Je m'inscris<span class="spinner" aria-hidden="true"></span></button>
+        </form>
+      {{end}}
     </div>
   </div>
-  {{if .Error}}<p class="slot-note error">{{.Error}}</p>{{end}}
+  {{if .Error}}<p class="slot-note error" role="alert">{{.Error}}</p>{{end}}
   {{if .Overlaps}}
-  <div class="slot-note warn">
+  <div class="slot-note warn" role="alert">
     <p>Ce créneau chevauche un autre de vos créneaux :
       {{range .Overlaps}}<b>{{.PoleName}}{{if .Title}} – {{.Title}}{{end}} ({{time .StartsAt}}–{{time .EndsAt}})</b> {{end}}</p>
-    <form method="post" action="/slots/{{.Slot.ID}}/signup" hx-post="/slots/{{.Slot.ID}}/signup" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML">
+    <form method="post" action="/slots/{{.Slot.ID}}/signup"
+          hx-post="/slots/{{.Slot.ID}}/signup" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"
+          hx-indicator="#slot-{{.Slot.ID}}" hx-disabled-elt="find button">
       <input type="hidden" name="force" value="1"><input type="hidden" name="back" value="{{.Back}}">
-      <button class="outline">M'inscrire quand même</button>
+      <button class="outline" data-autofocus>M'inscrire quand même<span class="spinner" aria-hidden="true"></span></button>
       <a href="{{.Back}}" role="button" class="secondary outline" hx-get="{{.Back}}" hx-select="#slot-{{.Slot.ID}}" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML">Annuler</a>
     </form>
   </div>

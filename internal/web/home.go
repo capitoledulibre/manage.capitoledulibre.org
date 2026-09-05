@@ -205,7 +205,7 @@ func (s *Server) profileSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	s.flash(w, "Profil enregistré.")
 	next := r.FormValue("next")
-	if next == "" || !strings.HasPrefix(next, "/") {
+	if !safePath(next) {
 		next = "/"
 	}
 	http.Redirect(w, r, next, http.StatusSeeOther)

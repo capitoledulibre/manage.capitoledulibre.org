@@ -3,6 +3,8 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"net/mail"
+	"net/url"
 	"strings"
 	"time"
 
@@ -183,12 +185,13 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	added := 0
-	for _, raw := range strings.FieldsFunc(r.FormValue("emails"), func(c rune) bool { return c == '\n' || c == ',' || c == ';' || c == ' ' }) {
-		email := strings.ToLower(strings.TrimSpace(raw))
-		if !strings.Contains(email, "@") {
+	for _, raw := range strings.FieldsFunc(r.FormValue("emails"), func(c rune) bool { return c == '\n' || c == ',' || c == ';' }) {
+		// Accept "Prénom Nom <adresse>" as well as a bare address.
+		addr, err := mail.ParseAddress(strings.TrimSpace(raw))
+		if err != nil {
 			continue
 		}
-		u, err := s.DB.GetOrCreateUser(email)
+		u, err := s.DB.EnsureVolunteer(strings.ToLower(addr.Address), addr.Name, "")
 		if err != nil {
 			s.serverError(w, r, err)
 			return
@@ -215,7 +218,7 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) {
 	} else if added == 1 {
 		s.flash(w, "Bénévole ajouté·e au pôle.")
 	} else {
-		s.flash(w, fmt.Sprintf("%d bénévoles ajoutés au pôle.", added))
+		s.flash(w, fmt.Sprintf("%d bénévoles ajouté·es au pôle.", added))
 	}
 	http.Redirect(w, r, pole.ManageURL()+"?tab=members", http.StatusSeeOther)
 }
@@ -321,7 +324,7 @@ func (s *Server) manageMessageDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	back := r.FormValue("back")
-	if back == "" || !strings.HasPrefix(back, "/") {
+	if !safePath(back) {
 		back = "/"
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
@@ -423,9 +426,21 @@ func (s *Server) manageSlotEdit(w http.ResponseWriter, r *http.Request) {
 	volunteers, _ := s.DB.ListSlotVolunteers(slot.ID)
 	msgs, _ := s.DB.ListSlotMessages(slot.ID)
 	members, _ := s.DB.ListPoleMembers(pole.ID)
+	// Only offer people who are not on the slot already.
+	onSlot := map[int64]bool{}
+	for _, v := range volunteers {
+		onSlot[v.ID] = true
+	}
+	var available []db.PoleMember
+	for _, m := range members {
+		if !onSlot[m.User.ID] {
+			available = append(available, m)
+		}
+	}
 	s.render(w, r, "slot_form", M{
 		"Pole": pole, "Event": ed, "Locations": locations, "Slot": slot,
-		"TaskList": tasks, "Volunteers": volunteers, "Messages": msgs, "Members": members,
+		"TaskList": tasks, "Volunteers": volunteers, "Messages": msgs,
+		"Members": members, "Available": available,
 		"Error": r.URL.Query().Get("error"),
 	})
 }
@@ -502,20 +517,37 @@ func (s *Server) manageTaskDelete(w http.ResponseWriter, r *http.Request) {
 
 // --- volunteers on a slot -----------------------------------------------
 
+// manageSlotAddVolunteer puts someone on a slot. Two distinct intents, two
+// distinct form fields: picking an existing volunteer from the pole (the
+// common case) or deliberately inviting someone who has no account yet.
+// The previous single free-text field was labelled "name or e-mail" but
+// required an e-mail, and any typo silently created a permanent account.
 func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) {
 	slot, pole, _, ok := s.manageSlotContext(w, r, pathID(r, "id"))
 	if !ok {
 		return
 	}
-	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
-	if !strings.Contains(email, "@") {
-		http.Redirect(w, r, fmt.Sprintf("/manage/slots/%d?error=Adresse+e-mail+invalide.", slot.ID), http.StatusSeeOther)
-		return
+	slotErr := func(msg string) {
+		http.Redirect(w, r, fmt.Sprintf("/manage/slots/%d?error=%s#volunteers", slot.ID, url.QueryEscape(msg)), http.StatusSeeOther)
 	}
-	u, err := s.DB.GetOrCreateUser(email)
-	if err != nil {
-		s.serverError(w, r, err)
-		return
+	var u db.User
+	if uid := formInt64(r, "user_id"); uid != 0 {
+		var err error
+		if u, err = s.DB.GetUser(uid); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	} else {
+		email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+		addr, err := mail.ParseAddress(email)
+		if err != nil || addr.Address != email {
+			slotErr("Indiquez une adresse e-mail valide pour inviter quelqu'un qui n'a pas encore de compte.")
+			return
+		}
+		if u, err = s.DB.EnsureVolunteer(email, strings.TrimSpace(r.FormValue("name")), ""); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
 	}
 	if err := s.DB.JoinPole(pole.ID, u.ID); err != nil {
 		s.serverError(w, r, err)
@@ -525,7 +557,7 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, u.DisplayName()+" a été ajouté(e) au créneau.")
+	s.flash(w, u.DisplayName()+" a été ajouté·e au créneau et au pôle « "+pole.Name+" ».")
 	http.Redirect(w, r, fmt.Sprintf("/manage/slots/%d#volunteers", slot.ID), http.StatusSeeOther)
 }
 
@@ -534,9 +566,13 @@ func (s *Server) manageSlotRemoveVolunteer(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	u, _ := s.DB.GetUser(pathID(r, "uid"))
 	if err := s.DB.Unsignup(slot.ID, pathID(r, "uid")); err != nil {
 		s.serverError(w, r, err)
 		return
+	}
+	if u.ID != 0 {
+		s.flash(w, u.DisplayName()+" a été retiré·e de ce créneau. La personne reste dans le pôle.")
 	}
 	http.Redirect(w, r, fmt.Sprintf("/manage/slots/%d#volunteers", slot.ID), http.StatusSeeOther)
 }

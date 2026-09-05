@@ -1,3 +1,4 @@
+{{define "title"}}Les pôles – {{.Org}}{{end}}
 {{define "content"}}
 <section class="hero">
   <div>
@@ -17,9 +18,13 @@
 
 {{if not .Joined}}
 <article>
-  <h3>Bienvenue ! Par où commencer ?</h3>
-  <p>Choisissez ci-dessous le ou les pôles dans lesquels vous souhaitez donner un coup de main, puis inscrivez-vous sur les créneaux qui vous conviennent.
-  Certains pôles sont sur invitation : le responsable vous ajoute ou vous transmet un lien.</p>
+  <h2>Bienvenue ! Trois étapes et c'est fait</h2>
+  <ol>
+    <li><strong>Choisissez un pôle</strong> ci-dessous, selon ce que vous aimez faire.</li>
+    <li><strong>Rejoignez-le</strong> d'un clic. Certains pôles sont sur invitation : le responsable vous ajoute ou vous transmet un lien.</li>
+    <li><strong>Cochez vos créneaux</strong> : ceux qui vous arrangent, autant que vous voulez.</li>
+  </ol>
+  <p class="hint">Vous pourrez revenir modifier vos créneaux à tout moment, jusqu'au gel du planning.</p>
 </article>
 {{else}}
 <section>
@@ -32,7 +37,7 @@
   <article class="slot mine">
     <div class="slot-row">
       <div class="slot-time">{{time .StartsAt}}<span class="dash">–</span>{{time .EndsAt}}</div>
-      <div class="slot-info"><a class="slot-title" href="/slots/{{.ID}}">{{.PoleName}}{{if .Title}} – {{.Title}}{{end}}</a>{{if .LocationName}}<span class="badge">{{.LocationName}}</span>{{end}}<span class="slot-meta" style="text-transform:capitalize">{{day .StartsAt}}</span></div>
+      <div class="slot-info"><a class="slot-title" href="/slots/{{.ID}}">{{.PoleName}}{{if .Title}} – {{.Title}}{{end}}</a>{{if .LocationName}}<span class="badge">{{.LocationName}}</span>{{end}}<span class="slot-meta cap">{{day .StartsAt}}</span></div>
     </div>
   </article>
   {{end}}
@@ -40,7 +45,7 @@
 </section>
 {{end}}
 
-<h2 style="margin-top:2rem">Les pôles</h2>
+<h2 class="mt-lg">Les pôles</h2>
 <div class="poles">
   {{range .Poles}}
   <article class="pole-card c{{.Color}}" id="pole-{{.ID}}">
@@ -58,8 +63,8 @@
     {{if .Coverage.Managers}}<p class="hint">Responsable{{if gt (len .Coverage.Managers) 1}}s{{end}} : {{range $i, $m := .Coverage.Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}</p>{{end}}
     {{if .Slots}}
     <p class="hint">{{.Slots}} créneau{{if gt .Slots 1}}x{{end}}
-      {{if gt .Missing 0}}· <span style="color:var(--warn)">il manque {{.Missing}} bénévole{{if gt .Missing 1}}s{{end}}</span>{{else}}· <span style="color:var(--ok)">complet</span>{{end}}</p>
-    <span class="bar{{if gt .Missing 0}} short{{end}}"><i style="width:{{.Coverage.Percent}}%"></i></span>
+      {{if gt .Missing 0}}· <span class="txt-warn">il manque {{.Missing}} bénévole{{if gt .Missing 1}}s{{end}}</span>{{else}}· <span class="txt-ok">complet</span>{{end}}</p>
+    <span class="bar{{if gt .Missing 0}} short{{end}}" aria-hidden="true"><i style="width:{{.Coverage.Percent}}%"></i></span>
     {{else}}<p class="hint">Aucun créneau publié pour le moment.</p>{{end}}
     <footer>
       <div class="actions">

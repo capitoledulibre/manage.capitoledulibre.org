@@ -1,15 +1,30 @@
 {{define "title"}}Connexion – {{.Org}}{{end}}
 {{define "content"}}
-<article class="login-box">
-  <h2>Connexion</h2>
+<article class="login-box{{if .Pole}} wide{{end}}">
+  {{if .Pole}}
+  {{/* Reached through a pole invitation link: name the destination, otherwise
+       the volunteer's first contact with the application is a bare form. */}}
+  <div class="invite-card c{{.Pole.Color}}">
+    {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
+    <div>
+      <p><small class="muted">Vous avez été invité·e à rejoindre le pôle</small></p>
+      <p><strong>{{.Pole.Name}}</strong></p>
+      <p class="hint">{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}</p>
+    </div>
+  </div>
+  <h1>Connectez-vous pour rejoindre ce pôle</h1>
+  {{else}}
+  <h1>Espace bénévoles</h1>
+  {{if .Event}}<p class="hint">{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}</p>{{end}}
+  {{end}}
   <p>Indiquez votre adresse e-mail : nous vous envoyons un lien de connexion. Pas de mot de passe à retenir.</p>
   <form method="post" action="/login">
     <input type="hidden" name="next" value="{{.Next}}">
-    <label>Adresse e-mail
-      <input type="email" name="email" value="{{.Email}}" required autofocus autocomplete="email" placeholder="vous@exemple.org">
-    </label>
+    <label for="login-email">Adresse e-mail</label>
+    <input id="login-email" type="email" name="email" value="{{.Email}}" required autofocus autocomplete="email" placeholder="vous@exemple.org">
     <button type="submit">Recevoir mon lien de connexion</button>
   </form>
-  <p class="hint">Première visite ? Votre compte sera créé automatiquement.</p>
+  <p class="hint">Première visite ? Votre compte sera créé automatiquement, {{if .Pole}}et vous arriverez directement sur ce pôle.{{else}}rien d'autre à remplir.{{end}}</p>
+  {{if .Managers}}<p class="hint">Responsable{{if gt (len .Managers) 1}}s{{end}} du pôle : {{range $i, $m := .Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}</p>{{end}}
 </article>
 {{end}}

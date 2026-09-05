@@ -5,26 +5,62 @@ import (
 	"net/http"
 	"net/mail"
 	"strings"
+
+	"benevoles/internal/db"
 )
+
+// loginContext names what the visitor was heading for before being asked to
+// log in. An invitation link is the most common first contact with the
+// application, and a bare "Connexion" form gave no clue about which pole or
+// which event was involved, so the destination is resolved and displayed.
+func (s *Server) loginContext(next string) M {
+	data := M{"Next": next}
+	if path := next; path != "" {
+		if i := strings.IndexByte(path, '?'); i >= 0 {
+			path = path[:i]
+		}
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		if len(parts) >= 2 {
+			if pole, err := s.DB.GetPoleBySlug(parts[0], parts[1]); err == nil && pole.AccessMode != db.ModeRestricted {
+				if ev, err := s.DB.GetEvent(pole.EventID); err == nil && ev.IsVisibleToVolunteers() {
+					data["Pole"] = pole
+					data["Event"] = ev
+					data["Managers"], _ = s.DB.ListPoleManagers(pole.ID)
+					return data
+				}
+			}
+		}
+	}
+	// No specific destination: name the event currently taking sign-ups, so a
+	// visitor arriving on a bare /login knows what they are signing up for.
+	if ev, err := s.DB.CurrentEvent(); err == nil && ev.IsVisibleToVolunteers() {
+		data["Event"] = ev
+	}
+	return data
+}
 
 func (s *Server) loginForm(w http.ResponseWriter, r *http.Request) {
 	if currentUser(r) != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, "login", M{"Next": r.URL.Query().Get("next")})
+	s.render(w, r, "login", s.loginContext(r.URL.Query().Get("next")))
 }
 
 func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	data := s.loginContext(r.FormValue("next"))
+	data["Email"] = email
 	addr, err := mail.ParseAddress(email)
 	if err != nil || addr.Address != email {
-		s.render(w, r, "login", M{"Error": "Cette adresse e-mail ne semble pas valide.", "Email": email})
+		data["Error"] = "Cette adresse e-mail ne semble pas valide."
+		s.render(w, r, "login", data)
 		return
 	}
 	if !s.loginByIP.Allow(clientIP(r)) || !s.loginByEmail.Allow(email) {
 		w.WriteHeader(http.StatusTooManyRequests)
-		s.render(w, r, "login", M{"Error": "Trop de demandes de connexion. Vérifiez votre boîte de réception, puis réessayez dans un quart d'heure.", "Email": email})
+		data["Error"] = "Trop de demandes de connexion. Vérifiez votre boîte de réception, puis réessayez dans un quart d'heure."
+		s.render(w, r, "login", data)
 		return
 	}
 	u, err := s.DB.GetOrCreateUser(email)
@@ -39,7 +75,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	link := fmt.Sprintf("%s/auth/%s", s.Cfg.BaseURL, tok)
 	next := r.FormValue("next")
-	if next != "" && strings.HasPrefix(next, "/") {
+	if next != "" && safePath(next) {
 		link += "?next=" + next
 	}
 	org := s.DB.GetSetting("org_name", "Bénévoles")
@@ -49,11 +85,12 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	data := M{"Email": email}
+	sent := s.loginContext(next)
+	sent["Email"] = email
 	if s.Cfg.DevMode {
-		data["Link"] = link
+		sent["Link"] = link
 	}
-	s.render(w, r, "login_sent", data)
+	s.render(w, r, "login_sent", sent)
 }
 
 func (s *Server) authToken(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +110,7 @@ func (s *Server) authToken(w http.ResponseWriter, r *http.Request) {
 	})
 	u, _ := s.DB.GetUser(userID)
 	next := r.URL.Query().Get("next")
-	if next == "" || !strings.HasPrefix(next, "/") {
+	if !safePath(next) {
 		next = "/"
 	}
 	if u.Name == "" {

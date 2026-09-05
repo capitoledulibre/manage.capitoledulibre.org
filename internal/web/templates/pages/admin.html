@@ -5,8 +5,8 @@
   <div class="actions"><a href="/admin/users" role="button" class="secondary outline small">Comptes ({{.UserCount}})</a><a href="/admin/events/new" role="button" class="small">+ Nouvel événement</a></div>
 </div>
 
-<h2 style="font-size:1.2rem">Événements</h2>
-<div style="overflow-x:auto">
+<h2>Événements</h2>
+<div class="scroll-x" tabindex="0" role="region" aria-label="Liste des événements">
 <table class="compact">
   <thead><tr><th>Événement</th><th>Dates</th><th>Statut</th><th>Gel</th><th></th></tr></thead>
   <tbody>
@@ -18,16 +18,19 @@
     <td>{{if .FreezeAt}}{{datetime .FreezeAt}}{{else}}<span class="muted">—</span>{{end}}</td>
     <td><a href="{{.AdminURL}}">Tableau de bord</a></td>
   </tr>
-  {{else}}<tr><td colspan="5" class="muted">Aucun événement. Créez la première !</td></tr>{{end}}
+  {{else}}<tr><td colspan="5" class="muted">Aucun événement. Créez le premier !</td></tr>{{end}}
   </tbody>
 </table>
 </div>
 
-<h2 style="font-size:1.2rem; margin-top:2rem">Paramètres</h2>
-<form method="post" action="/admin/settings" class="grid-2">
-  <label>Nom de l'organisation / événement<input type="text" name="org_name" value="{{.OrgName}}" required></label>
-  <label>Nom du pôle par défaut <small class="muted">(créé avec chaque événement, regroupe tous les bénévoles)</small><input type="text" name="default_pole_name" value="{{.DefaultPoleName}}" required></label>
-  <label>Lien vers le code source <small class="muted">(affiché en pied de page, optionnel)</small><input type="url" name="source_url" value="{{.SourceURL}}" placeholder="https://…"></label>
-  <div><button class="small">Enregistrer</button></div>
+<h2 class="mt-lg">Paramètres</h2>
+<form method="post" action="/admin/settings" class="panel narrow">
+  <label for="org-name">Nom de l'organisation / événement</label>
+  <input id="org-name" type="text" name="org_name" value="{{.OrgName}}" required>
+  <label for="default-pole">Nom du pôle par défaut <small class="muted">(créé avec chaque événement, regroupe tous les bénévoles)</small></label>
+  <input id="default-pole" type="text" name="default_pole_name" value="{{.DefaultPoleName}}" required>
+  <label for="source-url">Lien vers le code source <small class="muted">(affiché en pied de page, optionnel)</small></label>
+  <input id="source-url" type="url" name="source_url" value="{{.SourceURL}}" placeholder="https://…">
+  <button type="submit" class="primary-action">Enregistrer les paramètres</button>
 </form>
 {{end}}

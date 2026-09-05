@@ -1,29 +1,60 @@
 {{define "title"}}Comptes – {{.Org}}{{end}}
 {{define "content"}}
-<p><a href="/admin">← Administration</a></p>
-<h1>Comptes ({{len .Users}})</h1>
-<p class="hint">Les comptes sont conservés d'un événement à l'autre. Un administrateur a tous les droits sur toutes les événements.{{if .Event}} L'ajout à un pôle se fait ici pour <a href="{{.Event.AdminURL}}">{{.Event.Name}}</a>, quel que soit le mode d'accès du pôle.{{end}}</p>
-<input type="search" placeholder="Filtrer…" oninput="for(const r of document.querySelectorAll('tbody tr')) r.hidden = !r.textContent.toLowerCase().includes(this.value.toLowerCase())">
-<div style="overflow-x:auto">
+{{$back := .Back}}
+<p class="breadcrumb"><a href="/admin">← Administration</a></p>
+<h1>Comptes <span class="muted">({{.Total}})</span></h1>
+<p class="hint">Les comptes sont conservés d'un événement à l'autre. Un administrateur a tous les droits sur tous les événements.{{if .Event}} L'ajout à un pôle se fait ici pour <a href="{{.Event.AdminURL}}">{{.Event.Name}}</a>, quel que soit le mode d'accès du pôle.{{end}}</p>
+{{template "new_volunteer" (dict "Poles" .Poles "Back" $back "Event" .Event)}}
+
+{{/* Server-side search: the table is paged, so filtering the rendered rows in
+     the browser would only search the current page. */}}
+<form method="get" action="/admin/users" class="actions" role="search">
+  <label for="users-q" class="sr-only">Rechercher un compte par nom ou e-mail</label>
+  <input id="users-q" type="search" name="q" value="{{.Q}}" placeholder="Rechercher un nom ou un e-mail…" class="m-0">
+  <button class="small secondary">Rechercher</button>
+  {{if .Q}}<a href="/admin/users">Effacer</a>{{end}}
+</form>
+
+{{if .Users}}
+<p class="hint">Comptes {{.From}} à {{.To}} sur {{.Total}}{{if .Q}} correspondant à « {{.Q}} »{{end}}.</p>
+<div class="scroll-x" tabindex="0" role="region" aria-label="Liste des comptes">
 <table class="compact">
-  <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Pôles{{if .Event}} ({{.Event.Name}}){{end}}</th><th>Dernière connexion</th><th>Rôle</th><th></th></tr></thead>
+  <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Pôles{{if .Event}} ({{.Event.Name}}){{end}}</th><th>Dernière connexion</th><th>Rôle</th><th>Actions</th></tr></thead>
   <tbody>
   {{range .Users}}
   <tr>
-    <td>{{.Name}}</td><td>{{.Email}}</td><td>{{.Phone}}</td>
+    <td>{{.DisplayName}}</td><td>{{.Email}}</td><td>{{.Phone}}</td>
     <td><small>{{range $i, $p := index $.UserPoles .ID}}{{if $i}}, {{end}}{{$p}}{{end}}</small></td>
     <td>{{if .LastLoginAt}}{{date .LastLoginAt}}{{else}}<span class="muted">jamais</span>{{end}}</td>
     <td>{{if .IsAdmin}}<span class="badge ok">admin</span>{{end}}</td>
     <td class="actions">
-      {{if $.Poles}}<form method="post" action="/admin/users/{{.ID}}/join" class="actions"><input type="hidden" name="back" value="/admin/users">
-        <select name="pole_id" style="margin:0; width:auto; padding:.2rem 1.8rem .2rem .5rem; font-size:.85rem">{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
+      {{if $.Poles}}<form method="post" action="/admin/users/{{.ID}}/join" class="actions"><input type="hidden" name="back" value="{{$back}}">
+        <label for="pole-{{.ID}}" class="sr-only">Pôle à rejoindre pour {{.DisplayName}}</label>
+        <select id="pole-{{.ID}}" name="pole_id" class="select-sm">{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
         <button class="small secondary">Ajouter au pôle</button></form>{{end}}
-      <form method="post" action="/admin/users/{{.ID}}/admin" class="inline"><button class="link">{{if .IsAdmin}}retirer admin{{else}}rendre admin{{end}}</button></form>
-      {{if ne .ID $.User.ID}}<form method="post" action="/admin/users/{{.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer le compte {{.Email}} et toutes ses inscriptions ?')"><button class="link danger">supprimer</button></form>{{end}}
+      {{/* Granting or revoking administration is the most sensitive action of
+           the application: it now says what it does and asks. */}}
+      <form method="post" action="/admin/users/{{.ID}}/admin" class="inline"
+            onsubmit="return confirm({{if .IsAdmin}}'Retirer les droits d’administration à {{.DisplayName}} ?'{{else}}'Donner les droits d’administration à {{.DisplayName}} ? Cette personne pourra tout modifier et tout supprimer, sur tous les événements.'{{end}})">
+        <input type="hidden" name="back" value="{{$back}}">
+        <button class="link">{{if .IsAdmin}}retirer admin{{else}}rendre admin{{end}}</button></form>
+      {{if ne .ID $.User.ID}}
+      <form method="post" action="/admin/users/{{.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer le compte {{.Email}} et toutes ses inscriptions, sur tous les événements ?')">
+        <input type="hidden" name="back" value="{{$back}}">
+        <button class="link danger">supprimer</button></form>
+      {{end}}
     </td>
   </tr>
   {{end}}
   </tbody>
 </table>
 </div>
+<nav class="pager" aria-label="Pagination des comptes">
+  {{if .HasPrev}}<a href="/admin/users?q={{.Q}}&page={{add .Page -1}}" role="button" class="secondary outline small">← Précédents</a>{{end}}
+  <span class="muted">Page {{.Page}}</span>
+  {{if .HasNext}}<a href="/admin/users?q={{.Q}}&page={{add .Page 1}}" role="button" class="secondary outline small">Suivants →</a>{{end}}
+</nav>
+{{else}}
+<p class="empty">{{if .Q}}Aucun compte ne correspond à « {{.Q}} ».{{else}}Aucun compte pour l'instant.{{end}}</p>
+{{end}}
 {{end}}

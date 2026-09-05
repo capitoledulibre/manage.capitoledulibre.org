@@ -1,11 +1,14 @@
 {{define "title"}}{{if .Slot.Title}}{{.Slot.Title}}{{else}}{{.Pole.Name}}{{end}} – {{.Org}}{{end}}
 {{define "content"}}
-<p><a href="{{.Pole.URL}}">← {{.Pole.Name}}</a></p>
-<div class="page-header">
-  <div>
-    <h1><span class="c{{.Pole.Color}}" style="vertical-align:middle;margin-right:.4rem;display:inline-block">{{template "pole_icon" (dict "Pole" .Pole)}}</span>{{if .Slot.Title}}{{.Slot.Title}}{{else}}{{.Pole.Name}}{{end}}</h1>
-    <p class="muted" style="text-transform:capitalize">{{day .Slot.StartsAt}} · {{time .Slot.StartsAt}} – {{time .Slot.EndsAt}}
-      {{if .Slot.LocationName}}<span class="badge">{{.Slot.LocationName}}</span>{{end}}</p>
+<p class="breadcrumb"><a href="{{.Pole.URL}}">← {{.Pole.Name}}</a></p>
+<div class="page-header c{{.Pole.Color}}">
+  <div class="page-title">
+    {{template "pole_icon" (dict "Pole" .Pole)}}
+    <div>
+      <h1>{{if .Slot.Title}}{{.Slot.Title}}{{else}}{{.Pole.Name}}{{end}}</h1>
+      <p class="muted"><span class="cap">{{day .Slot.StartsAt}}</span> · {{time .Slot.StartsAt}} – {{time .Slot.EndsAt}}
+        {{if .Slot.LocationName}}<span class="badge">{{.Slot.LocationName}}</span>{{end}}</p>
+    </div>
   </div>
   {{if .CanManage}}<a href="/manage/slots/{{.Slot.ID}}" role="button" class="secondary outline small">Modifier</a>{{end}}
 </div>
@@ -14,16 +17,16 @@
 
 {{template "slot_card" (dict "Slot" .Slot "Pole" .Pole "Member" .Member "Locked" .Locked "Back" .Path)}}
 
-<div class="grid-2">
+<div class="grid-2 mt-md">
   <section>
-    <h3 style="font-size:1.1rem">Bénévoles ({{.Slot.Filled}}/{{.Slot.Capacity}})</h3>
+    <h2>Bénévoles ({{.Slot.Filled}}/{{.Slot.Capacity}})</h2>
     {{if .Volunteers}}
     <ul>{{range .Volunteers}}<li>{{.DisplayName}}{{if and $.CanManage .Phone}} <small class="muted">· {{.Phone}}</small>{{end}}</li>{{end}}</ul>
     {{else}}<p class="muted">Personne pour l'instant.</p>{{end}}
     {{if gt .Slot.Missing 0}}<p class="hint">Encore {{.Slot.Missing}} place{{if gt .Slot.Missing 1}}s{{end}}.</p>{{end}}
   </section>
   <section>
-    <h3 style="font-size:1.1rem">Tâches</h3>
+    <h2>Tâches</h2>
     {{template "task_list" (dict "Tasks" .Tasks "CanTick" .CanTick "Slot" .Slot)}}
     {{if and .Tasks (not .CanTick)}}<p class="hint">Inscrivez-vous sur le créneau pour pouvoir cocher les tâches.</p>{{end}}
   </section>

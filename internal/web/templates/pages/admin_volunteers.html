@@ -1,22 +1,51 @@
-{{define "title"}}Bénévoles – {{.Event.Name}}{{end}}
+{{define "title"}}Bénévoles – {{.Event.Name}} – {{.Org}}{{end}}
 {{define "content"}}
-<p><a href="{{.Event.AdminURL}}">← {{.Event.Name}}</a></p>
+<p class="breadcrumb"><a href="{{.Event.AdminURL}}">← {{.Event.Name}}</a></p>
 <div class="page-header">
-  <h1>Bénévoles ({{len .Volunteers}})</h1>
+  <h1>Bénévoles <span class="muted">({{len .Volunteers}})</span></h1>
   <a href="{{.Event.AdminURL}}/volunteers.csv" role="button" class="secondary outline small">Exporter en CSV</a>
 </div>
-<input type="search" placeholder="Filtrer…" oninput="for(const r of document.querySelectorAll('tbody tr')) r.hidden = !r.textContent.toLowerCase().includes(this.value.toLowerCase())">
-<div style="overflow-x:auto">
-<table class="compact">
-  <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Pôles</th><th>Créneaux</th><th></th></tr></thead>
+{{template "new_volunteer" (dict "Poles" .Poles "Back" (print .Event.AdminURL "/volunteers") "Event" .Event)}}
+{{if .Volunteers}}
+<div class="actions">
+  <label for="vol-filter" class="sr-only">Filtrer la liste des bénévoles</label>
+  <input id="vol-filter" type="search" placeholder="Filtrer la liste…" class="m-0" autocomplete="off">
+  <span id="vol-count" class="hint" role="status" aria-live="polite">{{len .Volunteers}} bénévole{{if gt (len .Volunteers) 1}}s{{end}}</span>
+</div>
+<div class="scroll-x" tabindex="0" role="region" aria-label="Liste des bénévoles">
+<table class="compact" id="volunteers-table">
+  <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Pôles</th><th>Créneaux</th><th>Actions</th></tr></thead>
   <tbody>
   {{range .Volunteers}}
-  <tr><td>{{.User.DisplayName}}</td><td><a href="mailto:{{.User.Email}}">{{.User.Email}}</a></td><td>{{.User.Phone}}</td><td><small>{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</small></td><td>{{if eq .SlotCount 0}}<span class="badge warn">0</span>{{else}}{{.SlotCount}}{{end}}</td>
+  <tr><td>{{.User.DisplayName}}</td><td><a href="mailto:{{.User.Email}}">{{.User.Email}}</a></td><td>{{.User.Phone}}</td><td><small>{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</small></td>
+    <td>{{if eq .SlotCount 0}}<span class="badge warn" title="aucun créneau choisi">0</span>{{else}}{{.SlotCount}}{{end}}</td>
     <td><form method="post" action="/admin/users/{{.User.ID}}/join" class="actions"><input type="hidden" name="back" value="{{$.Event.AdminURL}}/volunteers">
-      <select name="pole_id" style="margin:0; width:auto; padding:.2rem 1.8rem .2rem .5rem; font-size:.85rem">{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
+      <label for="vpole-{{.User.ID}}" class="sr-only">Pôle à rejoindre pour {{.User.DisplayName}}</label>
+      <select id="vpole-{{.User.ID}}" name="pole_id" class="select-sm">{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
       <button class="small secondary">Ajouter au pôle</button></form></td></tr>
-  {{else}}<tr><td colspan="6" class="muted">Personne n'a encore rejoint cet événement.</td></tr>{{end}}
+  {{end}}
   </tbody>
 </table>
 </div>
+<script>
+// Client-side filter: this list is bounded by the event, so it is rendered
+// whole. The live count tells assistive technology what the filter did.
+(function () {
+  var input = document.getElementById("vol-filter");
+  var count = document.getElementById("vol-count");
+  var rows = document.querySelectorAll("#volunteers-table tbody tr");
+  input.addEventListener("input", function () {
+    var needle = this.value.toLowerCase(), shown = 0;
+    rows.forEach(function (row) {
+      var match = row.textContent.toLowerCase().indexOf(needle) !== -1;
+      row.hidden = !match;
+      if (match) { shown++; }
+    });
+    count.textContent = shown + " bénévole" + (shown > 1 ? "s" : "") + " affiché" + (shown > 1 ? "·es" : "·e");
+  });
+})();
+</script>
+{{else}}
+<p class="empty">Personne n'a encore rejoint cet événement.</p>
+{{end}}
 {{end}}

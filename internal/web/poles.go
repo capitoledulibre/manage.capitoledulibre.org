@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"benevoles/internal/db"
+	"benevoles/internal/reminders"
 )
 
 // poleContext loads a pole with its event and checks the user may see it.
@@ -199,31 +200,55 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// cardData builds the data of the slot_card partial.
-func (s *Server) cardData(slot db.Slot, pole db.Pole, ed db.Event, member bool) M {
+// backTo returns the page to come back to after a slot action, defaulting to
+// the slot's own page. Only same-site paths are honoured.
+func backTo(r *http.Request, slotID int64) string {
+	if back := r.FormValue("back"); safePath(back) {
+		return back
+	}
+	return fmt.Sprintf("/slots/%d", slotID)
+}
+
+// cardData builds the data of the slot_card partial. Back has to be carried
+// through: the card re-rendered by an htmx swap keeps the forms that need it.
+func (s *Server) cardData(r *http.Request, slot db.Slot, pole db.Pole, ed db.Event, member bool) M {
 	return M{
-		"Slot": slot, "Pole": pole, "Member": member,
+		"Slot": slot, "Pole": pole, "Member": member, "Back": backTo(r, slot.ID),
 		"Locked": ed.SignupsLocked(pole.FreezeAt, time.Now()),
 	}
 }
 
 // respondSlot answers a signup action: fragment for htmx, redirect otherwise.
-func (s *Server) respondSlot(w http.ResponseWriter, r *http.Request, data M, errMsg string) {
+// announce is the sentence pushed to the live region (htmx) or to the flash
+// (plain form post) on success, so both paths confirm what happened.
+func (s *Server) respondSlot(w http.ResponseWriter, r *http.Request, data M, errMsg, announce string) {
 	if isHX(r) {
 		if errMsg != "" {
 			data["Error"] = errMsg
+			data["Announce"] = errMsg
+		} else if announce != "" {
+			data["Announce"] = announce
 		}
 		s.fragment(w, "slot_card", data)
 		return
 	}
-	back := r.FormValue("back")
-	if back == "" || !strings.HasPrefix(back, "/") {
-		back = "/slots/" + r.PathValue("id")
-	}
 	if errMsg != "" {
 		s.flash(w, errMsg)
+	} else if announce != "" {
+		s.flash(w, announce)
+	}
+	back, _ := data["Back"].(string)
+	if !safePath(back) {
+		back = "/slots/" + r.PathValue("id")
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// slotLabel names a slot in a sentence: "samedi de 14:00 à 18:00".
+func (s *Server) slotLabel(slot db.Slot) string {
+	loc := s.Cfg.Timezone
+	return fmt.Sprintf("%s de %s à %s", reminders.FormatDay(slot.StartsAt, loc),
+		slot.StartsAt.In(loc).Format("15:04"), slot.EndsAt.In(loc).Format("15:04"))
 }
 
 func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
@@ -238,13 +263,13 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	member := s.DB.IsPoleMember(pole.ID, u.ID)
-	data := s.cardData(slot, pole, ed, member)
+	data := s.cardData(r, slot, pole, ed, member)
 	if !member {
-		s.respondSlot(w, r, data, "Rejoignez d'abord le pôle pour vous inscrire.")
+		s.respondSlot(w, r, data, "Rejoignez d'abord le pôle pour vous inscrire.", "")
 		return
 	}
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
-		s.respondSlot(w, r, data, "Le planning est gelé, les inscriptions sont fermées.")
+		s.respondSlot(w, r, data, "Le planning est gelé, les inscriptions sont fermées.", "")
 		return
 	}
 	if r.FormValue("force") != "1" {
@@ -252,11 +277,12 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
 		if len(overlaps) > 0 {
 			data["Overlaps"] = overlaps
 			if isHX(r) {
+				data["Announce"] = "Attention : ce créneau chevauche un créneau où vous êtes déjà inscrit·e. Confirmez pour vous inscrire quand même."
 				s.fragment(w, "slot_card", data)
 				return
 			}
 			// Non-htmx fallback: show the confirmation on the slot page.
-			s.render(w, r, "slot_confirm", M{"Slot": slot, "Pole": pole, "Overlaps": overlaps, "Back": r.FormValue("back")})
+			s.render(w, r, "slot_confirm", M{"Slot": slot, "Pole": pole, "Overlaps": overlaps, "Back": backTo(r, slot.ID)})
 			return
 		}
 	}
@@ -266,12 +292,12 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slot, _ = s.DB.GetSlot(slot.ID, u.ID)
-	data = s.cardData(slot, pole, ed, member)
+	data = s.cardData(r, slot, pole, ed, member)
 	if !okSignup {
-		s.respondSlot(w, r, data, "Ce créneau est déjà complet.")
+		s.respondSlot(w, r, data, "Ce créneau est déjà complet : personne d'autre n'est attendu.", "")
 		return
 	}
-	s.respondSlot(w, r, data, "")
+	s.respondSlot(w, r, data, "", "Inscription enregistrée : "+pole.Name+", "+s.slotLabel(slot)+".")
 }
 
 func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) {
@@ -287,7 +313,7 @@ func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) {
 	}
 	member := s.DB.IsPoleMember(pole.ID, u.ID)
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
-		s.respondSlot(w, r, s.cardData(slot, pole, ed, member), "Le planning est gelé : contactez un responsable pour vous désengager.")
+		s.respondSlot(w, r, s.cardData(r, slot, pole, ed, member), "Le planning est gelé : contactez un responsable pour vous désengager.", "")
 		return
 	}
 	if err := s.DB.Unsignup(slot.ID, u.ID); err != nil {
@@ -295,7 +321,8 @@ func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slot, _ = s.DB.GetSlot(slot.ID, u.ID)
-	s.respondSlot(w, r, s.cardData(slot, pole, ed, member), "")
+	s.respondSlot(w, r, s.cardData(r, slot, pole, ed, member), "",
+		"Désinscription enregistrée : "+s.slotLabel(slot)+". Vous pouvez vous réinscrire sur ce créneau.")
 }
 
 func (s *Server) taskToggle(w http.ResponseWriter, r *http.Request) {
@@ -320,8 +347,16 @@ func (s *Server) taskToggle(w http.ResponseWriter, r *http.Request) {
 	}
 	if isHX(r) {
 		tasks, _ := s.DB.ListTasks(slot.ID)
-		s.fragment(w, "task_list", M{"Tasks": tasks, "CanTick": true, "Slot": slot})
+		done, total := 0, len(tasks)
+		for _, t := range tasks {
+			if t.Done() {
+				done++
+			}
+		}
+		s.fragment(w, "task_list", M{"Tasks": tasks, "CanTick": true, "Slot": slot,
+			"Announce": fmt.Sprintf("Tâches : %d sur %d faites.", done, total)})
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/slots/%d", slot.ID), http.StatusSeeOther)
 }
+
