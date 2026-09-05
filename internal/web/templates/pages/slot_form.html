@@ -60,6 +60,12 @@
     <p class="hint">Tous les bénévoles du pôle sont déjà sur ce créneau.</p>
     {{end}}
 
+    {{if .Waiting}}
+    <p class="hint"><b>{{len .Waiting}} bénévole{{if gt (len .Waiting) 1}}s{{end}} en attente d'une place :</b>
+      {{range $i, $u := .Waiting}}{{if $i}}, {{end}}{{$u.DisplayName}}{{end}}.
+      Augmentez le nombre de bénévoles souhaités ci-dessus pour leur ouvrir la place ; ils seront prévenus par e-mail.</p>
+    {{end}}
+
     <details>
       <summary class="hint">Inscrire quelqu'un qui n'a pas encore de compte</summary>
       <form method="post" action="/manage/slots/{{.Slot.ID}}/volunteers">

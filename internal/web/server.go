@@ -288,6 +288,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /slots/{id}", s.requireLogin(s.slotPage))
 	mux.HandleFunc("POST /slots/{id}/signup", s.requireLogin(s.slotSignup))
 	mux.HandleFunc("POST /slots/{id}/unsignup", s.requireLogin(s.slotUnsignup))
+	mux.HandleFunc("POST /slots/{id}/waitlist", s.requireLogin(s.slotWaitlistJoin))
+	mux.HandleFunc("POST /slots/{id}/waitlist/delete", s.requireLogin(s.slotWaitlistLeave))
 	mux.HandleFunc("POST /tasks/{id}/toggle", s.requireLogin(s.taskToggle))
 
 	// Slot-level management (by id; pole-level management lives under the pole URL)

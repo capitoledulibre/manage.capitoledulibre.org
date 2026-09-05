@@ -90,8 +90,14 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) {
 		}
 		missing += sl.Missing()
 	}
+	// One query for the whole page rather than one per card.
+	onWaitlist, _ := s.DB.UserWaitlistInPole(pole.ID, u.ID)
+	if onWaitlist == nil {
+		onWaitlist = map[int64]bool{}
+	}
 	s.render(w, r, "pole", M{
-		"Pole": pole, "Event": ed, "Member": member, "CanManage": manage,
+		"OnWaitlist": onWaitlist,
+		"Pole":       pole, "Event": ed, "Member": member, "CanManage": manage,
 		"Locked": ed.SignupsLocked(pole.FreezeAt, time.Now()),
 		"Days":   groupSlots(slots, s.Cfg.Timezone), "Locations": locations, "Filter": filter, "OnlyOpen": onlyOpen,
 		"Messages": msgs, "Managers": managers, "Mine": mine, "Missing": missing, "Total": len(slots),
@@ -192,7 +198,8 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) {
 	tasks, _ := s.DB.ListTasks(slot.ID)
 	msgs, _ := s.DB.ListSlotMessages(slot.ID)
 	s.render(w, r, "slot", M{
-		"Slot": slot, "Pole": pole, "Event": ed, "Member": member, "CanManage": manage,
+		"Waiting": s.DB.OnWaitlist(slot.ID, u.ID),
+		"Slot":    slot, "Pole": pole, "Event": ed, "Member": member, "CanManage": manage,
 		"Locked":     ed.SignupsLocked(pole.FreezeAt, time.Now()),
 		"Volunteers": volunteers, "Tasks": tasks, "Messages": msgs,
 		"CanTick": slot.Mine || manage,
@@ -212,10 +219,15 @@ func backTo(r *http.Request, slotID int64) string {
 // cardData builds the data of the slot_card partial. Back has to be carried
 // through: the card re-rendered by an htmx swap keeps the forms that need it.
 func (s *Server) cardData(r *http.Request, slot db.Slot, pole db.Pole, ed db.Event, member bool) M {
-	return M{
+	data := M{
 		"Slot": slot, "Pole": pole, "Member": member, "Back": backTo(r, slot.ID),
 		"Locked": ed.SignupsLocked(pole.FreezeAt, time.Now()),
 	}
+	// Only a full slot offers the waiting list, so only then is the lookup worth it.
+	if u := currentUser(r); u != nil && member && slot.IsFull() && !slot.Mine {
+		data["Waiting"] = s.DB.OnWaitlist(slot.ID, u.ID)
+	}
+	return data
 }
 
 // respondSlot answers a signup action: fragment for htmx, redirect otherwise.
@@ -321,6 +333,7 @@ func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slot, _ = s.DB.GetSlot(slot.ID, u.ID)
+	s.announceFreePlace(pole, slot.ID)
 	s.respondSlot(w, r, s.cardData(r, slot, pole, ed, member), "",
 		"Désinscription enregistrée : "+s.slotLabel(slot)+". Vous pouvez vous réinscrire sur ce créneau.")
 }
@@ -360,3 +373,72 @@ func (s *Server) taskToggle(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/slots/%d", slot.ID), http.StatusSeeOther)
 }
 
+// --- waiting list --------------------------------------------------------
+
+// announceFreePlace tells the people waiting for a slot that a place opened.
+// It is a no-op when the slot is full again (someone was added at the same
+// time) or when nobody is waiting, so callers can invoke it unconditionally
+// after any action that might free a seat.
+func (s *Server) announceFreePlace(pole db.Pole, slotID int64) {
+	slot, err := s.DB.GetSlot(slotID, 0)
+	if err != nil || slot.IsFull() {
+		return
+	}
+	waiting, err := s.DB.ListWaitlist(slotID)
+	if err != nil || len(waiting) == 0 {
+		return
+	}
+	s.notifyPlaceFreed(waiting, pole, slot)
+}
+
+// slotWaitlistJoin registers the volunteer's interest in a full slot.
+func (s *Server) slotWaitlistJoin(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	slot, err := s.DB.GetSlot(pathID(r, "id"), u.ID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	pole, ed, ok := s.poleContext(w, r, slot.PoleID)
+	if !ok {
+		return
+	}
+	member := s.DB.IsPoleMember(pole.ID, u.ID)
+	data := s.cardData(r, slot, pole, ed, member)
+	if !member {
+		s.respondSlot(w, r, data, "Rejoignez d'abord le pôle.", "")
+		return
+	}
+	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
+		s.respondSlot(w, r, data, "Le planning est gelé.", "")
+		return
+	}
+	if err := s.DB.JoinWaitlist(slot.ID, u.ID); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	data["Waiting"] = true
+	s.respondSlot(w, r, data, "",
+		"Vous serez prévenu·e par e-mail si une place se libère sur ce créneau.")
+}
+
+// slotWaitlistLeave cancels that interest.
+func (s *Server) slotWaitlistLeave(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	slot, err := s.DB.GetSlot(pathID(r, "id"), u.ID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	pole, ed, ok := s.poleContext(w, r, slot.PoleID)
+	if !ok {
+		return
+	}
+	if err := s.DB.LeaveWaitlist(slot.ID, u.ID); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	member := s.DB.IsPoleMember(pole.ID, u.ID)
+	data := s.cardData(r, slot, pole, ed, member)
+	s.respondSlot(w, r, data, "", "Vous ne serez plus prévenu·e pour ce créneau.")
+}

@@ -30,7 +30,7 @@
     <h2><span class="pill">{{parseDay .Day}}</span></h2>
     <div class="scroll-x" tabindex="0" role="region" aria-label="Créneaux du {{parseDay .Day}}">
     <table class="compact">
-      <thead><tr><th>Horaire</th><th>Emplacement</th><th>Intitulé</th><th>Bénévoles</th><th>Inscrits</th><th>Tâches</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Horaire</th><th>Emplacement</th><th>Intitulé</th><th>Bénévoles</th><th>Inscrits</th><th>Attente</th><th>Tâches</th><th>Actions</th></tr></thead>
       <tbody>
       {{range .Slots}}
       <tr class="{{if urgent .}}urgent{{end}}">
@@ -41,6 +41,8 @@
         <td><a href="/slots/{{.ID}}">{{if .Title}}{{.Title}}{{else}}<span class="muted">sans intitulé</span>{{end}}</a></td>
         <td class="nowrap"><span class="bar{{if not .IsFull}} short{{end}}{{if eq .Filled 0}} empty{{end}}" aria-hidden="true"><i style="width:{{pct .Filled .Capacity}}%"></i></span> {{.Filled}}/{{.Capacity}}</td>
         <td><small>{{range $i, $u := index $.Volunteers .ID}}{{if $i}}, {{end}}{{$u.DisplayName}}{{else}}<span class="muted">personne</span>{{end}}</small></td>
+        {{/* People waiting means the slot is undersized, not just full. */}}
+        <td>{{with index $.Waiting .ID}}<span class="badge key" title="bénévoles en attente d'une place">{{.}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
         <td>{{if .TaskCount}}<span class="badge{{if eq .TaskDone .TaskCount}} ok{{end}}">{{.TaskDone}}/{{.TaskCount}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
         <td><a href="/manage/slots/{{.ID}}">Modifier</a></td>
       </tr>

@@ -130,6 +130,10 @@ func (d *DB) Signup(slotID, userID int64) (bool, error) {
 	if _, err := tx.Exec(`INSERT INTO signups (slot_id, user_id, created_at) VALUES (?, ?, ?)`, slotID, userID, Now()); err != nil {
 		return false, err
 	}
+	// Having the place makes waiting for it pointless.
+	if _, err := tx.Exec(`DELETE FROM waitlist WHERE slot_id = ? AND user_id = ?`, slotID, userID); err != nil {
+		return false, err
+	}
 	return true, tx.Commit()
 }
 
@@ -332,6 +336,78 @@ func (d *DB) CopyTasks(fromSlot, toSlot int64) error {
 
 // ForceSignup adds the user to a slot regardless of capacity (manager action).
 func (d *DB) ForceSignup(slotID, userID int64) error {
-	_, err := d.Exec(`INSERT OR IGNORE INTO signups (slot_id, user_id, created_at) VALUES (?, ?, ?)`, slotID, userID, Now())
+	if _, err := d.Exec(`INSERT OR IGNORE INTO signups (slot_id, user_id, created_at) VALUES (?, ?, ?)`, slotID, userID, Now()); err != nil {
+		return err
+	}
+	_, err := d.Exec(`DELETE FROM waitlist WHERE slot_id = ? AND user_id = ?`, slotID, userID)
 	return err
+}
+
+// --- waiting list --------------------------------------------------------
+
+// JoinWaitlist records that the user wants the slot if a place frees up.
+func (d *DB) JoinWaitlist(slotID, userID int64) error {
+	_, err := d.Exec(`INSERT OR IGNORE INTO waitlist (slot_id, user_id, created_at) VALUES (?, ?, ?)`,
+		slotID, userID, Now())
+	return err
+}
+
+// LeaveWaitlist removes the user from a slot's waiting list.
+func (d *DB) LeaveWaitlist(slotID, userID int64) error {
+	_, err := d.Exec(`DELETE FROM waitlist WHERE slot_id = ? AND user_id = ?`, slotID, userID)
+	return err
+}
+
+// OnWaitlist tells whether the user is waiting for this slot.
+func (d *DB) OnWaitlist(slotID, userID int64) bool {
+	var n int
+	d.QueryRow(`SELECT COUNT(*) FROM waitlist WHERE slot_id = ? AND user_id = ?`, slotID, userID).Scan(&n)
+	return n > 0
+}
+
+// ListWaitlist returns the users waiting for a slot, oldest request first.
+func (d *DB) ListWaitlist(slotID int64) ([]User, error) {
+	return d.queryUsers(`SELECT `+userCols+` FROM waitlist w JOIN users u ON u.id = w.user_id
+		WHERE w.slot_id = ? ORDER BY w.created_at`, slotID)
+}
+
+// WaitlistCounts maps slot ids to the number of people waiting, for the slots
+// of one pole. Managers see it next to each slot.
+func (d *DB) WaitlistCounts(poleID int64) (map[int64]int, error) {
+	rows, err := d.Query(`SELECT w.slot_id, COUNT(*) FROM waitlist w
+		JOIN slots s ON s.id = w.slot_id WHERE s.pole_id = ? GROUP BY w.slot_id`, poleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]int{}
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}
+
+// UserWaitlistInPole maps slot ids to true for the slots of a pole the user is
+// waiting on, so a page can render many cards without one query per card.
+func (d *DB) UserWaitlistInPole(poleID, userID int64) (map[int64]bool, error) {
+	rows, err := d.Query(`SELECT w.slot_id FROM waitlist w JOIN slots s ON s.id = w.slot_id
+		WHERE s.pole_id = ? AND w.user_id = ?`, poleID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]bool{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
 }

@@ -640,3 +640,44 @@ func TestCancellationNotifications(t *testing.T) {
 	want(t, mails[0].Subject, "Retrait du pôle")
 	want(t, mails[0].Body, "inscription(s) sur les créneaux de ce pôle ont été annulées")
 }
+
+// TestWaitlist: a full slot used to be a dead end.
+func TestWaitlist(t *testing.T) {
+	e := newEnv(t)
+	_, _, _ = setupEvent(t, e, "1") // a single seat, easy to fill
+	first := e.login("first@example.test", "Première Inscrite")
+	first.post("/test-2026/buvette/join", 303, nil)
+	first.post("/slots/1/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+
+	second := e.login("second@example.test", "Second Candidat")
+	second.post("/test-2026/buvette/join", 303, nil)
+	page := second.get("/test-2026/buvette", 200)
+	want(t, page, "Complet")
+	want(t, page, "Me prévenir si une place se libère")
+
+	second.post("/slots/1/waitlist", 303, url.Values{"back": {"/test-2026/buvette"}})
+	want(t, second.get("/test-2026/buvette", 200), "Sur liste d'attente")
+	if !e.db.OnWaitlist(1, 3) {
+		t.Fatal("the waiting list did not record the request")
+	}
+
+	// The seat opening is what the whole feature exists for.
+	e.mailer.reset()
+	first.post("/slots/1/unsignup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	e.waitMail()
+	mails := e.mailer.to("second@example.test")
+	if len(mails) != 1 {
+		t.Fatalf("expected 1 free-place notice, got %d", len(mails))
+	}
+	want(t, mails[0].Subject, "Une place s'est libérée")
+	want(t, mails[0].Body, "/slots/1")
+
+	// Taking the place clears the request; nobody is notified twice.
+	second.post("/slots/1/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	if e.db.OnWaitlist(1, 3) {
+		t.Fatal("signing up should clear the waiting-list entry")
+	}
+	// Managers need to see that the slot is undersized.
+	admin := e.login("chef@example.test", "")
+	want(t, admin.get("/manage/slots/1", 200), "Bénévoles inscrits")
+}

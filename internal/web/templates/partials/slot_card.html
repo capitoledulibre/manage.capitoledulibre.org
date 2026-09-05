@@ -37,7 +37,25 @@
           <button class="secondary outline">Rejoindre le pôle pour m'inscrire</button>
         </form>
         {{else}}<small class="muted">Rejoignez le pôle</small>{{end}}
-      {{else if .Slot.IsFull}}<span class="badge">Complet</span>
+      {{else if .Slot.IsFull}}
+        <span class="badge">Complet</span>
+        {{/* A full slot used to be a dead end. Registering interest turns the
+             moment someone is motivated into a filled hole later. */}}
+        {{if .Waiting}}
+        <form method="post" action="/slots/{{.Slot.ID}}/waitlist/delete"
+              hx-post="/slots/{{.Slot.ID}}/waitlist/delete" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"
+              hx-indicator="#slot-{{.Slot.ID}}" hx-disabled-elt="find button">
+          <input type="hidden" name="back" value="{{.Back}}">
+          <button class="secondary outline" data-autofocus title="Vous serez prévenu·e par e-mail si une place se libère">Sur liste d'attente · annuler<span class="spinner" aria-hidden="true"></span></button>
+        </form>
+        {{else}}
+        <form method="post" action="/slots/{{.Slot.ID}}/waitlist"
+              hx-post="/slots/{{.Slot.ID}}/waitlist" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"
+              hx-indicator="#slot-{{.Slot.ID}}" hx-disabled-elt="find button">
+          <input type="hidden" name="back" value="{{.Back}}">
+          <button class="secondary outline" data-autofocus>Me prévenir si une place se libère<span class="spinner" aria-hidden="true"></span></button>
+        </form>
+        {{end}}
       {{else}}
         <form method="post" action="/slots/{{.Slot.ID}}/signup"
               hx-post="/slots/{{.Slot.ID}}/signup" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"

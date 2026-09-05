@@ -50,7 +50,7 @@
 {{range .Days}}
 <section class="day">
   <h2><span class="pill">{{parseDay .Day}}</span></h2>
-  {{range .Slots}}{{template "slot_card" (dict "Slot" . "Pole" $.Pole "Member" $.Member "Locked" $.Locked "Back" $.Path)}}{{end}}
+  {{range .Slots}}{{template "slot_card" (dict "Slot" . "Pole" $.Pole "Member" $.Member "Locked" $.Locked "Back" $.Path "Waiting" (index $.OnWaitlist .ID))}}{{end}}
 </section>
 {{else}}
 <p class="empty">{{if .OnlyOpen}}Tous les créneaux sont pourvus, merci !{{else}}Aucun créneau n'a encore été publié dans ce pôle.{{end}}</p>
