@@ -304,6 +304,17 @@ func (s *Server) managePoleMessage(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, err)
 			return
 		}
+		if r.FormValue("notify") == "1" {
+			members, _ := s.DB.ListPoleMembers(pole.ID)
+			recipients := make([]db.User, 0, len(members))
+			for _, m := range members {
+				recipients = append(recipients, m.User)
+			}
+			s.notifyMessage(recipients, "le pôle « "+pole.Name+" »", body, s.Cfg.BaseURL+pole.URL())
+			s.flash(w, fmt.Sprintf("Message publié et envoyé à %d bénévole(s) du pôle.", len(recipients)))
+		} else {
+			s.flash(w, "Message publié sur la page du pôle.")
+		}
 	}
 	http.Redirect(w, r, pole.ManageURL()+"?tab=messages", http.StatusSeeOther)
 }
@@ -318,6 +329,14 @@ func (s *Server) manageSlotMessage(w http.ResponseWriter, r *http.Request) {
 		if _, err := s.DB.CreateMessage(pole.EventID, pole.ID, slot.ID, currentUser(r).ID, body); err != nil {
 			s.serverError(w, r, err)
 			return
+		}
+		if r.FormValue("notify") == "1" {
+			volunteers, _ := s.DB.ListSlotVolunteers(slot.ID)
+			s.notifyMessage(volunteers, "le créneau "+s.slotLabel(slot), body,
+				fmt.Sprintf("%s/slots/%d", s.Cfg.BaseURL, slot.ID))
+			s.flash(w, fmt.Sprintf("Message publié et envoyé aux %d bénévole(s) du créneau.", len(volunteers)))
+		} else {
+			s.flash(w, "Message publié sur la page du créneau.")
 		}
 	}
 	http.Redirect(w, r, fmt.Sprintf("/manage/slots/%d", slot.ID), http.StatusSeeOther)

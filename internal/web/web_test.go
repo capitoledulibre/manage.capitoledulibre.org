@@ -681,3 +681,40 @@ func TestWaitlist(t *testing.T) {
 	admin := e.login("chef@example.test", "")
 	want(t, admin.get("/manage/slots/1", 200), "Bénévoles inscrits")
 }
+
+// TestMessageNotification: a message nobody comes back to read is a message
+// nobody got, so the author can push it by e-mail.
+func TestMessageNotification(t *testing.T) {
+	e := newEnv(t)
+	admin, _, _ := setupEvent(t, e, "3")
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	vol.post("/test-2026/buvette/join", 303, nil)
+
+	// Without the box ticked, the message is page-only.
+	e.mailer.reset()
+	admin.post("/test-2026/buvette/manage/messages", 303, url.Values{"body": {"Sans e-mail"}})
+	e.waitMail()
+	if n := len(e.mailer.to("vol@example.test")); n != 0 {
+		t.Fatalf("no e-mail expected without the checkbox, got %d", n)
+	}
+
+	e.mailer.reset()
+	admin.post("/test-2026/buvette/manage/messages", 303,
+		url.Values{"body": {"Rendez-vous 15 minutes avant"}, "notify": {"1"}})
+	e.waitMail()
+	mails := e.mailer.to("vol@example.test")
+	if len(mails) != 1 {
+		t.Fatalf("expected 1 message notification, got %d", len(mails))
+	}
+	want(t, mails[0].Subject, "Message : le pôle")
+	want(t, mails[0].Body, "Rendez-vous 15 minutes avant")
+
+	// Event-wide messages reach every volunteer of the event.
+	e.mailer.reset()
+	admin.post("/admin/events/test-2026/messages", 303,
+		url.Values{"body": {"Briefing vendredi 18h"}, "notify": {"1"}})
+	e.waitMail()
+	if n := len(e.mailer.to("vol@example.test")); n != 1 {
+		t.Fatalf("expected the event message to reach the volunteer, got %d", n)
+	}
+}

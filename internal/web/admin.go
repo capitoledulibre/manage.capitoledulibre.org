@@ -285,6 +285,19 @@ func (s *Server) adminEventMessage(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, err)
 			return
 		}
+		// A message nobody comes back to read is a message nobody got, so the
+		// author decides whether it is worth an e-mail.
+		if r.FormValue("notify") == "1" {
+			vols, _ := s.DB.ListEventVolunteers(ev.ID)
+			recipients := make([]db.User, 0, len(vols))
+			for _, v := range vols {
+				recipients = append(recipients, v.User)
+			}
+			s.notifyMessage(recipients, "les bénévoles de « "+ev.Name+" »", body, s.Cfg.BaseURL+ev.URL())
+			s.flash(w, fmt.Sprintf("Message publié et envoyé à %d bénévole(s).", len(recipients)))
+		} else {
+			s.flash(w, "Message publié sur la page d'accueil de l'événement.")
+		}
 	}
 	http.Redirect(w, r, ev.AdminURL()+"?tab=messages", http.StatusSeeOther)
 }

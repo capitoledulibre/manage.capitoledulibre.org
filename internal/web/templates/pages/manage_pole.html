@@ -139,6 +139,7 @@
   <form method="post" action="{{.Pole.ManageURL}}/messages" class="narrow">
     <label for="pole-msg" class="sr-only">Message du pôle</label>
     <textarea id="pole-msg" name="body" rows="3" placeholder="Ex : rendez-vous 15 minutes avant votre créneau à l'accueil bénévoles, bâtiment U2." required></textarea>
+    <label><input type="checkbox" name="notify" value="1"> Prévenir aussi les bénévoles du pôle par e-mail</label>
     <button type="submit" class="primary-action">Publier</button>
   </form>
   {{template "messages" (dict "Messages" .Messages "CanDelete" true "Back" (print .Pole.ManageURL "?tab=messages"))}}

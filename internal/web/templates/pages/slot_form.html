@@ -98,6 +98,7 @@
   <form method="post" action="/manage/slots/{{.Slot.ID}}/messages" class="narrow">
     <label for="slot-msg" class="sr-only">Message du créneau</label>
     <textarea id="slot-msg" name="body" rows="2" placeholder="Consigne visible sur la page du créneau" required></textarea>
+    <label><input type="checkbox" name="notify" value="1"> Prévenir aussi les bénévoles inscrits par e-mail</label>
     <button class="small secondary">Publier</button>
   </form>
   {{template "messages" (dict "Messages" .Messages "CanDelete" true "Back" (print "/manage/slots/" .Slot.ID))}}

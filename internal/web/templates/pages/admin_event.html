@@ -73,6 +73,7 @@
 <form method="post" action="{{.Event.AdminURL}}/messages" class="narrow">
   <label for="ev-msg" class="sr-only">Message global</label>
   <textarea id="ev-msg" name="body" rows="3" required placeholder="Ex : le briefing bénévoles a lieu vendredi à 18h dans l'amphi A."></textarea>
+  <label><input type="checkbox" name="notify" value="1"> Prévenir aussi les bénévoles par e-mail <small class="muted">(à réserver aux informations importantes)</small></label>
   <button type="submit" class="primary-action">Publier</button>
 </form>
 {{template "messages" (dict "Messages" .Messages "CanDelete" true "Back" (print .Event.AdminURL "?tab=messages"))}}
