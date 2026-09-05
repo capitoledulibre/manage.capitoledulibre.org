@@ -681,39 +681,3 @@ table.planning td { line-height: 2.1; }
   .pole-card:hover, .chip:hover { transform: none; }
   button:active, [type=submit]:active, [role=button]:active { transform: none; }
 }
-
-/* --- print ------------------------------------------------------------- */
-/* Organisers print the plannings for the volunteer desk, so the paper version
-   drops the chrome, unfolds every scroll area and goes back to black on white. */
-@media print {
-  /* Same selector shape as the theme blocks above, or these overrides would
-     lose to them on specificity and the paper version would stay tinted. */
-  :root:not([data-theme="dark"]), [data-theme="dark"] {
-    --pico-background-color: #fff; --surface: #fff; --surface-2: #fff;
-    --border: #999; --field-border: #999; --hero-bg: #fff; --hero-text: #000;
-    --ok-bg: #fff; --warn-bg: #fff; --danger-bg: #fff; --note-bg: #fff;
-    --dim: #333; --shadow-sm: none; --shadow-md: none; --shadow-lg: none;
-  }
-  body { background: #fff; color: #000; }
-  /* Forms stay: the task checklists live inside one, and a printed checkbox
-     is the point of taking the page to the volunteer desk. Only the controls
-     that cannot be used on paper go. */
-  .topbar, .footer, .tabs, .filters, .skip-link, .danger-zone,
-  .actions, .slot-action, .inline-menu, .pager, .search-results, #announcer,
-  button, [role=button], textarea, select, input:not([type=checkbox]) { display: none !important; }
-  .tasks label { font-weight: 400; }
-  main.container { padding: 0; max-width: none; min-height: 0; }
-  .scroll-x { overflow: visible !important; }
-  article, .panel, .slot, .stats div { box-shadow: none; border: 1px solid #999; break-inside: avoid; }
-  .day > h2, .day > h3 { position: static; border-bottom: 1px solid #000; background: none; }
-  .day, section, tr, .slot { break-inside: avoid; }
-  table.compact { box-shadow: none; }
-  table.compact thead th { background: #fff; color: #000; border-bottom: 1px solid #000; }
-  table.compact th, table.compact td { border-bottom: 1px solid #ccc; }
-  tr.urgent td { background: #fff; }
-  tr.urgent td:first-child { box-shadow: none; font-weight: 700; }
-  a { text-decoration: none; color: #000; }
-  .badge, .chip { border: 1px solid #666; box-shadow: none; color: #000 !important; background: #fff !important; }
-  h1 { font-size: 1.4rem; }
-  .hero { border: none; padding: 0 0 .5rem; background: none; }
-}
