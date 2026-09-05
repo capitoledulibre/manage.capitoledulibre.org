@@ -5,6 +5,7 @@
 //	benevoles serve                 start the HTTP server (default)
 //	benevoles make-admin EMAIL      grant administrator rights to an account
 //	benevoles remind [YYYY-MM-DD]   send the reminder e-mails for a day (default: tomorrow)
+//	benevoles backup [PATH]         write a consistent copy of the database
 package main
 
 import (
@@ -109,7 +110,26 @@ func main() {
 		}
 		fmt.Printf("%d reminder(s) sent\n", n)
 
+	case "backup":
+		// VACUUM INTO snapshots the database without stopping the server, so
+		// this can run from cron while the event is live.
+		path := fmt.Sprintf("benevoles-%s.db", time.Now().Format("20060102-150405"))
+		if len(os.Args) > 2 {
+			path = os.Args[2]
+		}
+		if _, err := os.Stat(path); err == nil {
+			log.Fatalf("%s already exists, refusing to overwrite it", path)
+		}
+		if err := database.BackupTo(path); err != nil {
+			log.Fatal(err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("backup written to %s (%.1f MiB)\n", path, float64(info.Size())/(1024*1024))
+
 	default:
-		log.Fatalf("unknown command %q (serve, make-admin, remind)", cmd)
+		log.Fatalf("unknown command %q (serve, make-admin, remind, backup)", cmd)
 	}
 }

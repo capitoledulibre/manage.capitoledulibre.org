@@ -166,3 +166,13 @@ func (d *DB) SetSetting(key, value string) error {
 	_, err := d.Exec(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
 	return err
 }
+
+// BackupTo writes a consistent copy of the database to path, safe to run while
+// the server is serving: VACUUM INTO takes its own read snapshot, so no writer
+// has to be stopped. The destination must not exist.
+func (d *DB) BackupTo(path string) error {
+	if _, err := d.Exec(`VACUUM INTO ?`, path); err != nil {
+		return fmt.Errorf("backup to %s: %w", path, err)
+	}
+	return nil
+}

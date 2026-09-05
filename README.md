@@ -23,7 +23,16 @@ what is still missing.
   can be generated in one go.
 - **Volunteer view** – join one or several poles (with a key when required),
   sign up with one click, get warned about overlapping shifts, see "my
-  planning" and export it to a calendar (.ics).
+  planning". Each volunteer gets a private subscription link their calendar
+  application polls on its own, so a shift moved by a manager updates
+  everywhere without re-downloading anything.
+- **Waiting list** – a full shift is not a dead end: a volunteer asks to be
+  told if a place frees up, and everyone waiting is e-mailed the moment one
+  does (first come, first served). Managers see how many people wait on each
+  shift, which is the signal that it needs more hands.
+- **Nobody loses a shift silently** – deleting a shift, taking someone off one
+  or removing them from a pole e-mails the people concerned. Messages can
+  optionally be pushed by e-mail too, per event, per pole or per shift.
 - **Coverage dashboard** per pole and a **global planning** grid (every pole,
   every slot, holes highlighted) for organisers, volunteer list with CSV
   export, daily reminder e-mail with the next day's shifts.
@@ -78,6 +87,7 @@ Environment variables (a `.env` file in the working directory is read too):
 benevoles serve                 start the web server (default)
 benevoles make-admin EMAIL      grant administrator rights
 benevoles remind [YYYY-MM-DD]   send reminder e-mails for a day (default: tomorrow)
+benevoles backup [PATH]         write a consistent copy of the database
 ```
 
 The server also sends reminders by itself every day at `REMINDER_HOUR`; the
@@ -91,9 +101,24 @@ docker run -d -p 8080:8080 -v benevoles-data:/data --env-file .env benevoles
 ```
 
 The database and the uploaded images live in `/data` inside the container.
-Back them up together: the `.db` file (SQLite in WAL mode: copy the `.db`,
-`.db-wal` and `.db-shm` files together, or use
-`sqlite3 benevoles.db ".backup copy.db"`) and the `uploads/` directory.
+
+### Backups
+
+`benevoles backup` writes a consistent single-file snapshot while the server
+keeps serving, so it is safe to run from cron during the event:
+
+```sh
+benevoles backup                       # ./benevoles-20261121-030000.db
+benevoles backup /backups/tonight.db   # or an explicit path
+```
+
+It refuses to overwrite an existing file, so a scheduled job cannot silently
+replace yesterday's copy. Back up the `uploads/` directory alongside it — the
+organisation logo and pole images are not in the database.
+
+Copying the `.db` file by hand is not enough: SQLite runs in WAL mode, so the
+`.db`, `.db-wal` and `.db-shm` files would have to be copied together and at
+the same instant.
 
 ## Roles
 
