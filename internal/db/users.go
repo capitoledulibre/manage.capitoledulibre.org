@@ -257,3 +257,36 @@ func (d *DB) EnsureVolunteer(email, name, phone string) (User, error) {
 	return u, nil
 }
 
+// --- calendar subscription ----------------------------------------------
+
+// CalendarToken returns the user's calendar secret, creating it on first use.
+// The token is what lets an agenda application poll the planning without a
+// session, so it is generated with the same entropy as a login token.
+func (d *DB) CalendarToken(userID int64) (string, error) {
+	var tok sql.NullString
+	if err := d.QueryRow(`SELECT calendar_token FROM users WHERE id = ?`, userID).Scan(&tok); err != nil {
+		return "", err
+	}
+	if tok.Valid && tok.String != "" {
+		return tok.String, nil
+	}
+	return d.ResetCalendarToken(userID)
+}
+
+// ResetCalendarToken issues a new secret, which invalidates every calendar
+// already subscribed with the previous one.
+func (d *DB) ResetCalendarToken(userID int64) (string, error) {
+	tok := randomToken()
+	if _, err := d.Exec(`UPDATE users SET calendar_token = ? WHERE id = ?`, tok, userID); err != nil {
+		return "", err
+	}
+	return tok, nil
+}
+
+// UserByCalendarToken finds the owner of a calendar secret.
+func (d *DB) UserByCalendarToken(tok string) (User, error) {
+	if tok == "" {
+		return User{}, ErrNotFound
+	}
+	return scanUser(d.QueryRow(`SELECT `+userCols+` FROM users u WHERE u.calendar_token = ?`, tok))
+}

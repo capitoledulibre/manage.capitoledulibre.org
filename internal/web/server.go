@@ -271,6 +271,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.requireLogin(s.home))
 	mux.HandleFunc("GET /me", s.requireLogin(s.myPlanning))
 	mux.HandleFunc("GET /me.ics", s.requireLogin(s.myPlanningICS))
+	mux.HandleFunc("POST /me/calendar/reset", s.requireLogin(s.calendarReset))
+	// Subscription feed: authenticated by its own secret, because a calendar
+	// application polls it without a session.
+	// The wildcard has to span the whole segment (ServeMux rejects a literal
+	// suffix after it), so the handler strips the .ics that calendar clients
+	// like to see in the URL.
+	mux.HandleFunc("GET /calendar/{token}", s.calendarFeed)
 	mux.HandleFunc("GET /profile", s.requireLogin(s.profileForm))
 	mux.HandleFunc("POST /profile", s.requireLogin(s.profileSubmit))
 	mux.HandleFunc("POST /profile/delete", s.requireLogin(s.profileDelete))

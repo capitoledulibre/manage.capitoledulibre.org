@@ -503,3 +503,62 @@ func TestSafePath(t *testing.T) {
 		}
 	}
 }
+
+// setupEvent creates an open event with one public pole and one slot of the
+// given capacity, and returns the admin client, the pole and the event slug.
+func setupEvent(t *testing.T, e *env, capacity string) (*client, db.Pole, string) {
+	t.Helper()
+	admin := e.login("chef@example.test", "Chef Orga")
+	e.db.SetAdmin(1, true)
+	admin.post("/admin/events", 303, url.Values{
+		"name": {"Test 2026"}, "starts_on": {"2026-11-21"}, "ends_on": {"2026-11-22"}})
+	admin.post("/admin/events/test-2026", 303, url.Values{
+		"name": {"Test 2026"}, "slug": {"test-2026"}, "starts_on": {"2026-11-21"},
+		"ends_on": {"2026-11-22"}, "status": {"open"}})
+	admin.post("/admin/events/test-2026/poles", 303, url.Values{
+		"name": {"Buvette"}, "access_mode": {"public"}})
+	pole, err := e.db.GetPoleBySlug("test-2026", "buvette")
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin.post("/test-2026/buvette/manage/slots", 303, url.Values{
+		"starts_at": {"2026-11-21T09:00"}, "ends_at": {"2026-11-21T11:00"}, "capacity": {capacity}})
+	return admin, pole, "test-2026"
+}
+
+// TestCalendarSubscription covers the feed a calendar application polls on its
+// own: a downloaded .ics goes stale the moment a manager moves a slot.
+func TestCalendarSubscription(t *testing.T) {
+	e := newEnv(t)
+	_, _, _ = setupEvent(t, e, "3")
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	vol.post("/test-2026/buvette/join", 303, nil)
+	vol.post("/slots/1/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+
+	// The secret is minted when the volunteer first opens their planning.
+	page := vol.get("/me", 200)
+	want(t, page, "/calendar/")
+	tok, err := e.db.CalendarToken(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The feed answers without any session at all - that is the whole point.
+	anon := e.client()
+	feed := anon.get("/calendar/"+tok+".ics", 200)
+	want(t, feed, "BEGIN:VCALENDAR")
+	want(t, feed, "Buvette")
+	want(t, feed, "UID:slot-1-2@benevoles") // stable: re-reading updates, never duplicates
+	want(t, feed, "REFRESH-INTERVAL")
+
+	anon.get("/calendar/deadbeef.ics", 404)
+
+	// Regenerating stops the calendars subscribed with the old secret.
+	vol.post("/me/calendar/reset", 303, nil)
+	anon.get("/calendar/"+tok+".ics", 404)
+	newTok, _ := e.db.CalendarToken(2)
+	if newTok == tok {
+		t.Fatal("the calendar secret was not renewed")
+	}
+	want(t, anon.get("/calendar/"+newTok+".ics", 200), "BEGIN:VCALENDAR")
+}

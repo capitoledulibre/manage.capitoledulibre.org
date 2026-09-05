@@ -2,11 +2,45 @@
 {{define "content"}}
 <div class="page-header">
   <div><h1>Mon planning</h1><p class="muted">{{.Event.Name}} · {{.Count}} créneau{{if gt .Count 1}}x{{end}}</p></div>
-  {{if .Count}}<a href="/me.ics" role="button" class="secondary outline small">Ajouter à mon agenda (.ics)</a>{{end}}
+  {{if .Count}}<a href="/me.ics" role="button" class="secondary outline small">Télécharger (.ics)</a>{{end}}
 </div>
+
+{{/* A downloaded file goes stale as soon as a manager moves a slot; the
+     subscription keeps the volunteer's calendar right on its own. */}}
+<details class="panel" {{if not .Count}}open{{end}}>
+  <summary><b>Synchroniser avec mon agenda</b> <small class="muted">— mise à jour automatique</small></summary>
+  <p class="hint">Ajoutez ce lien dans votre agenda (Google Agenda, Apple Calendrier, Thunderbird…) comme « calendrier par abonnement ». Vos créneaux y apparaîtront, et toute modification suivra sans que vous ayez à retélécharger quoi que ce soit.</p>
+  <div class="invite">
+    <label for="calendar-url" class="sr-only">Lien d'abonnement à votre planning</label>
+    <input id="calendar-url" type="text" readonly value="{{.CalendarURL}}" onclick="this.select()">
+    <button id="calendar-copy" class="small secondary outline" type="button">Copier</button>
+  </div>
+  <p class="hint">Ce lien est personnel et donne accès à votre planning : ne le partagez pas.</p>
+  <form method="post" action="/me/calendar/reset" onsubmit="return confirm('Générer un nouveau lien ? Les agendas déjà abonnés cesseront de se mettre à jour tant qu’ils n’auront pas le nouveau lien.')">
+    <button class="link muted">Régénérer le lien</button>
+  </form>
+  <script>
+  (function () {
+    var btn = document.getElementById("calendar-copy");
+    var field = document.getElementById("calendar-url");
+    if (!btn || !field) { return; }
+    btn.addEventListener("click", function () {
+      var done = function (label) {
+        btn.textContent = label;
+        setTimeout(function () { btn.textContent = "Copier"; }, 2500);
+      };
+      // The Clipboard API is unavailable outside a secure context.
+      var fallback = function () { field.select(); done("Sélectionné, faites Ctrl/⌘+C"); };
+      if (!navigator.clipboard || !navigator.clipboard.writeText) { fallback(); return; }
+      navigator.clipboard.writeText(field.value).then(function () { done("Copié ✓"); }, fallback);
+    });
+  })();
+  </script>
+</details>
+
 {{range .Days}}
 <section class="day{{if eq .Day $.Today}} today{{end}}">
-  <h3><span class="pill">{{parseDay .Day}}{{if eq .Day $.Today}} · aujourd'hui{{end}}</span></h3>
+  <h2><span class="pill">{{parseDay .Day}}{{if eq .Day $.Today}} · aujourd'hui{{end}}</span></h2>
   {{range .Slots}}
   <article class="slot mine">
     <div class="slot-row">
