@@ -311,7 +311,12 @@ func (s *Server) adminEventUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminEventDelete(w http.ResponseWriter, r *http.Request) {
-	if err := s.DB.DeleteEvent(pathID(r, "id")); err != nil {
+	ev, err := s.DB.GetEventBySlug(r.PathValue("event"))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := s.DB.DeleteEvent(ev.ID); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
@@ -444,7 +449,8 @@ func (s *Server) adminVolunteers(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.render(w, r, "admin_volunteers", M{"Event": ev, "Volunteers": vols})
+	poles, _ := s.DB.ListPoles(ev.ID)
+	s.render(w, r, "admin_volunteers", M{"Event": ev, "Volunteers": vols, "Poles": poles})
 }
 
 func (s *Server) adminVolunteersCSV(w http.ResponseWriter, r *http.Request) {

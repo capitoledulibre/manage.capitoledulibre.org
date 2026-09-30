@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/png"
 	"io"
@@ -1000,4 +1001,29 @@ func TestSignupDeadline(t *testing.T) {
 	admin.post("/test-2026/buvette/manage", 303, url.Values{"name": {"Buvette"}, "access_mode": {"public"}, "freeze_at": {"2099-11-20T00:00"}})
 	vol := e.login("vol@example.test", "Vera Bénévole")
 	want(t, vol.get("/test-2026/buvette", 200), "jeudi 19 novembre inclus")
+}
+
+// TestAdminPoleForms posts to the URLs the pages actually render: the pole
+// actions used to point at /admin/{event}/{pole}/…, which answered 404.
+func TestAdminPoleForms(t *testing.T) {
+	e := newEnv(t)
+	admin, buvette, _ := setupEvent(t, e, "2")
+	board := admin.get("/admin/events/test-2026", 200)
+	for _, action := range []string{"copy", "delete"} {
+		want(t, board, fmt.Sprintf(`action="/admin/poles/%d/%s"`, buvette.ID, action))
+	}
+	manage := admin.get("/test-2026/buvette/manage?tab=members", 200)
+	want(t, manage, fmt.Sprintf(`action="/admin/poles/%d/managers"`, buvette.ID))
+	admin.post(fmt.Sprintf("/admin/poles/%d/managers", buvette.ID), 303, url.Values{"email": {"resp@example.test"}})
+	want(t, admin.get("/test-2026/buvette/manage?tab=members", 200), fmt.Sprintf(`action="/admin/poles/%d/managers/`, buvette.ID))
+
+	// The volunteer list offers the event's poles in its selects.
+	want(t, admin.get("/admin/events/test-2026/volunteers", 200), fmt.Sprintf(`<option value="%d">Buvette</option>`, buvette.ID))
+
+	// Deleting an event deletes it: the handler used to read an id the route
+	// does not carry, and silently kept everything.
+	admin.post("/admin/events/test-2026/delete", 303, nil)
+	if _, err := e.db.GetEventBySlug("test-2026"); err == nil {
+		t.Fatal("the event is still there after deletion")
+	}
 }

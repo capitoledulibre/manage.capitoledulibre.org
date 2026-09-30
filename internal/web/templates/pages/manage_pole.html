@@ -119,11 +119,11 @@
   <h2 class="mt-md">Responsables</h2>
   <ul>
     {{range .Managers}}<li>{{.DisplayName}} <small class="muted">{{.Email}}{{if .Phone}} · {{.Phone}}{{end}}</small>
-      {{if $.User.IsAdmin}}<form method="post" action="/admin{{$.Pole.URL}}/managers/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} des responsables de ce pôle ? La personne reste bénévole.')"><button class="link danger">retirer</button></form>{{end}}</li>
+      {{if $.User.IsAdmin}}<form method="post" action="/admin/poles/{{$.Pole.ID}}/managers/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} des responsables de ce pôle ? La personne reste bénévole.')"><button class="link danger">retirer</button></form>{{end}}</li>
     {{else}}<li class="muted">Aucun responsable désigné.</li>{{end}}
   </ul>
   {{if .User.IsAdmin}}
-  <form method="post" action="/admin{{.Pole.URL}}/managers" class="actions">
+  <form method="post" action="/admin/poles/{{.Pole.ID}}/managers" class="actions">
     <label for="new-manager" class="sr-only">E-mail du nouveau responsable</label>
     <input id="new-manager" type="email" name="email" list="all-users" placeholder="e-mail du nouveau responsable" required class="field-md" autocomplete="off">
     {{template "user_datalist" (dict "ID" "all-users" "Users" .AllUsers)}}

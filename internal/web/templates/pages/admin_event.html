@@ -35,13 +35,13 @@
     <td>{{if .ShortSlot}}<span class="badge warn">{{.ShortSlot}}</span>{{else}}<span class="badge ok">0</span>{{end}}</td>
     <td class="actions"><a href="{{.Pole.ManageURL}}">Gérer</a>
       <details class="inline-menu"><summary>copier vers…</summary>
-        <form method="post" action="/admin{{.Pole.URL}}/copy" class="actions">
+        <form method="post" action="/admin/poles/{{.Pole.ID}}/copy" class="actions">
           <label for="copy-{{.Pole.ID}}" class="sr-only">Événement de destination pour la copie de {{.Pole.Name}}</label>
           <select id="copy-{{.Pole.ID}}" name="event_id" class="select-sm">{{range $.Events}}<option value="{{.ID}}" {{if eq .ID $.Event.ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
           <button class="small secondary">Copier</button>
         </form>
       </details>
-      {{if not .Pole.IsDefault}}<form method="post" action="/admin{{.Pole.URL}}/delete" class="inline" onsubmit="return confirm('Supprimer le pôle {{.Pole.Name}}, ses {{.Slots}} créneaux et toutes les inscriptions correspondantes ?')"><button class="link danger">supprimer</button></form>{{end}}</td>
+      {{if not .Pole.IsDefault}}<form method="post" action="/admin/poles/{{.Pole.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer le pôle {{.Pole.Name}}, ses {{.Slots}} créneaux et toutes les inscriptions correspondantes ?')"><button class="link danger">supprimer</button></form>{{end}}</td>
   </tr>
   {{end}}
   </tbody>
