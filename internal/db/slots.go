@@ -197,6 +197,24 @@ func (d *DB) ListEventSlots(eventID int64) ([]MySlot, error) {
 	return scanMySlots(rows)
 }
 
+// ListOpenSlots returns the slots of an event that still need volunteers,
+// start after from and do not already have the user on them, in
+// chronological order. Which poles the user may sign up in is for the caller
+// to decide.
+func (d *DB) ListOpenSlots(eventID, userID int64, from time.Time) ([]MySlot, error) {
+	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.event_id
+		FROM slots s JOIN poles p ON p.id = s.pole_id LEFT JOIN locations l ON l.id = s.location_id
+		WHERE p.event_id = ? AND s.starts_at > ?
+		  AND (SELECT COUNT(*) FROM signups sg WHERE sg.slot_id = s.id) < s.capacity
+		  AND NOT EXISTS (SELECT 1 FROM signups sg WHERE sg.slot_id = s.id AND sg.user_id = ?)
+		ORDER BY s.starts_at, p.position, l.position, s.id`, userID, eventID, FormatTime(from), userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanMySlots(rows)
+}
+
 // OverlappingSlots returns the user's slots (in the same event as poleID)
 // that overlap the given range, excluding excludeSlot.
 func (d *DB) OverlappingSlots(userID, poleID, excludeSlot int64, start, end time.Time) ([]MySlot, error) {

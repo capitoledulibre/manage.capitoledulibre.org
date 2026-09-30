@@ -99,11 +99,42 @@ func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, ev db.Event)
 		upcoming = upcoming[:3]
 	}
 	msgs, _ := s.DB.ListEventMessages(ev.ID)
+	prevEvent, returning := s.returningPoles(ev, u, poles)
 	s.render(w, r, "home", M{
 		"Event": ev, "Poles": poles, "Messages": msgs,
 		"MySlots": mySlots, "Upcoming": upcoming, "Joined": len(members) > 0,
+		"PrevEvent": prevEvent, "Returning": returning,
 		"Error": r.URL.Query().Get("error"),
 	})
+}
+
+// returningPoles finds, for a volunteer who has not joined anything yet this
+// year, the poles they were in at the previous event they took part in. Coming
+// back once a year, most people want the same team again, and the full list of
+// poles made them look for it. Suggestions stop at the first join: from then
+// on the volunteer has found their way.
+func (s *Server) returningPoles(ev db.Event, u *db.User, poles []poleView) (db.Event, []poleView) {
+	for _, p := range poles {
+		if p.Member && !p.IsDefault {
+			return db.Event{}, nil
+		}
+	}
+	prev, slugs, err := s.DB.PreviousPoleSlugs(ev.ID, u.ID)
+	if err != nil {
+		if !errors.Is(err, db.ErrNotFound) {
+			log.Printf("previous poles of user %d: %v", u.ID, err)
+		}
+		return db.Event{}, nil
+	}
+	var out []poleView
+	for _, slug := range slugs {
+		for _, p := range poles {
+			if p.Slug == slug && !p.IsDefault {
+				out = append(out, p)
+			}
+		}
+	}
+	return prev, out
 }
 
 // dayGroup groups slots by local day for display.
@@ -249,6 +280,24 @@ func (s *Server) calendarReset(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/me", http.StatusSeeOther)
 }
 
+// welcome is the first screen of a new account. The profile page mixes the
+// name with the photo, Gravatar and account deletion, which is a lot to read
+// for someone who came to pick a shift: this asks for the name alone, the
+// phone as an option, and goes on to where the volunteer was heading.
+func (s *Server) welcome(w http.ResponseWriter, r *http.Request) {
+	next := r.URL.Query().Get("next")
+	if !safePath(next) {
+		next = "/"
+	}
+	if currentUser(r).Name != "" {
+		http.Redirect(w, r, next, http.StatusSeeOther)
+		return
+	}
+	data := s.loginContext(next)
+	data["Next"] = next
+	s.render(w, r, "welcome", data)
+}
+
 func (s *Server) profileForm(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "profile", M{"Next": r.URL.Query().Get("next"), "Gravatar": s.Cfg.Gravatar})
 }
@@ -320,14 +369,22 @@ func (s *Server) profileSubmit(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	phone := strings.TrimSpace(r.FormValue("phone"))
 	if name == "" {
-		s.render(w, r, "profile", M{"Error": "Le nom est obligatoire.", "Next": r.FormValue("next")})
+		page, data := "profile", M{"Gravatar": s.Cfg.Gravatar}
+		if r.FormValue("welcome") == "1" {
+			page, data = "welcome", s.loginContext(r.FormValue("next"))
+		}
+		data["Error"] = "Indiquez votre nom pour continuer."
+		data["Next"] = r.FormValue("next")
+		s.render(w, r, page, data)
 		return
 	}
 	if err := s.DB.UpdateProfile(u.ID, name, phone); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, "Profil enregistré.")
+	if r.FormValue("welcome") != "1" {
+		s.flash(w, "Profil enregistré.")
+	}
 	next := r.FormValue("next")
 	if !safePath(next) {
 		next = "/"

@@ -182,6 +182,14 @@ article {
    push the bar onto a second line, never into a horizontal page scroll. */
 .topbar nav > ul { flex-wrap: wrap; min-width: 0; }
 .topbar nav > ul:first-child { flex: 1; min-width: 0; }
+/* Pico pulls the first and last lists out by a full nav spacing, which put
+   the logo and the theme toggle past the edges of a phone screen. Only the
+   item padding is compensated, so the brand lines up with the page content. */
+.topbar nav > ul:first-child { margin-left: -.3rem; }
+.topbar nav > ul:last-child { margin-right: -.3rem; }
+/* Below Pico's first breakpoint the bar's container has no side padding,
+   unlike the page content under it. */
+@media (max-width: 575px) { .topbar nav.container { padding-inline: var(--pico-spacing); } }
 .topbar .brand {
   text-decoration: none; display: flex; align-items: center; gap: .6rem;
   color: var(--pico-color); min-width: 0; font-weight: 600; letter-spacing: -.015em;
@@ -336,7 +344,9 @@ form.inline { display: inline; margin: 0; }
 .txt-ok { color: var(--ok-text); }
 .txt-warn { color: var(--warn-text); }
 .txt-danger { color: var(--danger-text); }
-.cap { text-transform: capitalize; }
+/* Only the first letter: text-transform: capitalize gave "Samedi 21 Novembre". */
+.cap { display: inline-block; }
+.cap::first-letter { text-transform: uppercase; }
 .nowrap { white-space: nowrap; }
 .narrow { max-width: 36rem; }
 .center { text-align: center; }
@@ -431,6 +441,13 @@ fieldset legend { font-weight: 600; font-size: var(--t-sm); }
 .pole-card a[role=button].secondary.outline:hover { border-color: var(--pole-strong); background: color-mix(in srgb, var(--pole-color) 8%, transparent); }
 .pole-cell { display: inline-flex; align-items: center; gap: .55rem; }
 .pole-cell .pole-icon { width: 1.9rem; height: 1.9rem; font-size: .8rem; border-radius: var(--r-sm); }
+.returning-list { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: .6rem; }
+.returning-list li { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; list-style: none; margin: 0; }
+.returning-list form { margin: 0 0 0 auto; }
+.returning-list small { flex-basis: 100%; }
+/* On the open-slots list, which mixes poles, each card names its own. */
+.slot-title .pole-icon { width: 1.6rem; height: 1.6rem; font-size: .8rem; border-radius: var(--r-sm); vertical-align: middle; margin-right: .45rem; }
+.slot-title .pole-icon.initials { font-size: .7rem; }
 
 /* --- coverage bars ----------------------------------------------------- */
 .bar {
@@ -447,13 +464,14 @@ fieldset legend { font-weight: 600; font-size: var(--t-sm); }
 /* Day headings are h2 or h3 depending on the page's outline, so the selector
    matches the section's own heading rather than a fixed level. */
 .day > h2, .day > h3 {
-  text-transform: capitalize; font-size: var(--t-sm); font-weight: 600;
+  font-size: var(--t-sm); font-weight: 600;
   letter-spacing: 0; display: flex; align-items: center; gap: .65rem;
   padding: .4rem 0; margin-bottom: .7rem; position: sticky; top: var(--topbar-h);
   background: var(--pico-background-color);
   z-index: 1;
 }
 .day > h2::after, .day > h3::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.day > h2 .pill::first-letter, .day > h3 .pill::first-letter { text-transform: uppercase; }
 .day > h2 .pill, .day > h3 .pill {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r-pill); padding: .2rem .8rem; box-shadow: var(--shadow-sm);
@@ -599,7 +617,8 @@ tr.urgent td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 .breadcrumb { margin-bottom: .85rem; font-size: var(--t-sm); }
 .breadcrumb a { text-decoration: none; }
 .breadcrumb a:hover { text-decoration: underline; }
-.filters { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin: 1.25rem 0; }
+/* Pico spreads the children of any <nav> with space-between. */
+.filters { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; justify-content: flex-start; margin: 1.25rem 0; }
 .filters a {
   padding: .3rem .85rem; border-radius: var(--r-pill); border: 1px solid var(--border);
   background: var(--surface); text-decoration: none; font-size: var(--t-sm);

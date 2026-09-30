@@ -51,11 +51,18 @@ func (e Event) SignupsLocked(poleFreeze *time.Time, now time.Time) bool {
 	if e.Status != StatusOpen {
 		return true
 	}
-	freeze := e.FreezeAt
-	if poleFreeze != nil {
-		freeze = poleFreeze
-	}
+	freeze := e.SignupDeadline(poleFreeze)
 	return freeze != nil && !now.Before(*freeze)
+}
+
+// SignupDeadline is the moment signups close, or nil when no date is set and
+// they stay open until the event status changes. poleFreeze, when set,
+// overrides the event freeze date.
+func (e Event) SignupDeadline(poleFreeze *time.Time) *time.Time {
+	if poleFreeze != nil {
+		return poleFreeze
+	}
+	return e.FreezeAt
 }
 
 const eventCols = `id, slug, name, status, starts_on, ends_on, freeze_at, created_at, image`

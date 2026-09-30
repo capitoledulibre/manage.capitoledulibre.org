@@ -110,6 +110,7 @@ func (s *Server) parseTemplates() error {
 		"status":    statusLabel,
 		"longDate":  func(iso string) string { return longDate(iso, loc) },
 		"dateRange": func(from, to string) string { return dateRange(from, to, loc) },
+		"deadline":  func(t *time.Time) string { return deadline(t, loc) },
 		"mode":      modeLabel,
 		"modeHelp":  modeHelp,
 		"firstName": func(u *db.User) string {
@@ -232,6 +233,21 @@ func dateRange(from, to string, loc *time.Location) string {
 	}
 }
 
+// deadline renders the moment signups close as the end of a sentence
+// starting with "jusqu'au": "samedi 15 novembre à 18:00". A freeze at
+// midnight reads as the whole previous day, "vendredi 14 novembre inclus",
+// which is what the organiser meant and what a volunteer understands.
+func deadline(t *time.Time, loc *time.Location) string {
+	if t == nil {
+		return ""
+	}
+	d := t.In(loc)
+	if d.Hour() == 0 && d.Minute() == 0 {
+		return reminders.FormatDay(d.AddDate(0, 0, -1), loc) + " inclus"
+	}
+	return reminders.FormatDay(d, loc) + " à " + d.Format("15:04")
+}
+
 func modeLabel(m string) string {
 	switch m {
 	case db.ModePublic:
@@ -285,12 +301,14 @@ func (s *Server) Handler() http.Handler {
 	// suffix after it), so the handler strips the .ics that calendar clients
 	// like to see in the URL.
 	mux.HandleFunc("GET /calendar/{token}", s.calendarFeed)
+	mux.HandleFunc("GET /welcome", s.requireLogin(s.welcome))
 	mux.HandleFunc("GET /profile", s.requireLogin(s.profileForm))
 	mux.HandleFunc("POST /profile", s.requireLogin(s.profileSubmit))
 	mux.HandleFunc("POST /profile/photo", s.requireLogin(s.profilePhoto))
 	mux.HandleFunc("POST /profile/photo/delete", s.requireLogin(s.profilePhotoDelete))
 	mux.HandleFunc("POST /profile/photo/gravatar", s.requireLogin(s.profileGravatar))
 	mux.HandleFunc("POST /profile/delete", s.requireLogin(s.profileDelete))
+	mux.HandleFunc("GET "+openSlotsPath, s.requireLogin(s.openSlots))
 	mux.HandleFunc("GET /slots/{id}", s.requireLogin(s.slotPage))
 	mux.HandleFunc("POST /slots/{id}/signup", s.requireLogin(s.slotSignup))
 	mux.HandleFunc("POST /slots/{id}/unsignup", s.requireLogin(s.slotUnsignup))

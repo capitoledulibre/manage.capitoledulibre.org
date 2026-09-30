@@ -1,8 +1,10 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -98,8 +100,8 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "pole", M{
 		"OnWaitlist": onWaitlist,
 		"Pole":       pole, "Event": ed, "Member": member, "CanManage": manage,
-		"Locked": ed.SignupsLocked(pole.FreezeAt, time.Now()),
-		"Days":   groupSlots(slots, s.Cfg.Timezone), "Locations": locations, "Filter": filter, "OnlyOpen": onlyOpen,
+		"Locked": ed.SignupsLocked(pole.FreezeAt, time.Now()), "Deadline": ed.SignupDeadline(pole.FreezeAt),
+		"Days": groupSlots(slots, s.Cfg.Timezone), "Locations": locations, "Filter": filter, "OnlyOpen": onlyOpen,
 		"Messages": msgs, "Managers": managers, "Mine": mine, "Missing": missing, "Total": len(slots),
 		"Error": r.URL.Query().Get("error"),
 	})
@@ -167,7 +169,7 @@ func (s *Server) poleLeave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
-		s.flash(w, "Le planning est gelé : contactez un responsable pour vous désengager.")
+		s.flash(w, "Les inscriptions sont closes : contactez un responsable pour vous désengager.")
 		http.Redirect(w, r, pole.URL(), http.StatusSeeOther)
 		return
 	}
@@ -218,10 +220,14 @@ func backTo(r *http.Request, slotID int64) string {
 
 // cardData builds the data of the slot_card partial. Back has to be carried
 // through: the card re-rendered by an htmx swap keeps the forms that need it.
+// It also tells which page the card sits on: the open-slots list mixes every
+// pole, so its cards name theirs.
 func (s *Server) cardData(r *http.Request, slot db.Slot, pole db.Pole, ed db.Event, member bool) M {
+	back := backTo(r, slot.ID)
 	data := M{
-		"Slot": slot, "Pole": pole, "Member": member, "Back": backTo(r, slot.ID),
-		"Locked": ed.SignupsLocked(pole.FreezeAt, time.Now()),
+		"Slot": slot, "Pole": pole, "Member": member, "Back": back,
+		"Locked":   ed.SignupsLocked(pole.FreezeAt, time.Now()),
+		"ShowPole": back == openSlotsPath || strings.HasPrefix(back, openSlotsPath+"?"),
 	}
 	// Only a full slot offers the waiting list, so only then is the lookup worth it.
 	if u := currentUser(r); u != nil && member && slot.IsFull() && !slot.Mine {
@@ -276,12 +282,16 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
 	}
 	member := s.DB.IsPoleMember(pole.ID, u.ID)
 	data := s.cardData(r, slot, pole, ed, member)
-	if !member {
-		s.respondSlot(w, r, data, "Rejoignez d'abord le pôle pour vous inscrire.", "")
+	// Anyone may join a public pole, so asking for a separate "join" click
+	// before the signup only added a step. Other poles still need a key or a
+	// manager.
+	autoJoin := !member && pole.IsOpen()
+	if !member && !autoJoin {
+		s.respondSlot(w, r, data, "Ce pôle est sur invitation : demandez au responsable de vous ajouter.", "")
 		return
 	}
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
-		s.respondSlot(w, r, data, "Le planning est gelé, les inscriptions sont fermées.", "")
+		s.respondSlot(w, r, data, "Les inscriptions sont closes sur ce créneau.", "")
 		return
 	}
 	if r.FormValue("force") != "1" {
@@ -298,6 +308,15 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// Joining comes after the overlap check, so that cancelling at that
+	// point leaves the volunteer where they were.
+	if autoJoin {
+		if err := s.DB.JoinPole(pole.ID, u.ID); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		member = true
+	}
 	okSignup, err := s.DB.Signup(slot.ID, u.ID)
 	if err != nil {
 		s.serverError(w, r, err)
@@ -309,7 +328,11 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
 		s.respondSlot(w, r, data, "Ce créneau est déjà complet : personne d'autre n'est attendu.", "")
 		return
 	}
-	s.respondSlot(w, r, data, "", "Inscription enregistrée : "+pole.Name+", "+s.slotLabel(slot)+".")
+	done := "Inscription enregistrée : " + pole.Name + ", " + s.slotLabel(slot) + "."
+	if autoJoin {
+		done = "Vous avez rejoint le pôle « " + pole.Name + " ». " + done
+	}
+	s.respondSlot(w, r, data, "", done)
 }
 
 func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) {
@@ -325,7 +348,7 @@ func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) {
 	}
 	member := s.DB.IsPoleMember(pole.ID, u.ID)
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
-		s.respondSlot(w, r, s.cardData(r, slot, pole, ed, member), "Le planning est gelé : contactez un responsable pour vous désengager.", "")
+		s.respondSlot(w, r, s.cardData(r, slot, pole, ed, member), "Les inscriptions sont closes : contactez un responsable pour vous désengager.", "")
 		return
 	}
 	if err := s.DB.Unsignup(slot.ID, u.ID); err != nil {
@@ -410,7 +433,7 @@ func (s *Server) slotWaitlistJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
-		s.respondSlot(w, r, data, "Le planning est gelé.", "")
+		s.respondSlot(w, r, data, "Les inscriptions sont closes.", "")
 		return
 	}
 	if err := s.DB.JoinWaitlist(slot.ID, u.ID); err != nil {
@@ -441,4 +464,80 @@ func (s *Server) slotWaitlistLeave(w http.ResponseWriter, r *http.Request) {
 	member := s.DB.IsPoleMember(pole.ID, u.ID)
 	data := s.cardData(r, slot, pole, ed, member)
 	s.respondSlot(w, r, data, "", "Vous ne serez plus prévenu·e pour ce créneau.")
+}
+
+// openSlotsPath lists what still needs volunteers, every pole together.
+const openSlotsPath = "/slots"
+
+// openSlots answers "where am I needed?": many volunteers want to help on a
+// given day more than in a given pole, and the pole-first path made them
+// open each pole in turn to find a hole. Only slots the volunteer can
+// actually take are listed: poles they belong to, and public poles, which a
+// signup joins on the way.
+func (s *Server) openSlots(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	ev, err := s.currentEvent(u)
+	if errors.Is(err, db.ErrNotFound) {
+		s.render(w, r, "no_event", nil)
+		return
+	}
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	poles, err := s.DB.ListPoles(ev.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	members, _ := s.DB.MemberPoleIDs(ev.ID, u.ID)
+	now := time.Now()
+	takeable := map[int64]db.Pole{}
+	for _, p := range poles {
+		if (members[p.ID] || p.IsOpen()) && !ev.SignupsLocked(p.FreezeAt, now) {
+			takeable[p.ID] = p
+		}
+	}
+	slots, err := s.DB.ListOpenSlots(ev.ID, u.ID, now)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	type card struct {
+		Slot   db.Slot
+		Pole   db.Pole
+		Member bool
+	}
+	type day struct {
+		Day   string
+		Cards []card
+	}
+	var days []day
+	var dayKeys []string
+	filter := r.URL.Query().Get("day")
+	for _, sl := range slots {
+		p, ok := takeable[sl.PoleID]
+		if !ok {
+			continue
+		}
+		key := sl.Day(s.Cfg.Timezone)
+		if len(dayKeys) == 0 || dayKeys[len(dayKeys)-1] != key {
+			dayKeys = append(dayKeys, key)
+		}
+		if filter != "" && key != filter {
+			continue
+		}
+		if len(days) == 0 || days[len(days)-1].Day != key {
+			days = append(days, day{Day: key})
+		}
+		days[len(days)-1].Cards = append(days[len(days)-1].Cards, card{Slot: sl.Slot, Pole: p, Member: members[p.ID]})
+	}
+	back := openSlotsPath
+	if filter != "" {
+		back += "?day=" + url.QueryEscape(filter)
+	}
+	s.render(w, r, "open_slots", M{
+		"Event": ev, "Days": days, "DayKeys": dayKeys, "Filter": filter, "Back": back,
+		"Locked": ev.Status != db.StatusOpen,
+	})
 }

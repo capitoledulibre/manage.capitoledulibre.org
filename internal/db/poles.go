@@ -360,6 +360,36 @@ func (d *DB) MemberPoleIDs(eventID, userID int64) (map[int64]bool, error) {
 	return out, rows.Err()
 }
 
+// PreviousPoleSlugs returns the event the user last took part in before
+// eventID, and the slugs of the poles they were in there (the default pole
+// aside). A duplicated event keeps its pole slugs, which is what lets the
+// caller match them to this year's poles. ErrNotFound when there is none.
+func (d *DB) PreviousPoleSlugs(eventID, userID int64) (Event, []string, error) {
+	prev, err := scanEvent(d.QueryRow(`SELECT `+eventCols+` FROM events e
+		WHERE e.id != ? AND e.starts_on < (SELECT starts_on FROM events WHERE id = ?)
+		  AND EXISTS (SELECT 1 FROM pole_members pm JOIN poles p ON p.id = pm.pole_id
+		              WHERE p.event_id = e.id AND pm.user_id = ? AND p.is_default = 0)
+		ORDER BY e.starts_on DESC LIMIT 1`, eventID, eventID, userID))
+	if err != nil {
+		return prev, nil, err
+	}
+	rows, err := d.Query(`SELECT p.slug FROM pole_members pm JOIN poles p ON p.id = pm.pole_id
+		WHERE p.event_id = ? AND pm.user_id = ? AND p.is_default = 0 ORDER BY p.position, p.name`, prev.ID, userID)
+	if err != nil {
+		return prev, nil, err
+	}
+	defer rows.Close()
+	var slugs []string
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return prev, nil, err
+		}
+		slugs = append(slugs, slug)
+	}
+	return prev, slugs, rows.Err()
+}
+
 // PoleMember is a member with their slot count in the pole.
 type PoleMember struct {
 	User      User

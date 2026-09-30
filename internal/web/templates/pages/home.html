@@ -5,7 +5,7 @@
   <div>
     <h1>Bonjour {{firstName .User}}</h1>
     <p>{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}
-      {{if eq .Event.Status "frozen"}}<span class="badge">Planning gelé</span>{{end}}
+      {{if eq .Event.Status "frozen"}}<span class="badge">Inscriptions closes</span>{{end}}
       {{if eq .Event.Status "draft"}}<span class="badge">Brouillon – visible des organisateurs seulement</span>{{end}}
     </p>
   </div>
@@ -17,17 +17,36 @@
 
 {{template "messages" (dict "Messages" .Messages)}}
 
-{{if not .Joined}}
-<article>
-  <h2>Bienvenue ! Trois étapes et c'est fait</h2>
-  <ol>
-    <li><strong>Choisissez un pôle</strong> ci-dessous, selon ce que vous aimez faire.</li>
-    <li><strong>Rejoignez-le</strong> d'un clic. Certains pôles sont sur invitation : le responsable vous ajoute ou vous transmet un lien.</li>
-    <li><strong>Cochez vos créneaux</strong> : ceux qui vous arrangent, autant que vous voulez.</li>
-  </ol>
-  <p class="hint">Vous pourrez revenir modifier vos créneaux à tout moment, jusqu'au gel du planning.</p>
+{{if .Returning}}
+<article class="returning">
+  <h2>Content de vous revoir&nbsp;!</h2>
+  <p>Pour {{.PrevEvent.Name}}, vous étiez dans {{if gt (len .Returning) 1}}ces pôles{{else}}ce pôle{{end}}. On repart ensemble&nbsp;?</p>
+  <ul class="returning-list">
+    {{range .Returning}}
+    <li class="c{{.Color}}">
+      {{template "pole_icon" (dict "Pole" .Pole)}}
+      <strong>{{.Name}}</strong>
+      {{if .IsOpen}}
+      <form method="post" action="{{.URL}}/join"><button class="small">Rejoindre à nouveau</button></form>
+      {{else}}
+      <small class="muted">Sur invitation&nbsp;: {{if .Coverage.Managers}}demandez à {{range $i, $m := .Coverage.Managers}}{{if $i}} ou {{end}}{{$m.DisplayName}}{{end}}{{else}}demandez au responsable{{end}}.</small>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+  <p class="hint">Envie de changer&nbsp;? Tous les pôles sont ci-dessous, et vous pouvez voir <a href="/slots">les créneaux à pourvoir</a> tous pôles confondus.</p>
 </article>
-{{else}}
+{{else if not .Joined}}
+<article>
+  <h2>Bienvenue&nbsp;! Deux étapes et c'est fait</h2>
+  <ol>
+    <li><strong>Choisissez un pôle</strong> ci-dessous, selon ce que vous aimez faire. Pas de préférence&nbsp;? Voyez directement <a href="/slots">où on a besoin de vous</a>.</li>
+    <li><strong>Inscrivez-vous sur les créneaux</strong> qui vous arrangent, autant que vous voulez. Certains pôles sont sur invitation : le responsable vous ajoute ou vous transmet un lien.</li>
+  </ol>
+  <p class="hint">Vous pourrez revenir modifier vos créneaux à tout moment{{with .Event.FreezeAt}} jusqu'au {{deadline .}}{{else}}, tant que les inscriptions sont ouvertes{{end}}.</p>
+</article>
+{{end}}
+{{if .Joined}}
 <section>
   <div class="page-header">
     <h2>Mes prochains créneaux</h2>
@@ -42,11 +61,14 @@
     </div>
   </article>
   {{end}}
-  {{else}}<p class="empty">Vous n'êtes inscrit·e sur aucun créneau à venir. Choisissez un pôle ci-dessous !</p>{{end}}
+  {{else}}<p class="empty">Vous n'êtes inscrit·e sur aucun créneau à venir. Choisissez un pôle ci-dessous, ou voyez <a href="/slots">où on a besoin de vous</a>.</p>{{end}}
 </section>
 {{end}}
 
-<h2 class="mt-lg">Les pôles</h2>
+<div class="page-header mt-lg">
+  <h2>Les pôles</h2>
+  {{if eq .Event.Status "open"}}<a href="/slots">Tous les créneaux à pourvoir →</a>{{end}}
+</div>
 <div class="poles">
   {{range .Poles}}
   <article class="pole-card c{{.Color}}" id="pole-{{.ID}}">
@@ -54,8 +76,10 @@
       {{template "pole_icon" (dict "Pole" .Pole)}}
       <div><h3>{{.Name}}</h3>
         {{if .IsDefault}}<span class="badge">tous les bénévoles</span>
-        {{else if eq .AccessMode "private"}}<span class="badge key">sur lien d'invitation</span>
-        {{else if eq .AccessMode "invitation"}}<span class="badge key">sur invitation</span>
+        {{/* Private and invitation poles differ for managers (a link versus
+             adding people by hand), not for the volunteer: in both cases they
+             cannot join alone. The footer says whom to ask. */}}
+        {{else if or (eq .AccessMode "private") (eq .AccessMode "invitation")}}<span class="badge key">sur invitation</span>
         {{else if eq .AccessMode "restricted"}}<span class="badge danger">restreint</span>{{end}}
         {{if .Member}}<span class="badge ok">✓ membre</span>{{end}}
       </div>

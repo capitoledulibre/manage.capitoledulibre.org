@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/mail"
+	"net/url"
 	"strings"
 
 	"benevoles/internal/db"
@@ -114,8 +115,7 @@ func (s *Server) authToken(w http.ResponseWriter, r *http.Request) {
 		next = "/"
 	}
 	if u.Name == "" {
-		s.flash(w, "Bienvenue ! Indiquez votre nom pour que les responsables puissent vous identifier.")
-		next = "/profile?next=" + next
+		next = "/welcome?next=" + url.QueryEscape(next)
 	}
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }

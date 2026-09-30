@@ -19,7 +19,7 @@
 <article>
   <h2>Vous n'êtes pas encore dans ce pôle</h2>
   {{if .Pole.IsOpen}}
-  <p>Rejoignez-le pour vous inscrire sur les créneaux ci-dessous. Vous pourrez le quitter à tout moment.</p>
+  <p>Inscrivez-vous directement sur un créneau ci-dessous : vous rejoindrez le pôle au passage. Vous pouvez aussi le rejoindre d'abord pour suivre ses messages, et le quitter à tout moment.</p>
   <form method="post" action="{{.Pole.URL}}/join"><button>Rejoindre ce pôle</button></form>
   {{else if .Pole.IsPrivate}}
   <p>Ce pôle se rejoint via un lien d'invitation : demandez-le au responsable.</p>
@@ -33,8 +33,9 @@
   <div><b>{{.Total}}</b><small>créneaux</small></div>
   <div><b class="{{if .Missing}}txt-warn{{else}}txt-ok{{end}}">{{.Missing}}</b><small>bénévoles manquants</small></div>
 </div>
-{{if .Locked}}<div class="flash error" role="alert">Le planning est gelé : les inscriptions ne peuvent plus être modifiées. Contactez un responsable si besoin.</div>{{end}}
+{{if .Locked}}<div class="flash error" role="alert">Les inscriptions sont closes : vos créneaux ne peuvent plus être modifiés. Contactez un responsable si besoin.</div>{{end}}
 {{end}}
+{{if and .Deadline (not .Locked)}}<p class="hint">Inscriptions et modifications possibles jusqu'au {{deadline .Deadline}}.</p>{{end}}
 
 {{if or .Locations (gt .Total 0)}}
 <nav class="filters" aria-label="Filtrer les créneaux">

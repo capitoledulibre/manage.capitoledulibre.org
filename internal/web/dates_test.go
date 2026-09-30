@@ -19,3 +19,24 @@ func TestDateRange(t *testing.T) {
 		}
 	}
 }
+
+func TestDeadline(t *testing.T) {
+	loc, _ := time.LoadLocation("Europe/Paris")
+	at := func(v string) *time.Time {
+		t, _ := time.ParseInLocation("2006-01-02 15:04", v, loc)
+		return &t
+	}
+	cases := []struct {
+		at   *time.Time
+		want string
+	}{
+		{at("2026-11-15 18:00"), "dimanche 15 novembre à 18:00"},
+		{at("2026-11-15 00:00"), "samedi 14 novembre inclus"},
+		{nil, ""},
+	}
+	for _, c := range cases {
+		if got := deadline(c.at, loc); got != c.want {
+			t.Errorf("deadline(%v) = %q, want %q", c.at, got, c.want)
+		}
+	}
+}

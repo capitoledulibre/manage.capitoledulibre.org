@@ -265,7 +265,7 @@ func TestFullFlow(t *testing.T) {
 	settings := url.Values{"name": {"Buvette"}, "access_mode": {"private"}, "default_tasks": {"Ouvrir le bar\nCompter la caisse"}}
 	settings.Set("freeze_at", "2020-01-01T00:00")
 	admin.post("/test-2026/buvette/manage", 303, settings)
-	want(t, hx.post("/slots/3/unsignup", 200, nil), "gelé")
+	want(t, hx.post("/slots/3/unsignup", 200, nil), "inscriptions sont closes")
 	settings.Set("freeze_at", "")
 	admin.post("/test-2026/buvette/manage", 303, settings)
 
@@ -905,4 +905,99 @@ func TestMessageNotification(t *testing.T) {
 	if n := len(e.mailer.to("vol@example.test")); n != 1 {
 		t.Fatalf("expected the event message to reach the volunteer, got %d", n)
 	}
+}
+
+// TestOpenSlots covers "where am I needed?": every slot a volunteer can take,
+// all poles together, and a signup that joins a public pole on the way.
+func TestOpenSlots(t *testing.T) {
+	e := newEnv(t)
+	admin, _, _ := setupEvent(t, e, "1")
+	admin.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Accueil"}, "access_mode": {"invitation"}})
+	admin.post("/test-2026/accueil/manage/slots", 303, url.Values{
+		"starts_at": {"2026-11-22T14:00"}, "ends_at": {"2026-11-22T16:00"}, "capacity": {"2"}})
+
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	list := vol.get("/slots", 200)
+	want(t, list, "Buvette")
+	want(t, list, `action="/slots/1/signup"`)
+	wantNot(t, list, `action="/slots/2/signup"`) // invitation pole, not a member
+
+	hx := *vol
+	hx.hx = true
+	frag := hx.post("/slots/1/signup", 200, url.Values{"back": {"/slots"}})
+	want(t, frag, "Vous avez rejoint le pôle « Buvette »")
+	want(t, frag, "Me désinscrire")
+	want(t, frag, `class="slot-title"><span class="pole-icon`) // the card still names its pole
+	buvette, _ := e.db.GetPoleBySlug("test-2026", "buvette")
+	if !e.db.IsPoleMember(buvette.ID, 2) {
+		t.Fatal("signing up on a public pole should join it")
+	}
+	// Taken, hence no longer listed.
+	wantNot(t, vol.get("/slots", 200), `id="slot-1"`)
+
+	// A pole that needs an invitation is not joined through a signup.
+	want(t, hx.post("/slots/2/signup", 200, nil), "sur invitation")
+	accueil, _ := e.db.GetPoleBySlug("test-2026", "accueil")
+	if e.db.IsPoleMember(accueil.ID, 2) {
+		t.Fatal("an invitation pole must not be joined by signing up")
+	}
+}
+
+// TestReturningVolunteer: coming back once a year, a volunteer is offered the
+// poles they were in last time.
+func TestReturningVolunteer(t *testing.T) {
+	e := newEnv(t)
+	admin, _, _ := setupEvent(t, e, "3")
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	vol.post("/test-2026/buvette/join", 303, nil)
+	wantNot(t, vol.get("/", 200), "Content de vous revoir")
+
+	admin.post("/admin/events/test-2026/duplicate", 303, url.Values{"name": {"Test 2027"}, "starts_on": {"2027-11-20"}, "ends_on": {"2027-11-21"}})
+	admin.post("/admin/events/test-2026", 303, url.Values{"name": {"Test 2026"}, "slug": {"test-2026"}, "status": {"archived"}, "starts_on": {"2026-11-21"}, "ends_on": {"2026-11-22"}})
+	admin.post("/admin/events/test-2027", 303, url.Values{"name": {"Test 2027"}, "slug": {"test-2027"}, "status": {"open"}, "starts_on": {"2027-11-20"}, "ends_on": {"2027-11-21"}})
+
+	home := vol.get("/", 200)
+	want(t, home, "Content de vous revoir")
+	want(t, home, "Pour Test 2026")
+	want(t, home, `action="/test-2027/buvette/join"`)
+	wantNot(t, home, "Deux étapes") // the generic welcome gives way
+
+	vol.post("/test-2027/buvette/join", 303, nil)
+	wantNot(t, vol.get("/", 200), "Content de vous revoir")
+
+	// Someone new has nothing to come back to.
+	want(t, e.login("new@example.test", "Nina Nouvelle").get("/", 200), "Deux étapes")
+}
+
+// TestWelcome: a new account is asked for its name alone, then sent on to
+// where it was heading.
+func TestWelcome(t *testing.T) {
+	e := newEnv(t)
+	setupEvent(t, e, "3")
+	c := e.client()
+	c.post("/login", 200, url.Values{"email": {"new@example.test"}, "next": {"/test-2026/buvette"}})
+	link := e.mailer.lastLink(t)
+	c.get(link[strings.Index(link, "/auth/"):], 303)
+
+	page := c.get("/welcome?next=/test-2026/buvette", 200)
+	want(t, page, `for="welcome-name"`)
+	want(t, page, "Continuer vers le pôle Buvette")
+	wantNot(t, page, "Photo de profil")
+
+	want(t, c.post("/profile", 200, url.Values{"welcome": {"1"}, "next": {"/test-2026/buvette"}}), "Indiquez votre nom")
+	c.post("/profile", 303, url.Values{"welcome": {"1"}, "name": {"Nina Nouvelle"}, "next": {"/test-2026/buvette"}})
+	if u, _ := e.db.GetUserByEmail("new@example.test"); u.Name != "Nina Nouvelle" {
+		t.Fatalf("name not saved: %+v", u)
+	}
+	// Once named, the page steps aside.
+	c.get("/welcome?next=/", 303)
+}
+
+// TestSignupDeadline: volunteers read the date signups close, not "freeze".
+func TestSignupDeadline(t *testing.T) {
+	e := newEnv(t)
+	admin, _, _ := setupEvent(t, e, "3")
+	admin.post("/test-2026/buvette/manage", 303, url.Values{"name": {"Buvette"}, "access_mode": {"public"}, "freeze_at": {"2099-11-20T00:00"}})
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	want(t, vol.get("/test-2026/buvette", 200), "jeudi 19 novembre inclus")
 }

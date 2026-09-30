@@ -12,6 +12,7 @@ var reservedSlugs = map[string]bool{
 	"admin": true, "me": true, "login": true, "logout": true, "auth": true, "profile": true,
 	"slots": true, "tasks": true, "manage": true, "static": true, "uploads": true, "api": true,
 	"new": true, "join": true, "leave": true, "events": true, "poles": true, "me.ics": true,
+	"welcome": true, "calendar": true,
 }
 
 var accents = map[rune]string{

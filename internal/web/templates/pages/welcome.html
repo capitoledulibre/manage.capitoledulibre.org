@@ -1,0 +1,17 @@
+{{define "title"}}Bienvenue – {{.Org}}{{end}}
+{{define "content"}}
+<article class="login-box">
+  <h1>Bienvenue&nbsp;!</h1>
+  <p>Une seule question avant de continuer&nbsp;: comment vous appelez-vous&nbsp;? C'est ce que verront les responsables de pôle.</p>
+  <form method="post" action="/profile">
+    <input type="hidden" name="welcome" value="1">
+    <input type="hidden" name="next" value="{{.Next}}">
+    <label for="welcome-name">Prénom et nom</label>
+    <input id="welcome-name" type="text" name="name" required autofocus autocomplete="name">
+    <label for="welcome-phone">Téléphone <small class="muted">(facultatif, visible des responsables uniquement, pour vous joindre le jour J)</small></label>
+    <input id="welcome-phone" type="tel" name="phone" autocomplete="tel">
+    <button type="submit">{{if .Pole}}Continuer vers le pôle {{.Pole.Name}}{{else}}Continuer{{end}}</button>
+  </form>
+  <p class="hint">Vous pourrez ajouter une photo et modifier ces informations plus tard, depuis « Mon profil ».</p>
+</article>
+{{end}}
