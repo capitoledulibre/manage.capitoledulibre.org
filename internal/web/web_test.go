@@ -194,7 +194,7 @@ func TestFullFlow(t *testing.T) {
 	admin.get("/admin", 403)
 	e.db.SetAdmin(1, true)
 	admin.post("/admin/events", 303, url.Values{"name": {"Test 2026"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
-	want(t, admin.get("/admin/events/test-2026", 200), "Organisation")
+	want(t, admin.get("/admin/events/test-2026", 200), "Général")
 	admin.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Buvette"}, "access_mode": {"private"}, "manager_email": {"resp@example.test"}})
 	admin.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Accueil"}, "access_mode": {"invitation"}, "manager_email": {"resp@example.test"}})
 	admin.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Orga"}, "access_mode": {"restricted"}})
@@ -272,7 +272,7 @@ func TestFullFlow(t *testing.T) {
 	// Pole manager: member management with live search.
 	mgr := e.login("resp@example.test", "Rémi Responsable")
 	mgr.get("/test-2026/buvette/manage", 200)
-	mgr.get("/test-2026/organisation/manage", 403)
+	mgr.get("/test-2026/general/manage", 403)
 	mgr.post("/test-2026/accueil/manage/members", 303, url.Values{"emails": {"vol@example.test\nnew2@example.test"}})
 	members := mgr.get("/test-2026/accueil/manage?tab=members", 200)
 	want(t, members, "vol@example.test")

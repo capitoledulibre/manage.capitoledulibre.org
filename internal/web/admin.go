@@ -24,9 +24,17 @@ func (s *Server) adminHome(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "admin", M{
 		"Events": events, "UserCount": len(users), "OrgLogo": s.DB.GetSetting("org_logo", ""),
 		"OrgName":         s.DB.GetSetting("org_name", "Bénévoles"),
-		"DefaultPoleName": s.DB.GetSetting("default_pole_name", "Organisation"),
+		"DefaultPoleName": s.defaultPoleName(),
 		"SourceURL":       s.DB.GetSetting("source_url", ""),
 	})
+}
+
+// defaultPoleName names the pole created with every event, which holds the
+// shifts that belong to no team and includes every volunteer. "Organisation"
+// read as "reserved for organisers"; "Général" says nothing about who is in
+// it, and the organiser can narrow it down per event.
+func (s *Server) defaultPoleName() string {
+	return s.DB.GetSetting("default_pole_name", "Général")
 }
 
 func (s *Server) adminSettings(w http.ResponseWriter, r *http.Request) {
@@ -191,7 +199,7 @@ func (s *Server) adminEventDuplicate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, src.AdminURL()+"?tab=settings", http.StatusSeeOther)
 		return
 	}
-	id, err := s.DB.DuplicateEvent(src.ID, name, startsOn, endsOn, s.DB.GetSetting("default_pole_name", "Organisation"))
+	id, err := s.DB.DuplicateEvent(src.ID, name, startsOn, endsOn, s.defaultPoleName())
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -239,7 +247,7 @@ func (s *Server) adminEventCreate(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, "event_form", M{"Event": db.Event{Name: name, StartsOn: startsOn, EndsOn: endsOn}, "New": true, "Error": "Nom et dates sont obligatoires, la fin ne peut pas précéder le début."})
 		return
 	}
-	id, err := s.DB.CreateEvent(name, startsOn, endsOn, s.formTimePtr(r, "freeze_at"), s.DB.GetSetting("default_pole_name", "Organisation"))
+	id, err := s.DB.CreateEvent(name, startsOn, endsOn, s.formTimePtr(r, "freeze_at"), s.defaultPoleName())
 	if err != nil {
 		s.serverError(w, r, err)
 		return
