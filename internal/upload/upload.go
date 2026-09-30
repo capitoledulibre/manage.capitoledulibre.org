@@ -63,25 +63,28 @@ func (s *Store) Save(r *http.Request, field string) (string, error) {
 }
 
 func (s *Store) saveFile(f multipart.File) (string, error) {
-	head := make([]byte, 512)
-	n, _ := io.ReadFull(f, head)
-	ext, ok := extensions[http.DetectContentType(head[:n])]
-	if !ok {
-		return "", ErrInvalid
-	}
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return "", err
-	}
-	b := make([]byte, 16)
-	rand.Read(b)
-	name := hex.EncodeToString(b) + ext
-	out, err := os.Create(filepath.Join(s.Dir, name))
+	b, err := io.ReadAll(io.LimitReader(f, MaxSize+1))
 	if err != nil {
 		return "", err
 	}
-	defer out.Close()
-	if _, err := io.Copy(out, io.LimitReader(f, MaxSize+1)); err != nil {
-		os.Remove(out.Name())
+	return s.SaveBytes(b)
+}
+
+// SaveBytes stores an image already held in memory, for pictures the server
+// fetched itself rather than received through a form. It returns the generated
+// file name.
+func (s *Store) SaveBytes(b []byte) (string, error) {
+	if len(b) == 0 || len(b) > MaxSize {
+		return "", ErrInvalid
+	}
+	ext, ok := extensions[http.DetectContentType(b)]
+	if !ok {
+		return "", ErrInvalid
+	}
+	r := make([]byte, 16)
+	rand.Read(r)
+	name := hex.EncodeToString(r) + ext
+	if err := os.WriteFile(filepath.Join(s.Dir, name), b, 0o644); err != nil {
 		return "", err
 	}
 	return name, nil

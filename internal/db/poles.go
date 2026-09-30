@@ -382,13 +382,11 @@ func (d *DB) ListPoleMembers(poleID int64) ([]PoleMember, error) {
 	var out []PoleMember
 	for rows.Next() {
 		var m PoleMember
-		var created string
-		var last sql.NullString
-		if err := rows.Scan(&m.User.ID, &m.User.Email, &m.User.Name, &m.User.Phone, &m.User.IsAdmin, &created, &last, &m.IsManager, &m.SlotCount); err != nil {
+		u, err := scanUser(rows, &m.IsManager, &m.SlotCount)
+		if err != nil {
 			return nil, err
 		}
-		m.User.CreatedAt = ParseTime(created)
-		m.User.LastLoginAt = NullTime(last)
+		m.User = u
 		out = append(out, m)
 	}
 	return out, rows.Err()

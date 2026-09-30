@@ -38,11 +38,19 @@ what is still missing.
   export, daily reminder e-mail with the next day's shifts.
 - **Year after year** – duplicate an event (poles, locations, managers,
   default task lists, access modes) into a new draft, or copy a single pole.
-- **Branding** – organisation logo, an emoji icon or an uploaded image per pole.
+- **Profile pictures** – volunteers upload a photo, or let the application
+  find the avatar attached to their address on [Gravatar](https://gravatar.com).
+  The lookup is done by the server and the picture is cached in the upload
+  directory, so no volunteer's browser ever contacts a third party: neither
+  their IP address nor the e-mail hash of the person on screen leaves the
+  server. Without a picture, an account shows its initials. Set
+  `GRAVATAR=0` to disable the lookup entirely.
+- **Branding** – organisation logo, a logo per edition shown next to its name,
+  an emoji icon or an uploaded image per pole.
 
 Single Go binary, SQLite database, server-rendered pages with a little
-[htmx](https://htmx.org). No JavaScript build, no external services besides an
-SMTP server.
+[htmx](https://htmx.org). No JavaScript build; the only services it talks to
+are an SMTP server and, if left enabled, gravatar.com.
 
 ## Running it
 
@@ -73,10 +81,11 @@ Environment variables (a `.env` file in the working directory is read too):
 | `ADDR` | `:8080` | Listen address |
 | `BASE_URL` | `http://localhost:8080` | Public URL, used in e-mails |
 | `DB_PATH` | `benevoles.db` | SQLite file (created on first run) |
-| `UPLOAD_DIR` | `uploads` | Directory for uploaded logos and pole images |
+| `UPLOAD_DIR` | `uploads` | Directory for uploaded logos, pole images and profile pictures |
 | `TIMEZONE` | `Europe/Paris` | Display timezone |
 | `COOKIE_SECURE` | unset | Set to `1` behind HTTPS |
 | `REMINDER_HOUR` | `18` | Local hour of the daily reminder e-mail |
+| `GRAVATAR` | `1` | Look profile pictures up on gravatar.com (server side, cached); `0` disables it |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | `587` | SMTP server (port 465 uses implicit TLS) |
 | `MAIL_FROM` | `benevoles@example.org` | Sender address |
 | `DEV_MODE` | unset | Set to `1` to print e-mails (and login links) to stdout instead of sending them |
@@ -114,7 +123,7 @@ benevoles backup /backups/tonight.db   # or an explicit path
 
 It refuses to overwrite an existing file, so a scheduled job cannot silently
 replace yesterday's copy. Back up the `uploads/` directory alongside it — the
-organisation logo and pole images are not in the database.
+logos, pole images and profile pictures are not in the database.
 
 Copying the `.db` file by hand is not enough: SQLite runs in WAL mode, so the
 `.db`, `.db-wal` and `.db-shm` files would have to be copied together and at
@@ -156,11 +165,14 @@ DEV_MODE=1 go run . serve
 Login links are printed on the console. Layout: `internal/db` (SQLite access,
 migrations embedded from `internal/db/migrations`), `internal/web` (handlers,
 templates and static assets embedded in the binary), `internal/mail`,
-`internal/reminders`. Templates use Go `html/template`; the UI is in French.
+`internal/reminders`, `internal/upload` (images on disk), `internal/avatar`
+(the Gravatar fallback). Templates use Go `html/template`; the UI is in French.
 
 Run the tests with `go test ./...`. The `internal/web` tests drive the whole
 application through `httptest` (magic-link login, access modes, signups,
-management, uploads, rate limiting), so most changes are covered end to end.
+management, uploads, profile pictures, rate limiting), so most changes are
+covered end to end. The Gravatar test serves a local stub, so the suite never
+reaches the real service.
 
 Login requests are rate limited in memory (3 per e-mail address and 30 per IP
 every 15 minutes). Behind a reverse proxy, the client IP is read from

@@ -2,7 +2,7 @@
 {{define "content"}}
 <p class="breadcrumb"><a href="/admin">← Administration</a> · <a href="{{.Event.URL}}">Page publique</a></p>
 <div class="page-header">
-  <div><h1>{{.Event.Name}}</h1><p class="muted">{{dateRange .Event.StartsOn .Event.EndsOn}} · <span class="badge {{if eq .Event.Status "open"}}ok{{else if eq .Event.Status "frozen"}}warn{{end}}">{{status .Event.Status}}</span></p></div>
+  <div class="page-title">{{if .Event.LogoURL}}<img class="event-logo lg" src="{{.Event.LogoURL}}" alt="">{{end}}<div><h1>{{.Event.Name}}</h1><p class="muted">{{dateRange .Event.StartsOn .Event.EndsOn}} · <span class="badge {{if eq .Event.Status "open"}}ok{{else if eq .Event.Status "frozen"}}warn{{end}}">{{status .Event.Status}}</span></p></div></div>
   <div class="actions"><a href="{{.Event.AdminURL}}/planning" role="button" class="small">Planning global</a><a href="{{.Event.AdminURL}}/volunteers" role="button" class="secondary outline small">Liste des bénévoles</a></div>
 </div>
 
@@ -95,6 +95,19 @@
   <input id="ev-freeze" type="datetime-local" name="freeze_at" value="{{inputDT .Event.FreezeAt}}">
   <button type="submit" class="primary-action">Enregistrer</button>
 </form>
+<div class="panel narrow mt-md">
+  <h2>Logo de l'événement</h2>
+  <p class="hint">Affiché à côté du nom de l'événement, sur la page d'accueil des bénévoles et sur la page de connexion. PNG, JPEG, GIF ou WebP, 2 Mo maximum. Il est repris tel quel lors d'une duplication.</p>
+  <div class="actions">
+    {{if .Event.LogoURL}}<img class="event-logo lg" src="{{.Event.LogoURL}}" alt="">{{end}}
+    <form method="post" action="{{.Event.AdminURL}}/image" enctype="multipart/form-data" class="actions">
+      <label for="ev-image" class="sr-only">Fichier image du logo de l'événement</label>
+      <input id="ev-image" type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required class="m-0">
+      <button class="small secondary">Envoyer</button>
+    </form>
+    {{if .Event.Image}}<form method="post" action="{{.Event.AdminURL}}/image/delete" onsubmit="return confirm('Retirer le logo de l’événement ?')"><button class="link danger">retirer le logo</button></form>{{end}}
+  </div>
+</div>
 <div class="panel narrow mt-md">
   <h2>Préparer l'événement suivant</h2>
   <p class="hint">Crée un nouvel événement en brouillon avec les mêmes pôles : réglages, icônes, modes d'accès, listes de tâches par défaut, emplacements et responsables. Les créneaux et les inscriptions ne sont pas repris.</p>

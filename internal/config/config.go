@@ -20,6 +20,7 @@ type Config struct {
 	Secure       bool           // set Secure flag on cookies (behind HTTPS)
 	DevMode      bool           // print magic links to stdout instead of e-mailing
 	ReminderHour int            // local hour at which the daily reminder is sent
+	Gravatar     bool           // look missing profile pictures up on gravatar.com
 
 	SMTPHost string
 	SMTPPort int
@@ -40,6 +41,7 @@ func Load() (Config, error) {
 		Secure:       env("COOKIE_SECURE", "") == "1",
 		DevMode:      env("DEV_MODE", "") == "1",
 		ReminderHour: envInt("REMINDER_HOUR", 18),
+		Gravatar:     env("GRAVATAR", "1") == "1",
 		SMTPHost:     env("SMTP_HOST", ""),
 		SMTPPort:     envInt("SMTP_PORT", 587),
 		SMTPUser:     env("SMTP_USER", ""),

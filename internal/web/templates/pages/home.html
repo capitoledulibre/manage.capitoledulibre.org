@@ -1,6 +1,7 @@
 {{define "title"}}Les pôles – {{.Org}}{{end}}
 {{define "content"}}
 <section class="hero">
+  {{if .Event.LogoURL}}<img class="event-logo lg" src="{{.Event.LogoURL}}" alt="">{{end}}
   <div>
     <h1>Bonjour {{firstName .User}}</h1>
     <p>{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}

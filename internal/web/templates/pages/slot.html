@@ -21,7 +21,7 @@
   <section>
     <h2>Bénévoles ({{.Slot.Filled}}/{{.Slot.Capacity}})</h2>
     {{if .Volunteers}}
-    <ul>{{range .Volunteers}}<li>{{.DisplayName}}{{if and $.CanManage .Phone}} <small class="muted">· {{.Phone}}</small>{{end}}</li>{{end}}</ul>
+    <ul class="people">{{range .Volunteers}}<li>{{template "avatar" (dict "User" . "Class" "sm")}}<span>{{.DisplayName}}{{if and $.CanManage .Phone}} <small class="muted">· {{.Phone}}</small>{{end}}</span></li>{{end}}</ul>
     {{else}}<p class="muted">Personne pour l'instant.</p>{{end}}
     {{if gt .Slot.Missing 0}}<p class="hint">Encore {{.Slot.Missing}} place{{if gt .Slot.Missing 1}}s{{end}}.</p>{{end}}
   </section>

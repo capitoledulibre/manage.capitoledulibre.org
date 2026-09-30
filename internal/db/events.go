@@ -23,6 +23,15 @@ type Event struct {
 	EndsOn    string // YYYY-MM-DD
 	FreezeAt  *time.Time
 	CreatedAt time.Time
+	Image     string // optional logo, file name inside the upload directory
+}
+
+// LogoURL is the edition logo to display, or "" when there is none.
+func (e Event) LogoURL() string {
+	if e.Image == "" {
+		return ""
+	}
+	return "/uploads/" + e.Image
 }
 
 // URL is the public page of the event.
@@ -49,13 +58,13 @@ func (e Event) SignupsLocked(poleFreeze *time.Time, now time.Time) bool {
 	return freeze != nil && !now.Before(*freeze)
 }
 
-const eventCols = `id, slug, name, status, starts_on, ends_on, freeze_at, created_at`
+const eventCols = `id, slug, name, status, starts_on, ends_on, freeze_at, created_at, image`
 
 func scanEvent(row interface{ Scan(...any) error }) (Event, error) {
 	var e Event
 	var freeze sql.NullString
 	var created string
-	if err := row.Scan(&e.ID, &e.Slug, &e.Name, &e.Status, &e.StartsOn, &e.EndsOn, &freeze, &created); err != nil {
+	if err := row.Scan(&e.ID, &e.Slug, &e.Name, &e.Status, &e.StartsOn, &e.EndsOn, &freeze, &created, &e.Image); err != nil {
 		return e, err
 	}
 	e.FreezeAt = NullTime(freeze)
@@ -122,7 +131,7 @@ func (d *DB) CreateEvent(name, startsOn, endsOn string, freeze *time.Time, defau
 
 // DuplicateEvent creates a draft event and copies every pole of the
 // source event into it (settings, locations, managers; no slots, no
-// members). It returns the new event id.
+// members), along with the edition logo. It returns the new event id.
 func (d *DB) DuplicateEvent(sourceID int64, name, startsOn, endsOn string, defaultPoleName string) (int64, error) {
 	poles, err := d.ListPoles(sourceID)
 	if err != nil {
@@ -130,6 +139,13 @@ func (d *DB) DuplicateEvent(sourceID int64, name, startsOn, endsOn string, defau
 	}
 	newID, err := d.CreateEvent(name, startsOn, endsOn, nil, defaultPoleName)
 	if err != nil {
+		return 0, err
+	}
+	src, err := d.GetEvent(sourceID)
+	if err != nil {
+		return 0, err
+	}
+	if err := d.SetEventImage(newID, src.Image); err != nil {
 		return 0, err
 	}
 	for _, p := range poles {
@@ -149,6 +165,13 @@ func (d *DB) UpdateEvent(e Event) error {
 	e.Slug = d.UniqueEventSlug(base, e.ID)
 	_, err := d.Exec(`UPDATE events SET slug = ?, name = ?, status = ?, starts_on = ?, ends_on = ?, freeze_at = ? WHERE id = ?`,
 		e.Slug, e.Name, e.Status, e.StartsOn, e.EndsOn, OptTime(e.FreezeAt), e.ID)
+	return err
+}
+
+// SetEventImage sets or clears the edition logo. The caller owns the file: it
+// is the upload directory that keeps the bytes.
+func (d *DB) SetEventImage(id int64, name string) error {
+	_, err := d.Exec(`UPDATE events SET image = ? WHERE id = ?`, name, id)
 	return err
 }
 
@@ -203,13 +226,12 @@ func (d *DB) ListEventVolunteers(eventID int64) ([]EventVolunteer, error) {
 	var out []EventVolunteer
 	for rows.Next() {
 		var v EventVolunteer
-		var created string
-		var last, poles sql.NullString
-		if err := rows.Scan(&v.User.ID, &v.User.Email, &v.User.Name, &v.User.Phone, &v.User.IsAdmin, &created, &last, &poles, &v.SlotCount); err != nil {
+		var poles sql.NullString
+		u, err := scanUser(rows, &poles, &v.SlotCount)
+		if err != nil {
 			return nil, err
 		}
-		v.User.CreatedAt = ParseTime(created)
-		v.User.LastLoginAt = NullTime(last)
+		v.User = u
 		if poles.Valid {
 			v.Poles = splitPipe(poles.String)
 		}

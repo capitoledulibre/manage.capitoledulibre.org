@@ -228,12 +228,6 @@ article {
 }
 .topbar details.account[open] > summary { background: var(--surface-2); color: var(--pico-color); }
 .topbar details.account[open] > summary::after { transform: rotate(225deg) translateY(-3px); }
-.topbar details.account .avatar {
-  display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem;
-  border-radius: 50%; background: color-mix(in srgb, var(--pico-primary-background) 14%, var(--surface));
-  color: var(--pico-primary); font-size: var(--t-xs); font-weight: 700;
-  letter-spacing: .01em; flex: none;
-}
 .topbar details.account > ul {
   position: absolute; right: 0; left: auto; top: calc(100% + .45rem); z-index: 20;
   display: flex; flex-direction: column; gap: .1rem; min-width: 12.5rem; padding: .4rem;
@@ -262,6 +256,32 @@ html[data-theme-pref="light"] .theme-toggle .icon-light,
 html[data-theme-pref="dark"] .theme-toggle .icon-dark { display: block; }
 .footer { text-align: center; padding: 2.5rem 0 2rem; color: var(--dim); }
 .footer small { font-size: var(--t-xs); }
+
+/* --- avatars and identity ---------------------------------------------- */
+/* One frame for the account menu, the volunteer tables and the slot pages,
+   holding either the profile picture or the initials of the account. */
+.avatar {
+  display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem;
+  border-radius: 50%; background: color-mix(in srgb, var(--pico-primary-background) 14%, var(--surface));
+  color: var(--pico-primary); font-size: var(--t-xs); font-weight: 700;
+  letter-spacing: .01em; flex: none; overflow: hidden;
+}
+.avatar.img { object-fit: cover; }
+.avatar.sm { width: 1.4rem; height: 1.4rem; font-size: var(--t-micro); }
+.avatar.lg { width: 4.5rem; height: 4.5rem; font-size: 1.5rem; }
+/* A name preceded by its picture, in a table cell or a list. */
+.who { display: inline-flex; align-items: center; gap: .45rem; }
+ul.people { list-style: none; padding: 0; margin: 0; }
+ul.people li { display: flex; align-items: center; gap: .5rem; padding: .18rem 0; }
+/* The logo of one edition, next to its name. */
+.event-logo { height: 1.75rem; max-width: 6rem; object-fit: contain; flex: none; }
+.event-logo.sm { height: 1.4rem; max-width: 4rem; }
+.event-logo.lg { height: 3.25rem; max-width: 11rem; }
+.photo-block { border-top: 1px solid var(--border); padding-top: 1rem; }
+.photo-block h2 { font-size: 1.1rem; margin-bottom: .5rem; }
+.photo-row { display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.photo-row .photo-forms { flex: 1; min-width: 14rem; }
+.photo-row .photo-forms .hint { margin: .35rem 0 .5rem; }
 
 /* --- hero -------------------------------------------------------------- */
 .hero {

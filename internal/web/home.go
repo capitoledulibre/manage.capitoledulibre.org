@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -249,7 +250,69 @@ func (s *Server) calendarReset(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) profileForm(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, "profile", M{"Next": r.URL.Query().Get("next")})
+	s.render(w, r, "profile", M{"Next": r.URL.Query().Get("next"), "Gravatar": s.Cfg.Gravatar})
+}
+
+// profilePhoto stores the picture a volunteer uploaded. It wins over the
+// Gravatar fallback, which is what AvatarUpload records.
+func (s *Server) profilePhoto(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	name, err := s.Uploads.Save(r, "photo")
+	switch {
+	case err != nil:
+		s.flash(w, "Image refusée : PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
+	case name == "":
+		s.flash(w, "Choisissez un fichier image.")
+	default:
+		old, err := s.DB.SetAvatar(u.ID, name, db.AvatarUpload)
+		if err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		s.dropImage(old)
+		s.flash(w, "Photo de profil enregistrée.")
+	}
+	http.Redirect(w, r, "/profile", http.StatusSeeOther)
+}
+
+// profilePhotoDelete removes the picture and remembers the choice, so that the
+// Gravatar fallback does not hand a face back on the next page view.
+func (s *Server) profilePhotoDelete(w http.ResponseWriter, r *http.Request) {
+	old, err := s.DB.SetAvatar(currentUser(r).ID, "", db.AvatarOptOut)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.dropImage(old)
+	s.flash(w, "Photo retirée : vos initiales sont affichées à la place.")
+	http.Redirect(w, r, "/profile", http.StatusSeeOther)
+}
+
+// profileGravatar re-enables the fallback and looks the address up right away,
+// so the volunteer sees the outcome of their click instead of a promise.
+func (s *Server) profileGravatar(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	if !s.Cfg.Gravatar {
+		s.flash(w, "La recherche Gravatar est désactivée sur ce serveur.")
+		http.Redirect(w, r, "/profile", http.StatusSeeOther)
+		return
+	}
+	old, err := s.DB.SetAvatar(u.ID, "", db.AvatarNone)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.dropImage(old)
+	switch found, err := s.Avatars.Lookup(u.ID); {
+	case err != nil:
+		log.Printf("gravatar lookup for %s: %v", u.Email, err)
+		s.flash(w, "Gravatar est injoignable pour le moment. Réessayez plus tard.")
+	case found:
+		s.flash(w, "Avatar Gravatar récupéré.")
+	default:
+		s.flash(w, "Aucun avatar n'est associé à "+u.Email+" sur gravatar.com.")
+	}
+	http.Redirect(w, r, "/profile", http.StatusSeeOther)
 }
 
 func (s *Server) profileSubmit(w http.ResponseWriter, r *http.Request) {
@@ -283,6 +346,8 @@ func (s *Server) profileDelete(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	// The picture lives on disk, not in the database: delete it too.
+	s.dropImage(u.Avatar)
 	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true})
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

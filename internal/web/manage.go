@@ -141,11 +141,11 @@ func (s *Server) managePoleImage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.flash(w, "Image refusée : PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
 	} else if name != "" {
-		s.Uploads.Remove(pole.Image)
 		if err := s.DB.SetPoleImage(pole.ID, name); err != nil {
 			s.serverError(w, r, err)
 			return
 		}
+		s.dropImage(pole.Image)
 		s.flash(w, "Image du pôle mise à jour.")
 	}
 	http.Redirect(w, r, pole.ManageURL()+"?tab=settings", http.StatusSeeOther)
@@ -156,11 +156,11 @@ func (s *Server) managePoleImageDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.Uploads.Remove(pole.Image)
 	if err := s.DB.SetPoleImage(pole.ID, ""); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
+	s.dropImage(pole.Image)
 	http.Redirect(w, r, pole.ManageURL()+"?tab=settings", http.StatusSeeOther)
 }
 

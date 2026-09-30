@@ -12,7 +12,7 @@
   <tbody>
   {{range .Events}}
   <tr>
-    <td><a href="{{.AdminURL}}"><b>{{.Name}}</b></a></td>
+    <td><span class="who">{{if .LogoURL}}<img class="event-logo sm" src="{{.LogoURL}}" alt="">{{end}}<a href="{{.AdminURL}}"><b>{{.Name}}</b></a></span></td>
     <td>{{dateRange .StartsOn .EndsOn}}</td>
     <td><span class="badge {{if eq .Status "open"}}ok{{else if eq .Status "frozen"}}warn{{end}}">{{status .Status}}</span></td>
     <td>{{if .FreezeAt}}{{datetime .FreezeAt}}{{else}}<span class="muted">—</span>{{end}}</td>
@@ -33,4 +33,18 @@
   <input id="source-url" type="url" name="source_url" value="{{.SourceURL}}" placeholder="https://…">
   <button type="submit" class="primary-action">Enregistrer les paramètres</button>
 </form>
+
+<div class="panel narrow mt-md">
+  <h2>Logo de l'organisation</h2>
+  <p class="hint">Affiché dans la barre de navigation, à gauche du nom. PNG, JPEG, GIF ou WebP, 2 Mo maximum.</p>
+  <div class="actions">
+    {{if .Logo}}<img class="logo-img" src="/uploads/{{.Logo}}" alt="">{{end}}
+    <form method="post" action="/admin/logo" enctype="multipart/form-data" class="actions">
+      <label for="org-logo" class="sr-only">Fichier image du logo</label>
+      <input id="org-logo" type="file" name="logo" accept="image/png,image/jpeg,image/gif,image/webp" required class="m-0">
+      <button class="small secondary">Envoyer</button>
+    </form>
+    {{if .Logo}}<form method="post" action="/admin/logo/delete" onsubmit="return confirm('Retirer le logo ?')"><button class="link danger">retirer le logo</button></form>{{end}}
+  </div>
+</div>
 {{end}}

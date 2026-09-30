@@ -19,6 +19,38 @@ type User struct {
 	IsAdmin     bool
 	CreatedAt   time.Time
 	LastLoginAt *time.Time
+
+	// Avatar is a file name in the upload directory, "" when the account
+	// shows its initials. AvatarSource says where it came from.
+	Avatar          string
+	AvatarSource    string
+	AvatarCheckedAt *time.Time
+}
+
+// Where a profile picture came from. Recorded explicitly so that an uploaded
+// photo is never overwritten by the Gravatar fallback, and so that a volunteer
+// who removed their picture is not handed one back on the next page view.
+const (
+	AvatarNone     = ""         // nothing yet: the Gravatar fallback may run
+	AvatarUpload   = "upload"   // uploaded by the volunteer
+	AvatarGravatar = "gravatar" // fetched from gravatar.com, cached on disk
+	AvatarOptOut   = "none"     // the volunteer wants no picture
+)
+
+// AvatarURL is the picture to display, or "" when the initials should be
+// used instead. Pictures are always served from this application, including
+// the ones fetched from gravatar.com.
+func (u User) AvatarURL() string {
+	if u.Avatar == "" {
+		return ""
+	}
+	return "/uploads/" + u.Avatar
+}
+
+// WantsGravatar tells whether gravatar.com may be looked up for this account:
+// there is no uploaded photo and the volunteer has not opted out.
+func (u User) WantsGravatar() bool {
+	return u.AvatarSource == AvatarNone || u.AvatarSource == AvatarGravatar
 }
 
 // DisplayName returns the name, falling back to the e-mail.
@@ -29,18 +61,23 @@ func (u User) DisplayName() string {
 	return u.Email
 }
 
-const userCols = `u.id, u.email, u.name, u.phone, u.is_admin, u.created_at, u.last_login_at`
+const userCols = `u.id, u.email, u.name, u.phone, u.is_admin, u.created_at, u.last_login_at,
+	u.avatar, u.avatar_source, u.avatar_checked_at`
 
-func scanUser(row interface{ Scan(...any) error }) (User, error) {
+// scanUser reads the userCols columns, plus any extra column the query
+// selected after them, so that joined queries share this one column list.
+func scanUser(row interface{ Scan(...any) error }, extra ...any) (User, error) {
 	var u User
 	var created string
-	var last sql.NullString
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Phone, &u.IsAdmin, &created, &last)
-	if err != nil {
+	var last, checked sql.NullString
+	dest := []any{&u.ID, &u.Email, &u.Name, &u.Phone, &u.IsAdmin, &created, &last,
+		&u.Avatar, &u.AvatarSource, &checked}
+	if err := row.Scan(append(dest, extra...)...); err != nil {
 		return u, err
 	}
 	u.CreatedAt = ParseTime(created)
 	u.LastLoginAt = NullTime(last)
+	u.AvatarCheckedAt = NullTime(checked)
 	return u, nil
 }
 
@@ -75,6 +112,41 @@ func (d *DB) GetOrCreateUser(email string) (User, error) {
 func (d *DB) UpdateProfile(id int64, name, phone string) error {
 	_, err := d.Exec(`UPDATE users SET name = ?, phone = ? WHERE id = ?`, name, phone, id)
 	return err
+}
+
+// SetAvatar records a profile picture and returns the file name it replaces,
+// which the caller should drop from the upload directory.
+func (d *DB) SetAvatar(id int64, name, source string) (string, error) {
+	var old string
+	if err := d.QueryRow(`SELECT avatar FROM users WHERE id = ?`, id).Scan(&old); err != nil {
+		return "", err
+	}
+	_, err := d.Exec(`UPDATE users SET avatar = ?, avatar_source = ?, avatar_checked_at = NULL WHERE id = ?`, name, source, id)
+	return old, err
+}
+
+// MarkGravatarChecked remembers that gravatar.com has just been asked about
+// this account, hit or miss, so the lookup is not retried on every page view.
+func (d *DB) MarkGravatarChecked(id int64) error {
+	_, err := d.Exec(`UPDATE users SET avatar_checked_at = ? WHERE id = ?`, Now(), id)
+	return err
+}
+
+// ImageInUse tells whether an uploaded file is still referenced somewhere.
+// Duplicating an event or copying a pole makes two rows point at the same
+// file, so a deletion has to check before unlinking it.
+func (d *DB) ImageInUse(name string) bool {
+	if name == "" {
+		return false
+	}
+	var n int
+	err := d.QueryRow(`SELECT
+		(SELECT COUNT(*) FROM poles WHERE image = ?) +
+		(SELECT COUNT(*) FROM events WHERE image = ?) +
+		(SELECT COUNT(*) FROM users WHERE avatar = ?) +
+		(SELECT COUNT(*) FROM settings WHERE key = 'org_logo' AND value = ?)`,
+		name, name, name, name).Scan(&n)
+	return err != nil || n > 0
 }
 
 // SetAdmin grants or revokes the global administrator flag.

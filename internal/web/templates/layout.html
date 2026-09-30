@@ -46,7 +46,7 @@
            keeps the bar to four targets even on a 320 px screen. */}}
       <details class="dropdown account">
         <summary class="menu" aria-label="Mon compte ({{.User.DisplayName}})">
-          <span class="avatar" aria-hidden="true">{{initials .User}}</span>
+          {{template "avatar" (dict "User" .User)}}
           <span class="account-name">{{firstName .User}}</span>
         </summary>
         <ul>

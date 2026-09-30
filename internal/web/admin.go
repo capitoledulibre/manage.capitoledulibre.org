@@ -51,17 +51,54 @@ func (s *Server) adminLogo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.flash(w, "Image refusée : PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
 	} else if name != "" {
-		s.Uploads.Remove(s.DB.GetSetting("org_logo", ""))
+		old := s.DB.GetSetting("org_logo", "")
 		s.DB.SetSetting("org_logo", name)
+		s.dropImage(old)
 		s.flash(w, "Logo mis à jour.")
 	}
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
 func (s *Server) adminLogoDelete(w http.ResponseWriter, r *http.Request) {
-	s.Uploads.Remove(s.DB.GetSetting("org_logo", ""))
+	old := s.DB.GetSetting("org_logo", "")
 	s.DB.SetSetting("org_logo", "")
+	s.dropImage(old)
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+// adminEventImage sets the logo shown next to the name of one edition.
+func (s *Server) adminEventImage(w http.ResponseWriter, r *http.Request) {
+	ev, err := s.DB.GetEventBySlug(r.PathValue("event"))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	name, err := s.Uploads.Save(r, "image")
+	if err != nil {
+		s.flash(w, "Image refusée : PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
+	} else if name != "" {
+		if err := s.DB.SetEventImage(ev.ID, name); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		s.dropImage(ev.Image)
+		s.flash(w, "Logo de l'événement mis à jour.")
+	}
+	http.Redirect(w, r, ev.AdminURL()+"?tab=settings", http.StatusSeeOther)
+}
+
+func (s *Server) adminEventImageDelete(w http.ResponseWriter, r *http.Request) {
+	ev, err := s.DB.GetEventBySlug(r.PathValue("event"))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := s.DB.SetEventImage(ev.ID, ""); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.dropImage(ev.Image)
+	http.Redirect(w, r, ev.AdminURL()+"?tab=settings", http.StatusSeeOther)
 }
 
 // planningRow is one line of the global planning grid: a pole, or a pole location.
@@ -517,6 +554,7 @@ func (s *Server) adminUserDelete(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	s.dropImage(u.Avatar)
 	s.flash(w, "Compte de "+u.DisplayName()+" supprimé.")
 	http.Redirect(w, r, usersBack(r), http.StatusSeeOther)
 }

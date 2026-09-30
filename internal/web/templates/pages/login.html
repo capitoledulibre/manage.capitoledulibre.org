@@ -9,13 +9,13 @@
     <div>
       <p><small class="muted">Vous avez été invité·e à rejoindre le pôle</small></p>
       <p><strong>{{.Pole.Name}}</strong></p>
-      <p class="hint">{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}</p>
+      <p class="hint">{{if .Event.LogoURL}}<img class="event-logo" src="{{.Event.LogoURL}}" alt="">{{end}}{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}</p>
     </div>
   </div>
   <h1>Connectez-vous pour rejoindre ce pôle</h1>
   {{else}}
   <h1>Espace bénévoles</h1>
-  {{if .Event}}<p class="hint">{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}</p>{{end}}
+  {{if .Event}}<p class="hint">{{if .Event.LogoURL}}<img class="event-logo" src="{{.Event.LogoURL}}" alt="">{{end}}{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}</p>{{end}}
   {{end}}
   <p>Indiquez votre adresse e-mail : nous vous envoyons un lien de connexion. Pas de mot de passe à retenir.</p>
   <form method="post" action="/login">

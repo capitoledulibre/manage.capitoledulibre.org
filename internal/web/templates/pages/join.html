@@ -3,7 +3,7 @@
 <article class="login-box c{{.Pole.Color}} center">
   {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
   <h1>{{.Pole.Name}}</h1>
-  <p class="muted">{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}</p>
+  <p class="muted">{{if .Event.LogoURL}}<img class="event-logo" src="{{.Event.LogoURL}}" alt="">{{end}}{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}</p>
   {{if .Pole.Description}}<p>{{nl2br .Pole.Description}}</p>{{end}}
   {{if .Managers}}<p class="hint">Responsable{{if gt (len .Managers) 1}}s{{end}} : {{range $i, $m := .Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}</p>{{end}}
   {{if .Closed}}

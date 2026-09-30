@@ -17,6 +17,7 @@ import (
 	"time"
 	"unicode"
 
+	"benevoles/internal/avatar"
 	"benevoles/internal/config"
 	"benevoles/internal/db"
 	"benevoles/internal/ratelimit"
@@ -45,6 +46,7 @@ type Server struct {
 	Cfg     config.Config
 	Mailer  Mailer
 	Uploads *upload.Store
+	Avatars *avatar.Fetcher
 
 	loginByEmail *ratelimit.Limiter
 	loginByIP    *ratelimit.Limiter
@@ -67,6 +69,7 @@ func New(d *db.DB, cfg config.Config, mailer Mailer) (*Server, error) {
 	}
 	s := &Server{
 		DB: d, Cfg: cfg, Mailer: mailer, Uploads: store,
+		Avatars:      avatar.New(d, store, cfg.Gravatar),
 		loginByEmail: ratelimit.New(3, 15*time.Minute),
 		loginByIP:    ratelimit.New(30, 15*time.Minute),
 	}
@@ -284,6 +287,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /calendar/{token}", s.calendarFeed)
 	mux.HandleFunc("GET /profile", s.requireLogin(s.profileForm))
 	mux.HandleFunc("POST /profile", s.requireLogin(s.profileSubmit))
+	mux.HandleFunc("POST /profile/photo", s.requireLogin(s.profilePhoto))
+	mux.HandleFunc("POST /profile/photo/delete", s.requireLogin(s.profilePhotoDelete))
+	mux.HandleFunc("POST /profile/photo/gravatar", s.requireLogin(s.profileGravatar))
 	mux.HandleFunc("POST /profile/delete", s.requireLogin(s.profileDelete))
 	mux.HandleFunc("GET /slots/{id}", s.requireLogin(s.slotPage))
 	mux.HandleFunc("POST /slots/{id}/signup", s.requireLogin(s.slotSignup))
@@ -313,6 +319,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/events", s.requireAdmin(s.adminEventCreate))
 	mux.HandleFunc("GET /admin/events/{event}", s.requireAdmin(s.adminEvent))
 	mux.HandleFunc("POST /admin/events/{event}", s.requireAdmin(s.adminEventUpdate))
+	mux.HandleFunc("POST /admin/events/{event}/image", s.requireAdmin(s.adminEventImage))
+	mux.HandleFunc("POST /admin/events/{event}/image/delete", s.requireAdmin(s.adminEventImageDelete))
 	mux.HandleFunc("POST /admin/events/{event}/delete", s.requireAdmin(s.adminEventDelete))
 	mux.HandleFunc("POST /admin/events/{event}/poles", s.requireAdmin(s.adminPoleCreate))
 	mux.HandleFunc("POST /admin/events/{event}/messages", s.requireAdmin(s.adminEventMessage))
@@ -409,6 +417,9 @@ func (s *Server) withUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
 			if u, err := s.DB.SessionUser(c.Value); err == nil {
+				// Fills in the profile picture of an account that has
+				// none, off the request goroutine.
+				s.Avatars.Refresh(u)
 				r = r.WithContext(context.WithValue(r.Context(), userKey, &u))
 			}
 		}
@@ -513,6 +524,15 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	s.serverError(w, r, err)
 }
 
+// dropImage unlinks an uploaded file once no row points at it any more.
+// Duplicating an event or copying a pole makes two rows share one file, so
+// clearing one of them must not take the bytes away from the other.
+func (s *Server) dropImage(name string) {
+	if !s.DB.ImageInUse(name) {
+		s.Uploads.Remove(name)
+	}
+}
+
 // --- flash --------------------------------------------------------------
 
 func (s *Server) flash(w http.ResponseWriter, msg string) {
@@ -586,12 +606,11 @@ func redirect(w http.ResponseWriter, r *http.Request, to string) {
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
-// userInitials returns one or two uppercase letters for the account menu
-// avatar, derived from the name or, failing that, from the e-mail.
-func userInitials(u *db.User) string {
-	if u == nil {
-		return ""
-	}
+// userInitials returns one or two uppercase letters for the avatar of an
+// account with no picture, derived from the name or, failing that, from the
+// e-mail. It takes a value so that templates can pass either a db.User or a
+// *db.User.
+func userInitials(u db.User) string {
 	source := strings.TrimSpace(u.Name)
 	if source == "" {
 		source = strings.SplitN(u.Email, "@", 2)[0]

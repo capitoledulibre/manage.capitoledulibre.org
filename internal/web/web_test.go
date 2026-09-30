@@ -10,6 +10,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"benevoles/internal/avatar"
 	"benevoles/internal/config"
 	"benevoles/internal/db"
 )
@@ -408,6 +410,148 @@ func tinyPNG(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
+// gravatarStub stands in for gravatar.com: it serves a PNG for the addresses
+// it knows and 404 for the others, which is what d=404 asks the real service
+// to do. It also counts requests, so a test can prove that browsing does not
+// hammer it.
+type gravatarStub struct {
+	ts    *httptest.Server
+	mu    sync.Mutex
+	calls int
+}
+
+func (g *gravatarStub) hits() int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.calls
+}
+
+// enableGravatar turns the fallback on and points it at a local stub, so the
+// suite never reaches out to the real service.
+func (e *env) enableGravatar(emails ...string) *gravatarStub {
+	e.t.Helper()
+	known := map[string]bool{}
+	for _, m := range emails {
+		known[avatar.Hash(m)] = true
+	}
+	g := &gravatarStub{}
+	g.ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		g.mu.Lock()
+		g.calls++
+		g.mu.Unlock()
+		if !known[strings.TrimPrefix(r.URL.Path, "/avatar/")] {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(tinyPNG(e.t))
+	}))
+	e.t.Cleanup(g.ts.Close)
+	e.srv.Cfg.Gravatar = true
+	e.srv.Avatars.Enabled = true
+	e.srv.Avatars.BaseURL = g.ts.URL
+	return g
+}
+
+// TestProfilePhoto covers the picture a volunteer uploads: it is served by
+// this application, it appears next to their name, and removing it is
+// remembered rather than undone by the Gravatar fallback.
+func TestProfilePhoto(t *testing.T) {
+	e := newEnv(t)
+	admin := e.login("admin@example.test", "Alice Admin")
+	e.db.SetAdmin(1, true)
+	admin.post("/admin/events", 303, url.Values{"name": {"Ed"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
+	admin.post("/admin/events/ed/poles", 303, url.Values{"name": {"Buvette"}, "access_mode": {"public"}})
+	admin.post("/admin/events/ed", 303, url.Values{"name": {"Ed"}, "status": {"open"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
+
+	vol := e.login("vol@example.test", "Victor Volontaire")
+	want(t, vol.get("/profile", 200), ">VV<") // initials until there is a photo
+
+	vol.upload("/profile/photo", "photo", tinyPNG(t), 303)
+	u, _ := e.db.GetUserByEmail("vol@example.test")
+	if u.Avatar == "" || u.AvatarSource != db.AvatarUpload {
+		t.Fatalf("photo not stored: %q / %q", u.Avatar, u.AvatarSource)
+	}
+	want(t, vol.get("/profile", 200), u.AvatarURL())
+	vol.get(u.AvatarURL(), 200)
+
+	// The picture shows up where volunteers are listed.
+	vol.post("/ed/buvette/join", 303, nil)
+	want(t, admin.get("/ed/buvette/manage?tab=members", 200), u.AvatarURL())
+	want(t, admin.get("/admin/events/ed/volunteers", 200), u.AvatarURL())
+
+	// Non-image content is refused and leaves the photo in place.
+	vol.upload("/profile/photo", "photo", []byte("<svg onload=alert(1)>"), 303)
+	if u2, _ := e.db.GetUserByEmail("vol@example.test"); u2.Avatar != u.Avatar {
+		t.Fatal("invalid upload must not replace the photo")
+	}
+
+	vol.post("/profile/photo/delete", 303, nil)
+	u3, _ := e.db.GetUserByEmail("vol@example.test")
+	if u3.Avatar != "" || u3.AvatarSource != db.AvatarOptOut {
+		t.Fatalf("photo not removed: %q / %q", u3.Avatar, u3.AvatarSource)
+	}
+	if _, err := os.Stat(filepath.Join(e.srv.Cfg.UploadDir, u.Avatar)); err == nil {
+		t.Fatal("the removed file should be gone from the upload directory")
+	}
+}
+
+// TestGravatarFallback checks the fallback for accounts with no uploaded
+// photo: the server fetches the picture once and serves it itself.
+func TestGravatarFallback(t *testing.T) {
+	e := newEnv(t)
+	g := e.enableGravatar("vol@example.test")
+
+	vol := e.login("vol@example.test", "Victor Volontaire")
+	e.srv.Avatars.Wait()
+	u, _ := e.db.GetUserByEmail("vol@example.test")
+	if u.Avatar == "" || u.AvatarSource != db.AvatarGravatar {
+		t.Fatalf("gravatar not cached: %q / %q", u.Avatar, u.AvatarSource)
+	}
+	// Served from this application, never hotlinked.
+	page := vol.get("/profile", 200)
+	want(t, page, u.AvatarURL())
+	wantNot(t, page, "gravatar.com/avatar")
+	vol.get(u.AvatarURL(), 200)
+
+	// Browsing on does not ask the service again.
+	hits := g.hits()
+	vol.get("/profile", 200)
+	vol.get("/me", 200)
+	e.srv.Avatars.Wait()
+	if g.hits() != hits {
+		t.Fatalf("lookup repeated: %d calls, want %d", g.hits(), hits)
+	}
+
+	// An address with no Gravatar keeps its initials, and the miss is
+	// remembered so it is not retried on every page view.
+	e.login("nobody@example.test", "Nadia Nobody")
+	e.srv.Avatars.Wait()
+	n, _ := e.db.GetUserByEmail("nobody@example.test")
+	if n.Avatar != "" {
+		t.Fatalf("unknown address should keep its initials, got %q", n.Avatar)
+	}
+	if n.AvatarCheckedAt == nil {
+		t.Fatal("a miss must be recorded")
+	}
+
+	// Uploading wins over the fallback; removing the photo opts out for good.
+	vol.upload("/profile/photo", "photo", tinyPNG(t), 303)
+	vol.post("/profile/photo/delete", 303, nil)
+	vol.get("/profile", 200)
+	e.srv.Avatars.Wait()
+	if u2, _ := e.db.GetUserByEmail("vol@example.test"); u2.Avatar != "" {
+		t.Fatalf("an account that opted out must keep its initials, got %q", u2.Avatar)
+	}
+
+	// The explicit button brings the Gravatar back.
+	vol.post("/profile/photo/gravatar", 303, nil)
+	u3, _ := e.db.GetUserByEmail("vol@example.test")
+	if u3.Avatar == "" || u3.AvatarSource != db.AvatarGravatar {
+		t.Fatalf("explicit lookup failed: %q / %q", u3.Avatar, u3.AvatarSource)
+	}
+}
+
 func TestUploads(t *testing.T) {
 	e := newEnv(t)
 	admin := e.login("admin@example.test", "Alice")
@@ -441,6 +585,28 @@ func TestUploads(t *testing.T) {
 		t.Fatal("image not cleared")
 	}
 	admin.post("/admin/logo/delete", 303, nil)
+
+	// The edition logo is shown next to the event name and survives a
+	// duplication, which makes two events share the same file: clearing one
+	// of them must not take the picture away from the other.
+	admin.upload("/admin/events/ed/image", "image", tinyPNG(t), 303)
+	ev, _ := e.db.GetEventBySlug("ed")
+	if ev.Image == "" {
+		t.Fatal("event logo not stored")
+	}
+	want(t, admin.get("/admin/events/ed", 200), ev.LogoURL())
+	admin.post("/admin/events/ed/duplicate", 303, url.Values{"name": {"Ed 2"}, "starts_on": {"2027-11-13"}, "ends_on": {"2027-11-14"}})
+	if next, _ := e.db.GetEventBySlug("ed-2"); next.Image != ev.Image {
+		t.Fatalf("duplication should carry the logo over, got %q", next.Image)
+	}
+	admin.post("/admin/events/ed/image/delete", 303, nil)
+	if ev2, _ := e.db.GetEventBySlug("ed"); ev2.Image != "" {
+		t.Fatal("event logo not cleared")
+	}
+	if _, err := os.Stat(filepath.Join(e.srv.Cfg.UploadDir, ev.Image)); err != nil {
+		t.Fatal("the file is still used by the duplicated event and must stay")
+	}
+	admin.get("/uploads/"+ev.Image, 200)
 
 	// Volunteers cannot upload.
 	vol := e.login("vol@example.test", "V")

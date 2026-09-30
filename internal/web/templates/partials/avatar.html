@@ -1,0 +1,3 @@
+{{/* The picture of one volunteer, or their initials when there is none.
+     Decorative on purpose: every caller writes the name right next to it. */}}
+{{define "avatar"}}{{if .User.Avatar}}<img class="avatar img{{with .Class}} {{.}}{{end}}" src="{{.User.AvatarURL}}" alt="" loading="lazy">{{else}}<span class="avatar{{with .Class}} {{.}}{{end}}" aria-hidden="true">{{initials .User}}</span>{{end}}{{end}}

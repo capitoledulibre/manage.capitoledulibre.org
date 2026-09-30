@@ -12,6 +12,30 @@
     <input id="profile-phone" type="tel" name="phone" value="{{.User.Phone}}" autocomplete="tel">
     <button type="submit">Enregistrer</button>
   </form>
+  <div class="photo-block mt-md">
+    <h2>Photo de profil</h2>
+    <div class="photo-row">
+      {{template "avatar" (dict "User" .User "Class" "lg")}}
+      <div class="photo-forms">
+        <form method="post" action="/profile/photo" enctype="multipart/form-data" class="actions">
+          <label for="profile-photo" class="sr-only">Fichier image pour la photo de profil</label>
+          <input id="profile-photo" type="file" name="photo" accept="image/png,image/jpeg,image/gif,image/webp" required class="m-0">
+          <button class="small secondary">Envoyer</button>
+        </form>
+        <p class="hint">PNG, JPEG, GIF ou WebP, carrée de préférence, 2 Mo maximum. Elle est visible des autres bénévoles de vos pôles.</p>
+        <div class="actions">
+          {{if .User.Avatar}}<form method="post" action="/profile/photo/delete"><button class="link danger">retirer ma photo</button></form>{{end}}
+          {{if and .Gravatar (ne .User.AvatarSource "upload")}}
+          <form method="post" action="/profile/photo/gravatar"><button class="link">{{if eq .User.AvatarSource "gravatar"}}actualiser depuis Gravatar{{else}}chercher mon avatar Gravatar{{end}}</button></form>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    {{if .Gravatar}}
+    <p class="hint">{{if eq .User.AvatarSource "gravatar"}}Cette image vient de <a href="https://gravatar.com">gravatar.com</a>, où elle est associée à votre adresse.{{else if eq .User.AvatarSource "none"}}La recherche automatique sur <a href="https://gravatar.com">gravatar.com</a> est désactivée pour votre compte.{{else if ne .User.AvatarSource "upload"}}Sans photo, un avatar associé à votre adresse sur <a href="https://gravatar.com">gravatar.com</a> est cherché une fois.{{end}}
+      {{if ne .User.AvatarSource "upload"}}La recherche est faite par ce serveur et l'image est recopiée ici : votre navigateur, comme celui des autres bénévoles, ne contacte jamais gravatar.com.{{end}}</p>
+    {{end}}
+  </div>
   <details class="mt-md">
     <summary class="muted">Supprimer mon compte</summary>
     <p class="hint">Votre compte, vos inscriptions et votre présence dans les pôles seront supprimés définitivement.</p>
