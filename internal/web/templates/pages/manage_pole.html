@@ -1,6 +1,6 @@
 {{define "title"}}Gérer {{.Pole.Name}} – {{.Org}}{{end}}
 {{define "content"}}
-<p class="breadcrumb"><a href="{{.Pole.URL}}">← Page publique du pôle</a>{{if .User.IsAdmin}} · <a href="{{.Event.AdminURL}}">Tableau de bord de l'événement</a>{{end}}</p>
+<p class="breadcrumb"><a href="{{.Pole.URL}}">← Page publique du pôle</a>{{if .EventAdmin}} · <a href="{{.Event.AdminURL}}">Tableau de bord de l'événement</a>{{end}}</p>
 <div class="page-header c{{.Pole.Color}}">
   <div class="page-title">
     {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
@@ -119,10 +119,10 @@
   <h2 class="mt-md">Responsables</h2>
   <ul>
     {{range .Managers}}<li>{{.DisplayName}} <small class="muted">{{.Email}}{{if .Phone}} · {{.Phone}}{{end}}</small>
-      {{if $.User.IsAdmin}}<form method="post" action="/admin/poles/{{$.Pole.ID}}/managers/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} des responsables de ce pôle ? La personne reste bénévole.')"><button class="link danger">retirer</button></form>{{end}}</li>
+      {{if $.EventAdmin}}<form method="post" action="/admin/poles/{{$.Pole.ID}}/managers/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} des responsables de ce pôle ? La personne reste bénévole.')"><button class="link danger">retirer</button></form>{{end}}</li>
     {{else}}<li class="muted">Aucun responsable désigné.</li>{{end}}
   </ul>
-  {{if .User.IsAdmin}}
+  {{if .EventAdmin}}
   <form method="post" action="/admin/poles/{{.Pole.ID}}/managers" class="actions">
     <label for="new-manager" class="sr-only">E-mail du nouveau responsable</label>
     <input id="new-manager" type="email" name="email" list="all-users" placeholder="e-mail du nouveau responsable" required class="field-md" autocomplete="off">
@@ -162,7 +162,7 @@
       <fieldset class="modes">
         <legend>Qui peut rejoindre ce pôle ?</legend>
         {{range $m := .Modes}}
-        {{if or (ne $m "restricted") $.User.IsAdmin (eq $.Pole.AccessMode "restricted")}}
+        {{if or (ne $m "restricted") $.EventAdmin (eq $.Pole.AccessMode "restricted")}}
         <label><input type="radio" name="access_mode" value="{{$m}}" {{if eq $m $.Pole.AccessMode}}checked{{end}}><span>{{mode $m}}<small>{{modeHelp $m}}</small></span></label>
         {{end}}
         {{end}}

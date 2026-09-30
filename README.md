@@ -14,8 +14,9 @@ what is still missing.
   locations (rooms, desks…) and its own freeze date. Four access modes:
   *public* (anyone joins), *private* (join through a generated invitation
   link), *invitation* (managers add members), *restricted* (only
-  administrators add members, the pole is hidden from others). Managers and
-  administrators can always add or remove members directly. A default pole
+  administrators and the event staff add members, the pole is hidden from
+  others). Managers, staff and administrators can always add or remove
+  members directly. A default pole
   created with every event carries the organiser-wide shifts and
   automatically includes every volunteer.
 - **Slots** – time range × location × number of volunteers wanted, with a
@@ -131,13 +132,21 @@ the same instant.
 
 ## Roles
 
-| | Volunteer | Pole manager | Administrator |
-|---|---|---|---|
-| Join poles, sign up on slots, tick tasks | ✓ | ✓ | ✓ |
-| Manage slots, locations, notices and members of a pole | | ✓ (own poles) | ✓ |
-| Create events and poles, name managers, global notices, user accounts | | | ✓ |
+| | Volunteer | Pole manager | Event staff | Administrator |
+|---|---|---|---|---|
+| Join poles, sign up on slots, tick tasks | ✓ | ✓ | ✓ | ✓ |
+| Manage slots, locations, notices and members of a pole | | ✓ (own poles) | ✓ (every pole of the event) | ✓ |
+| Dashboard, global planning, global notices, volunteer list and CSV export | | | ✓ (own event) | ✓ |
+| Create poles, name managers, change the event status and settings | | | ✓ (own event) | ✓ |
+| Delete an event, create or duplicate events | | | | ✓ |
+| User accounts, administrator rights, site settings, naming the staff | | | | ✓ |
 
-Volunteers only see events that are *open* or *frozen*. Managers and
+The staff of an event is named by an administrator from the event's
+settings tab, and follows the event when it is duplicated into the next
+edition. It is the way to hand an edition over to its core team without
+giving them rights over every other edition and every account.
+
+Volunteers only see events that are *open* or *frozen*. Managers, staff and
 administrators can prepare a *draft* event. When an event or a pole is
 frozen (status or date), volunteers can no longer change their signups;
 managers can still edit everything.

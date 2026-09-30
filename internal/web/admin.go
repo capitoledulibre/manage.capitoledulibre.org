@@ -223,6 +223,10 @@ func (s *Server) adminPoleCopy(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	if !s.isEventAdmin(currentUser(r), target) {
+		s.forbidden(w, r)
+		return
+	}
 	id, err := s.DB.CopyPole(pole.ID, target)
 	if err != nil {
 		s.serverError(w, r, err)
@@ -270,9 +274,23 @@ func (s *Server) adminEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	stats, _ := s.DB.GetEventStats(ev.ID)
 	msgs, _ := s.DB.ListEventMessages(ev.ID)
-	events, _ := s.DB.ListEvents()
+	u := currentUser(r)
+	// A pole can only be copied into an event the user also runs.
+	all, _ := s.DB.ListEvents()
+	var events []db.Event
+	for _, e := range all {
+		if s.isEventAdmin(u, e.ID) {
+			events = append(events, e)
+		}
+	}
+	staff, _ := s.DB.ListEventStaff(ev.ID)
+	var allUsers []db.User
+	if u.IsAdmin && r.URL.Query().Get("tab") == "settings" {
+		allUsers, _ = s.DB.ListUsers()
+	}
 	s.render(w, r, "admin_event", M{
 		"Event": ev, "Coverage": coverage, "Stats": stats, "Messages": msgs, "Modes": db.Modes, "Events": events,
+		"Staff": staff, "AllUsers": allUsers,
 		"NextYear": time.Now().Year() + 1,
 		"Statuses": []string{db.StatusDraft, db.StatusOpen, db.StatusFrozen, db.StatusArchived},
 		"Tab":      r.URL.Query().Get("tab"),
@@ -585,6 +603,10 @@ func (s *Server) adminUserJoinPole(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	if !s.isEventAdmin(currentUser(r), pole.EventID) {
+		s.forbidden(w, r)
+		return
+	}
 	if err := s.DB.JoinPole(pole.ID, u.ID); err != nil {
 		s.serverError(w, r, err)
 		return
@@ -600,6 +622,10 @@ func (s *Server) adminUserJoinPole(w http.ResponseWriter, r *http.Request) {
 // adminUserCreate registers a volunteer on their behalf (no self sign-up
 // needed) and optionally puts them in a pole.
 func (s *Server) adminUserCreate(w http.ResponseWriter, r *http.Request) {
+	if !s.canRegisterVolunteer(r) {
+		s.forbidden(w, r)
+		return
+	}
 	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
 	back := r.FormValue("back")
 	if !safePath(back) {
@@ -651,4 +677,64 @@ func (s *Server) adminUserCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.flash(w, msg+". Elle se connectera simplement avec son adresse e-mail.")
 	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// canRegisterVolunteer tells whether the user may create an account on
+// someone's behalf with this form: administrators always, event staff when
+// the account lands in their event (through a pole of it, or the event itself).
+func (s *Server) canRegisterVolunteer(r *http.Request) bool {
+	u := currentUser(r)
+	if u.IsAdmin {
+		return true
+	}
+	if poleID := formInt64(r, "pole_id"); poleID != 0 {
+		pole, err := s.DB.GetPole(poleID)
+		return err == nil && s.isEventAdmin(u, pole.EventID)
+	}
+	if eventID := formInt64(r, "event_id"); eventID != 0 {
+		return s.isEventAdmin(u, eventID)
+	}
+	return false
+}
+
+// --- staff --------------------------------------------------------------
+
+// adminStaffAdd puts someone on the staff of an event. Only administrators
+// grant it: it gives every right inside the event.
+func (s *Server) adminStaffAdd(w http.ResponseWriter, r *http.Request) {
+	ev, err := s.DB.GetEventBySlug(r.PathValue("event"))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+	if addr, err := mail.ParseAddress(email); err != nil || addr.Address != email {
+		s.flash(w, "Adresse e-mail invalide.")
+	} else {
+		u, err := s.DB.GetOrCreateUser(email)
+		if err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		if err := s.DB.AddEventStaff(ev.ID, u.ID); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		s.flash(w, u.DisplayName()+" fait maintenant partie du staff de « "+ev.Name+" ».")
+	}
+	http.Redirect(w, r, ev.AdminURL()+"?tab=settings", http.StatusSeeOther)
+}
+
+func (s *Server) adminStaffRemove(w http.ResponseWriter, r *http.Request) {
+	ev, err := s.DB.GetEventBySlug(r.PathValue("event"))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if err := s.DB.RemoveEventStaff(ev.ID, pathID(r, "uid")); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.flash(w, "Retiré·e du staff. La personne reste bénévole de l'événement.")
+	http.Redirect(w, r, ev.AdminURL()+"?tab=settings", http.StatusSeeOther)
 }

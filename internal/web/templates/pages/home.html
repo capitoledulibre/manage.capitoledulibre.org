@@ -11,7 +11,7 @@
   </div>
   <div class="hero-stats">
     <div><b>{{len .MySlots}}</b><small>mes créneaux</small></div>
-    {{if .User.IsAdmin}}<a href="{{.Event.AdminURL}}" role="button" class="small">Tableau de bord</a>{{end}}
+    {{if .EventAdmin}}<a href="{{.Event.AdminURL}}" role="button" class="small">Tableau de bord</a>{{end}}
   </div>
 </section>
 

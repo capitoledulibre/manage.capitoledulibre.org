@@ -11,21 +11,24 @@ import (
 	"benevoles/internal/db"
 )
 
-// currentEvent returns the event to display to the user. Admins see the
-// most recent event even if it is a draft.
+// currentEvent returns the event to display to the user. When no event is
+// open yet, admins see the most recent one and staff the most recent one they
+// run, even if it is a draft: that is the one they are preparing.
 func (s *Server) currentEvent(u *db.User) (db.Event, error) {
 	ev, err := s.DB.CurrentEvent()
-	if err == nil || !u.IsAdmin || !errors.Is(err, db.ErrNotFound) {
+	if err == nil || !errors.Is(err, db.ErrNotFound) {
 		return ev, err
 	}
 	eds, err := s.DB.ListEvents()
 	if err != nil {
 		return ev, err
 	}
-	if len(eds) == 0 {
-		return ev, db.ErrNotFound
+	for _, e := range eds {
+		if s.isEventAdmin(u, e.ID) {
+			return e, nil
+		}
 	}
-	return eds[0], nil
+	return ev, db.ErrNotFound
 }
 
 type poleView struct {
@@ -59,7 +62,7 @@ func (s *Server) eventHome(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	if !ev.IsVisibleToVolunteers() && !u.IsAdmin {
+	if !ev.IsVisibleToVolunteers() && !s.isEventAdmin(u, ev.ID) {
 		if managed, _ := s.DB.ManagedPoleIDs(ev.ID, u.ID); len(managed) == 0 {
 			s.notFound(w, r)
 			return
@@ -77,14 +80,15 @@ func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, ev db.Event)
 	}
 	members, _ := s.DB.MemberPoleIDs(ev.ID, u.ID)
 	managed, _ := s.DB.ManagedPoleIDs(ev.ID, u.ID)
+	eventAdmin := s.isEventAdmin(u, ev.ID)
 	var poles []poleView
 	for _, c := range coverage {
 		// Restricted poles stay invisible to people who are not in them.
-		if c.Pole.AccessMode == db.ModeRestricted && !members[c.Pole.ID] && !u.IsAdmin && !managed[c.Pole.ID] {
+		if c.Pole.AccessMode == db.ModeRestricted && !members[c.Pole.ID] && !eventAdmin && !managed[c.Pole.ID] {
 			continue
 		}
 		poles = append(poles, poleView{
-			Pole: c.Pole, Member: members[c.Pole.ID], Manager: u.IsAdmin || managed[c.Pole.ID],
+			Pole: c.Pole, Member: members[c.Pole.ID], Manager: eventAdmin || managed[c.Pole.ID],
 			Slots: c.Slots, Missing: c.Capacity - c.Filled, Coverage: c,
 		})
 	}
@@ -103,7 +107,7 @@ func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, ev db.Event)
 	s.render(w, r, "home", M{
 		"Event": ev, "Poles": poles, "Messages": msgs,
 		"MySlots": mySlots, "Upcoming": upcoming, "Joined": len(members) > 0,
-		"PrevEvent": prevEvent, "Returning": returning,
+		"PrevEvent": prevEvent, "Returning": returning, "EventAdmin": eventAdmin,
 		"Error": r.URL.Query().Get("error"),
 	})
 }

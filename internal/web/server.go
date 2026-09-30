@@ -271,7 +271,7 @@ func modeHelp(m string) string {
 	case db.ModeInvitation:
 		return "Les responsables et administrateurs ajoutent eux-mêmes les bénévoles."
 	case db.ModeRestricted:
-		return "Seuls les administrateurs ajoutent des bénévoles. Le pôle est masqué des autres."
+		return "Seuls les administrateurs et le staff de l'événement ajoutent des bénévoles. Le pôle est masqué des autres."
 	}
 	return ""
 }
@@ -335,26 +335,28 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/logo/delete", s.requireAdmin(s.adminLogoDelete))
 	mux.HandleFunc("GET /admin/events/new", s.requireAdmin(s.adminEventNew))
 	mux.HandleFunc("POST /admin/events", s.requireAdmin(s.adminEventCreate))
-	mux.HandleFunc("GET /admin/events/{event}", s.requireAdmin(s.adminEvent))
-	mux.HandleFunc("POST /admin/events/{event}", s.requireAdmin(s.adminEventUpdate))
-	mux.HandleFunc("POST /admin/events/{event}/image", s.requireAdmin(s.adminEventImage))
-	mux.HandleFunc("POST /admin/events/{event}/image/delete", s.requireAdmin(s.adminEventImageDelete))
+	mux.HandleFunc("GET /admin/events/{event}", s.requireEventAdmin(s.adminEvent))
+	mux.HandleFunc("POST /admin/events/{event}", s.requireEventAdmin(s.adminEventUpdate))
+	mux.HandleFunc("POST /admin/events/{event}/image", s.requireEventAdmin(s.adminEventImage))
+	mux.HandleFunc("POST /admin/events/{event}/image/delete", s.requireEventAdmin(s.adminEventImageDelete))
 	mux.HandleFunc("POST /admin/events/{event}/delete", s.requireAdmin(s.adminEventDelete))
-	mux.HandleFunc("POST /admin/events/{event}/poles", s.requireAdmin(s.adminPoleCreate))
-	mux.HandleFunc("POST /admin/events/{event}/messages", s.requireAdmin(s.adminEventMessage))
-	mux.HandleFunc("GET /admin/events/{event}/volunteers", s.requireAdmin(s.adminVolunteers))
-	mux.HandleFunc("GET /admin/events/{event}/volunteers.csv", s.requireAdmin(s.adminVolunteersCSV))
-	mux.HandleFunc("GET /admin/events/{event}/planning", s.requireAdmin(s.adminPlanning))
+	mux.HandleFunc("POST /admin/events/{event}/poles", s.requireEventAdmin(s.adminPoleCreate))
+	mux.HandleFunc("POST /admin/events/{event}/messages", s.requireEventAdmin(s.adminEventMessage))
+	mux.HandleFunc("GET /admin/events/{event}/volunteers", s.requireEventAdmin(s.adminVolunteers))
+	mux.HandleFunc("GET /admin/events/{event}/volunteers.csv", s.requireEventAdmin(s.adminVolunteersCSV))
+	mux.HandleFunc("GET /admin/events/{event}/planning", s.requireEventAdmin(s.adminPlanning))
 	mux.HandleFunc("POST /admin/events/{event}/duplicate", s.requireAdmin(s.adminEventDuplicate))
-	mux.HandleFunc("POST /admin/poles/{id}/delete", s.requireAdmin(s.adminPoleDelete))
-	mux.HandleFunc("POST /admin/poles/{id}/managers", s.requireAdmin(s.adminManagerAdd))
-	mux.HandleFunc("POST /admin/poles/{id}/managers/{uid}/delete", s.requireAdmin(s.adminManagerRemove))
-	mux.HandleFunc("POST /admin/poles/{id}/copy", s.requireAdmin(s.adminPoleCopy))
+	mux.HandleFunc("POST /admin/events/{event}/staff", s.requireAdmin(s.adminStaffAdd))
+	mux.HandleFunc("POST /admin/events/{event}/staff/{uid}/delete", s.requireAdmin(s.adminStaffRemove))
+	mux.HandleFunc("POST /admin/poles/{id}/delete", s.requirePoleEventAdmin(s.adminPoleDelete))
+	mux.HandleFunc("POST /admin/poles/{id}/managers", s.requirePoleEventAdmin(s.adminManagerAdd))
+	mux.HandleFunc("POST /admin/poles/{id}/managers/{uid}/delete", s.requirePoleEventAdmin(s.adminManagerRemove))
+	mux.HandleFunc("POST /admin/poles/{id}/copy", s.requirePoleEventAdmin(s.adminPoleCopy))
 	mux.HandleFunc("GET /admin/users", s.requireAdmin(s.adminUsers))
 	mux.HandleFunc("POST /admin/users/{id}/admin", s.requireAdmin(s.adminUserToggleAdmin))
 	mux.HandleFunc("POST /admin/users/{id}/delete", s.requireAdmin(s.adminUserDelete))
-	mux.HandleFunc("POST /admin/users/{id}/join", s.requireAdmin(s.adminUserJoinPole))
-	mux.HandleFunc("POST /admin/users/new", s.requireAdmin(s.adminUserCreate))
+	mux.HandleFunc("POST /admin/users/{id}/join", s.requireLogin(s.adminUserJoinPole))
+	mux.HandleFunc("POST /admin/users/new", s.requireLogin(s.adminUserCreate))
 
 	// Pretty URLs: /{event} and /{event}/{pole}/... Every other route above has a
 	// literal first segment, so it is more specific and wins over these.
@@ -477,9 +479,52 @@ func (s *Server) requireAdmin(h http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
-// canManage tells whether the user may administer the pole.
+// canManage tells whether the user may administer the pole: its managers,
+// the staff of its event and administrators.
 func (s *Server) canManage(u *db.User, poleID int64) bool {
-	return u != nil && (u.IsAdmin || s.DB.IsPoleManager(poleID, u.ID))
+	return u != nil && (u.IsAdmin || s.DB.IsPoleManager(poleID, u.ID) || s.DB.IsPoleStaff(poleID, u.ID))
+}
+
+// isEventAdmin tells whether the user runs the event: administrators, and the
+// staff of that event. Staff have every right inside their event except
+// deleting it or creating other editions; accounts, administrator rights and
+// the site settings stay with administrators.
+func (s *Server) isEventAdmin(u *db.User, eventID int64) bool {
+	return u != nil && (u.IsAdmin || s.DB.IsEventStaff(eventID, u.ID))
+}
+
+// requireEventAdmin guards the /admin/events/{event}/… pages that the staff of
+// that event may use.
+func (s *Server) requireEventAdmin(h http.HandlerFunc) http.HandlerFunc {
+	return s.requireLogin(func(w http.ResponseWriter, r *http.Request) {
+		ev, err := s.DB.GetEventBySlug(r.PathValue("event"))
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		if !s.isEventAdmin(currentUser(r), ev.ID) {
+			s.forbidden(w, r)
+			return
+		}
+		h(w, r)
+	})
+}
+
+// requirePoleEventAdmin guards the /admin/poles/{id}/… actions, allowed to
+// whoever runs the pole's event.
+func (s *Server) requirePoleEventAdmin(h http.HandlerFunc) http.HandlerFunc {
+	return s.requireLogin(func(w http.ResponseWriter, r *http.Request) {
+		pole, err := s.DB.GetPole(pathID(r, "id"))
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		if !s.isEventAdmin(currentUser(r), pole.EventID) {
+			s.forbidden(w, r)
+			return
+		}
+		h(w, r)
+	})
 }
 
 // --- rendering ----------------------------------------------------------

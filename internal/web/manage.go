@@ -67,8 +67,9 @@ func (s *Server) managePole(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	u := currentUser(r)
+	eventAdmin := s.isEventAdmin(u, pole.EventID)
 	var allUsers []db.User
-	if u.IsAdmin && r.URL.Query().Get("tab") == "members" {
+	if eventAdmin && r.URL.Query().Get("tab") == "members" {
 		allUsers, _ = s.DB.ListUsers()
 	}
 	// A slot with people waiting is a slot worth enlarging: show it.
@@ -77,8 +78,8 @@ func (s *Server) managePole(w http.ResponseWriter, r *http.Request) {
 		waiting = map[int64]int{}
 	}
 	s.render(w, r, "manage_pole", M{
-		"CanAddMembers": u.IsAdmin || pole.ManagersCanAdd(), "AllUsers": allUsers, "Waiting": waiting,
-		"Pole": pole, "Event": ed, "Days": groupSlots(slots, s.Cfg.Timezone), "Locations": locations,
+		"CanAddMembers": eventAdmin || pole.ManagersCanAdd(), "AllUsers": allUsers, "Waiting": waiting,
+		"Pole": pole, "Event": ed, "EventAdmin": eventAdmin, "Days": groupSlots(slots, s.Cfg.Timezone), "Locations": locations,
 		"Messages": msgs, "Members": members, "Managers": managers, "Volunteers": volunteers,
 		"Capacity": capacity, "Filled": filled, "Short": short, "SlotCount": len(slots),
 		"Tab": r.URL.Query().Get("tab"),
@@ -105,7 +106,7 @@ func (s *Server) managePoleUpdate(w http.ResponseWriter, r *http.Request) {
 		for _, m := range db.Modes {
 			valid = valid || m == mode
 		}
-		if valid && (mode != db.ModeRestricted || currentUser(r).IsAdmin || pole.AccessMode == db.ModeRestricted) {
+		if valid && (mode != db.ModeRestricted || s.isEventAdmin(currentUser(r), pole.EventID) || pole.AccessMode == db.ModeRestricted) {
 			pole.AccessMode = mode
 		}
 	}
@@ -177,7 +178,7 @@ func (s *Server) manageUserSearch(w http.ResponseWriter, r *http.Request) {
 	if len(q) >= 2 {
 		users, _ = s.DB.SearchUsersNotInPole(pole.ID, q, 8)
 	}
-	s.fragment(w, "user_search", M{"Pole": pole, "Users": users, "Q": q, "CanAdd": currentUser(r).IsAdmin || pole.ManagersCanAdd()})
+	s.fragment(w, "user_search", M{"Pole": pole, "Users": users, "Q": q, "CanAdd": s.isEventAdmin(currentUser(r), pole.EventID) || pole.ManagersCanAdd()})
 }
 
 func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +186,7 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !pole.ManagersCanAdd() && !currentUser(r).IsAdmin {
+	if !pole.ManagersCanAdd() && !s.isEventAdmin(currentUser(r), pole.EventID) {
 		s.forbidden(w, r)
 		return
 	}
@@ -349,7 +350,7 @@ func (s *Server) manageMessageDelete(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	allowed := u.IsAdmin || (msg.PoleID != 0 && s.canManage(u, msg.PoleID))
+	allowed := s.isEventAdmin(u, msg.EventID) || (msg.PoleID != 0 && s.canManage(u, msg.PoleID))
 	if !allowed {
 		s.forbidden(w, r)
 		return

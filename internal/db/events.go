@@ -138,7 +138,7 @@ func (d *DB) CreateEvent(name, startsOn, endsOn string, freeze *time.Time, defau
 
 // DuplicateEvent creates a draft event and copies every pole of the
 // source event into it (settings, locations, managers; no slots, no
-// members), along with the edition logo. It returns the new event id.
+// members), along with the edition logo and the event staff. It returns the new event id.
 func (d *DB) DuplicateEvent(sourceID int64, name, startsOn, endsOn string, defaultPoleName string) (int64, error) {
 	poles, err := d.ListPoles(sourceID)
 	if err != nil {
@@ -157,6 +157,16 @@ func (d *DB) DuplicateEvent(sourceID int64, name, startsOn, endsOn string, defau
 	}
 	for _, p := range poles {
 		if _, err := d.CopyPole(p.ID, newID); err != nil {
+			return 0, err
+		}
+	}
+	// The team running an edition usually runs the next one.
+	staff, err := d.ListEventStaff(sourceID)
+	if err != nil {
+		return 0, err
+	}
+	for _, u := range staff {
+		if err := d.AddEventStaff(newID, u.ID); err != nil {
 			return 0, err
 		}
 	}
