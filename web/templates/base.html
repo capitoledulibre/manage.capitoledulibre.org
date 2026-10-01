@@ -1,0 +1,82 @@
+{{define "base"}}<!DOCTYPE html>
+<html lang="{{.Lang}}" class="h-full bg-gray-50{{if eq .Theme "dark"}} dark{{end}}" data-theme="{{.Theme}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{if eq .Area "admin"}}{{.Title}}{{else}}{{t .Lang .Title}}{{end}} · {{.Site.Name}}</title>
+  {{with .Site.LogoURL}}<link rel="icon" href="{{.}}">{{end}}
+  <script src="{{asset "/static/js/theme.js"}}"></script>
+  <link rel="stylesheet" href="{{asset "/static/css/app.css"}}">
+  <script src="{{asset "/static/js/app.js"}}" defer></script>
+</head>
+<body class="flex min-h-full flex-col text-gray-900">
+  {{if .Impersonating}}
+  <div class="bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">
+    <form method="post" action="/admin/stop-impersonate" class="inline-flex flex-wrap items-center justify-center gap-3">
+      <span>👁 Vue partenaire de <strong>{{.Org.Name}}</strong> : vous voyez ce que voit le partenaire et vos modifications sont enregistrées en tant que staff.</span>
+      <button class="btn-secondary btn-sm">← Revenir à la fiche</button>
+    </form>
+  </div>
+  {{end}}
+  <header class="border-b border-gray-200 bg-surface">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+      <a href="{{if eq .Area "admin"}}/admin/{{else if eq .Area "partner"}}/p/{{else}}/{{end}}" class="flex items-center gap-2 font-bold text-gray-900">
+        {{if .Site.LogoURL}}
+          <img src="{{.Site.LogoURL}}" alt="" class="h-8 max-w-24 object-contain">
+        {{else}}
+          <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-md bg-brand-600 px-1 text-sm text-white">{{.Site.Initials}}</span>
+        {{end}}
+        <span>{{.Site.Name}}{{if eq .Area "admin"}} <span class="font-normal text-gray-500">· Admin</span>{{end}}</span>
+      </a>
+      <nav class="flex flex-1 flex-wrap items-center gap-1">
+        {{if eq .Area "partner"}}{{template "partner_nav" .}}{{end}}
+        {{if and (eq .Area "admin") .Admin}}{{template "admin_nav" .}}{{end}}
+      </nav>
+      <div class="flex items-center gap-3 text-sm">
+        <nav class="theme-switch" aria-label="{{t .Lang "theme.label"}}">
+          <a href="/theme/system?next={{.RequestURI}}" title="{{t .Lang "theme.system"}}" aria-label="{{t .Lang "theme.system"}}" aria-current="{{eq .Theme "system"}}">◐</a>
+          <a href="/theme/light?next={{.RequestURI}}" title="{{t .Lang "theme.light"}}" aria-label="{{t .Lang "theme.light"}}" aria-current="{{eq .Theme "light"}}">☀&#xFE0E;</a>
+          <a href="/theme/dark?next={{.RequestURI}}" title="{{t .Lang "theme.dark"}}" aria-label="{{t .Lang "theme.dark"}}" aria-current="{{eq .Theme "dark"}}">☾</a>
+        </nav>
+        {{if ne .Area "admin"}}
+          {{if eq .Lang "fr"}}<a class="link inline-flex items-center gap-1.5" href="/lang/en?next={{.RequestURI}}" hreflang="en" lang="en">{{template "flag" "en"}}English</a>{{else}}<a class="link inline-flex items-center gap-1.5" href="/lang/fr?next={{.RequestURI}}" hreflang="fr" lang="fr">{{template "flag" "fr"}}Français</a>{{end}}
+        {{end}}
+        {{if and (eq .Area "partner") .Manager (not .Impersonating)}}
+          <form method="post" action="/logout"><button class="nav-link">{{t .Lang "nav.logout"}}</button></form>
+        {{end}}
+        {{if and (eq .Area "admin") .Admin}}
+          <a href="/admin/profile" class="flex items-center gap-2 rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100" title="Mon profil">
+            {{template "avatar" (dict "Admin" .Admin "Size" "h-7 w-7 text-xs")}}
+            <span class="hidden sm:inline">{{.Admin.Label}}</span>
+          </a>
+          <form method="post" action="/admin/logout"><button class="nav-link">Déconnexion</button></form>
+        {{end}}
+      </div>
+    </div>
+  </header>
+  <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+    {{if .Flash}}
+    <div class="alert mb-6 {{if or (eq .Flash "flash.upload_bad_logo") (eq .Flash "flash.upload_bad_pdf") (eq .Flash "flash.upload_too_large") (eq .Flash "flash.upload_missing") (eq .Flash "flash.last_manager") (eq .Flash "flash.invalid_email") (eq .Flash "flash.confirm_mismatch")}}bg-red-50 text-red-800{{else}}bg-green-50 text-green-800{{end}}" role="status">
+      {{t .Lang .Flash}}
+    </div>
+    {{end}}
+    {{template "content" .}}
+  </main>
+  <dialog id="confirm-dialog" class="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg bg-surface p-0 text-gray-900 shadow-xl ring-1 ring-gray-200 backdrop:bg-black/50" aria-labelledby="confirm-dialog-title">
+    <form method="dialog" class="p-6">
+      <h2 id="confirm-dialog-title" class="text-base font-semibold">{{t .Lang "confirm.title"}}</h2>
+      <p class="mt-2 text-sm text-gray-600" data-confirm-message></p>
+      <div class="mt-6 flex justify-end gap-3">
+        <button value="cancel" class="btn-secondary" autofocus>{{t .Lang "confirm.cancel"}}</button>
+        <button value="ok" class="btn" data-confirm-ok>{{t .Lang "confirm.ok"}}</button>
+      </div>
+    </form>
+  </dialog>
+  <footer class="border-t border-gray-200 bg-surface">
+    <div class="mx-auto flex max-w-6xl flex-wrap justify-between gap-2 px-4 py-4 text-xs text-gray-500">
+      <span>{{.Site.Name}}{{with .Site.URL}} · <a class="hover:underline" href="{{.}}">{{trimScheme .}}</a>{{end}}</span>
+      {{if ne .Area "admin"}}<span><a class="hover:underline" href="/jobs">{{t .Lang "nav.jobs_public"}}</a> · {{with .Site.ContactEmail}}<a class="hover:underline" href="mailto:{{.}}">{{.}}</a>{{end}}</span>{{end}}
+    </div>
+  </footer>
+</body>
+</html>{{end}}

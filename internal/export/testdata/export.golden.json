@@ -1,0 +1,73 @@
+{
+  "generated_at": "0001-01-01T00:00:00Z",
+  "event": {
+    "slug": "ec-2026",
+    "name": "Example Conf 2026",
+    "year": 2026
+  },
+  "levels": [
+    {
+      "name": "Or",
+      "position": 2,
+      "partners": [
+        {
+          "name": "Acme",
+          "slug": "acme",
+          "website": "https://acme.example",
+          "description": {
+            "en": "Free software",
+            "fr": "Logiciels libres"
+          },
+          "logo": "https://partenaires.example/logos/acme.svg",
+          "logo_dark": "https://partenaires.example/logos/acme-dark.svg",
+          "social": {
+            "linkedin": "https://www.linkedin.com/company/acme",
+            "mastodon": "@acme@floss.social",
+            "x": "@acme"
+          },
+          "hiring": true,
+          "jobs_url": "https://partenaires.example/jobs#acme"
+        }
+      ]
+    },
+    {
+      "name": "Bronze",
+      "position": 0,
+      "partners": [
+        {
+          "name": "Beta",
+          "slug": "beta",
+          "description": {
+            "en": "",
+            "fr": ""
+          },
+          "hiring": false
+        },
+        {
+          "name": "Zeta",
+          "slug": "zeta",
+          "description": {
+            "en": "Seulement en français",
+            "fr": "Seulement en français"
+          },
+          "hiring": false
+        }
+      ]
+    },
+    {
+      "name": "",
+      "position": -1,
+      "partners": [
+        {
+          "name": "NoLevel",
+          "slug": "nolevel",
+          "description": {
+            "en": "",
+            "fr": ""
+          },
+          "hiring": false
+        }
+      ]
+    }
+  ]
+}

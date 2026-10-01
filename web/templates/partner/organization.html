@@ -1,0 +1,9 @@
+{{define "content"}}
+<h1 class="mb-2 text-2xl font-bold tracking-tight">{{t .Lang "organization.title"}}</h1>
+<p class="mb-6 text-sm text-gray-600">{{t .Lang "organization.intro"}}</p>
+{{with .D.Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $.Lang .}}</div>{{end}}
+<form method="post" action="/p/organization" class="space-y-6">
+  {{template "org_fields" (dict "Lang" .Lang "O" .D.O)}}
+  <button class="btn">{{t .Lang "action.save"}}</button>
+</form>
+{{end}}

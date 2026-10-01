@@ -1,0 +1,91 @@
+{{define "content"}}
+{{$e := .D.E}}
+{{$t := .D.Totals}}
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight">{{$e.Name}}</h1>
+    <div class="mt-1 flex flex-wrap gap-3 text-sm">
+      {{range .D.Events}}{{if ne .ID $e.ID}}<a class="link" href="/admin/events/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {{if .D.Mine}}<a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}">Tous les partenaires</a>{{else}}<a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}?mine=1">Mes partenaires</a>{{end}}
+    <a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}/levels">Niveaux et contreparties</a>
+    <a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}/edit">Paramètres</a>
+    <a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}/attendees.csv">Participants (CSV)</a>
+    <a class="btn-secondary btn-sm" href="/api/partners.json?event={{$e.Slug}}">Export JSON</a>
+  </div>
+</div>
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+  <div class="card p-4"><p class="text-xs text-gray-500">Partenaires confirmés</p><p class="text-xl font-bold">{{$t.Partners}}</p></div>
+  <div class="card p-4"><p class="text-xs text-gray-500">Montant confirmé</p><p class="text-xl font-bold">{{money $t.Confirmed}}</p></div>
+  <div class="card p-4"><p class="text-xs text-gray-500">Devis signés</p><p class="text-xl font-bold">{{money $t.Signed}}</p></div>
+  <div class="card p-4"><p class="text-xs text-gray-500">Encaissé</p><p class="text-xl font-bold text-green-700">{{money $t.Paid}}</p></div>
+  <div class="card p-4"><p class="text-xs text-gray-500">En discussion</p><p class="text-xl font-bold text-gray-500">{{money $t.Pipeline}}</p></div>
+  <div class="card p-4"><p class="text-xs text-gray-500">Participants</p><p class="text-xl font-bold">{{$t.Attendees}}</p></div>
+</div>
+
+{{if .D.Levels}}
+<div class="card mb-6 p-4">
+  <p class="mb-2 text-xs font-semibold text-gray-500 uppercase">Places par niveau</p>
+  <div class="flex flex-wrap gap-4 text-sm">
+    {{range .D.Levels}}
+      <span class="inline-flex items-center gap-1.5">{{template "medal" (levelMedal . 20)}}<strong>{{.Name}}</strong> : {{.Taken}}{{if gt .MaxPartners 0}} / {{.MaxPartners}}{{if eq .Remaining 0}} <span class="badge bg-red-100 text-red-800">complet</span>{{end}}{{end}}</span>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{range .D.Columns}}
+{{if .Rows}}
+<section class="mb-6">
+  <h2 class="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">{{template "status_badge" .Status}} <span class="text-gray-400">{{len .Rows}}</span></h2>
+  <div class="card overflow-x-auto p-0">
+    {{/* Fixed layout and shared column widths keep the columns aligned
+         from one status section to the next. */}}
+    <table class="table w-full min-w-[64rem] table-fixed">
+      <colgroup>
+        <col class="w-[17%]"><col class="w-[11%]"><col class="w-[14%]"><col class="w-[14%]">
+        <col class="w-[9%]"><col class="w-[9%]"><col class="w-[10%]"><col class="w-[5%]"><col class="w-[4%]"><col class="w-[7%]">
+      </colgroup>
+      <thead><tr><th>Organisation</th><th>Niveau</th><th>Montant</th><th>Progression</th><th>Devis</th><th>Facture</th><th>Logo</th><th class="text-right" title="Participants">Part.</th><th title="Suivi par">Suivi</th><th>Relance</th></tr></thead>
+      <tbody>
+        {{range .Rows}}
+        <tr>
+          <td class="truncate"><a class="link" href="/admin/organizations/{{.Org.Slug}}/editions/{{$e.Slug}}" title="{{.Org.Name}}">{{.Org.Name}}</a></td>
+          <td class="whitespace-nowrap">{{with .Level}}<span class="inline-flex items-center gap-1.5 align-middle">{{template "medal" (levelMedal . 20)}}{{.Name}}</span>{{else}}<span class="text-gray-400">—</span>{{end}}</td>
+          <td class="whitespace-nowrap">
+            {{if .Pricing.Set}}
+              {{if .Pricing.Negotiated}}
+                <span class="font-medium text-amber-800 tabular-nums" title="Prix négocié{{with .Level}} (prix du niveau : {{money .Price}}){{end}}">{{money .Pricing.Amount}}<sup class="ml-0.5" aria-label="négocié">*</sup></span>
+              {{else}}
+                <span class="font-medium text-gray-900 tabular-nums">{{money .Pricing.Amount}}</span>
+              {{end}}
+              <span class="text-xs text-gray-500">{{t "fr" (printf "tax_short.%s" .Pricing.Tax)}}</span>
+            {{else}}<span class="text-gray-400">—</span>{{end}}
+          </td>
+          <td>
+            <div class="flex items-center gap-2" title="{{.Progress.Done}} étapes sur {{len .Progress.Steps}}">
+              <div class="flex-1">{{template "progress_bar" .Progress}}</div>
+              <span class="w-9 text-right text-xs text-gray-500 tabular-nums">{{.Progress.Percent}}%</span>
+            </div>
+          </td>
+          <td>{{template "doc_pill" (dict "Done" .P.QuoteSignedAt "Sent" (or .P.QuoteFile .P.QuoteSentAt) "DoneLabel" "Signé" "SentLabel" "Envoyé")}}</td>
+          <td>{{template "doc_pill" (dict "Done" .P.InvoicePaidAt "Sent" (or .P.InvoiceFile .P.InvoiceSentAt) "DoneLabel" "Payée" "SentLabel" "Envoyée")}}</td>
+          <td>{{if .Org.LogoFile}}<span class="logo-chip inline-flex max-w-full"><img src="{{logoURL .Org.LogoFile}}" alt="Logo {{.Org.Name}}" class="h-6 max-w-full object-contain object-left"></span>{{else}}<span class="text-gray-400">—</span>{{end}}</td>
+          <td class="text-right tabular-nums">{{.Attendees}}</td>
+          <td>{{with .Owner}}<span class="inline-flex align-middle" title="{{.Label}}" aria-label="Suivi par {{.Label}}">{{template "avatar" (dict "Admin" . "Size" "h-7 w-7 text-[10px]")}}</span>{{else}}<span class="text-gray-400">—</span>{{end}}</td>
+          <td class="whitespace-nowrap tabular-nums">{{with .P.FollowupAt}}{{date "fr" .}}{{else}}<span class="text-gray-400">—</span>{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{end}}
+{{end}}
+{{if not .D.Count}}<p class="card mb-6 text-center text-gray-500">Aucun partenariat pour cette édition.</p>{{end}}
+{{if .D.Mine}}<p class="mb-6 text-sm text-gray-500">Filtre : partenariats dont vous êtes le référent. Les totaux ne portent que sur ces partenariats.</p>{{end}}
+<p class="text-sm text-gray-500">Pour ajouter un prospect, créez une <a class="link" href="/admin/organizations">organisation</a> et rattachez-la à cette édition.</p>
+{{end}}

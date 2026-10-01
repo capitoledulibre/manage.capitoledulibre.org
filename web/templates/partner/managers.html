@@ -1,0 +1,58 @@
+{{define "content"}}
+{{$l := .Lang}}
+<h1 class="mb-2 text-2xl font-bold tracking-tight">{{t $l "managers.title"}}</h1>
+<p class="mb-6 text-sm text-gray-600">{{t $l "managers.intro"}}</p>
+<div class="grid gap-6 lg:grid-cols-3">
+  <section class="card overflow-x-auto p-0 lg:col-span-2">
+    <table class="table">
+      <thead><tr><th>{{t $l "managers.person"}}</th><th>{{t $l "managers.last_login"}}</th><th></th></tr></thead>
+      <tbody>
+        {{range .D.Managers}}
+        <tr>
+          <td><span class="inline-flex items-center gap-2 font-medium text-gray-900">{{or .Name .Email}} {{template "flag" .Lang}}</span>{{if .Name}}<br><span class="text-xs text-gray-500">{{.Email}}</span>{{end}}</td>
+          <td class="text-gray-500">{{with .LastLoginAt}}{{datetime $l .}}{{else}}{{t $l "managers.never"}}{{end}}</td>
+          <td class="text-right">
+            <form method="post" action="/p/managers/{{.UID}}/delete" data-confirm="{{t $l "action.confirm_delete"}}">
+              <button class="btn-danger btn-sm">{{t $l "managers.remove"}}</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </section>
+  <div class="space-y-6">
+  {{if and .Manager (not .Impersonating)}}
+  <section class="card">
+    <h2 class="card-title">{{t $l "profile.title"}}</h2>
+    <form method="post" action="/p/profile" class="space-y-3">
+      <p class="text-sm text-gray-600">{{.Manager.Email}}</p>
+      <div>
+        <label class="label" for="profile_name">{{t $l "managers.name"}}</label>
+        <input class="input" id="profile_name" name="name" value="{{.Manager.Name}}">
+      </div>
+      {{template "lang_picker" (dict "Name" "lang" "Selected" .Manager.Lang "Label" (t $l "managers.lang"))}}
+      <button class="btn-secondary w-full">{{t $l "action.save"}}</button>
+    </form>
+  </section>
+  {{end}}
+  <section class="card">
+    <h2 class="card-title">{{t $l "managers.invite"}}</h2>
+    {{with .D.Form}}{{with .Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $l .}}</div>{{end}}{{end}}
+    <form method="post" action="/p/managers" class="space-y-3">
+      <div>
+        <label class="label" for="email">{{t $l "login.email"}} *</label>
+        <input class="input" id="email" name="email" type="email" required>
+      </div>
+      <div>
+        <label class="label" for="name">{{t $l "managers.name"}}</label>
+        <input class="input" id="name" name="name">
+      </div>
+      {{template "lang_picker" (dict "Name" "lang" "Selected" $l "Label" (t $l "managers.lang"))}}
+      <button class="btn w-full">{{t $l "managers.send_invite"}}</button>
+      <p class="help">{{t $l "managers.invite_help"}}</p>
+    </form>
+  </section>
+  </div>
+</div>
+{{end}}

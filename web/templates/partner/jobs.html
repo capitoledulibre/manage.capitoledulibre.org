@@ -1,0 +1,39 @@
+{{define "content"}}
+{{$l := .Lang}}
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="mb-2 text-2xl font-bold tracking-tight">{{t $l "jobs.manage_title"}}</h1>
+    <p class="text-sm text-gray-600">{{t $l "jobs.manage_intro"}} <a class="link" href="/jobs">/jobs</a></p>
+  </div>
+  <a class="btn" href="/p/jobs/new">{{t $l "jobs.new"}}</a>
+</div>
+{{if not .D.Jobs}}
+  <p class="card text-center text-sm text-gray-500">{{t $l "jobs.manage_none"}}</p>
+{{else}}
+<div class="card overflow-x-auto p-0">
+  <table class="table">
+    <thead><tr><th>{{t $l "jobs.job_title"}}</th><th>{{t $l "jobs.contract"}}</th><th>{{t $l "jobs.location"}}</th><th>{{t $l "jobs.status"}}</th><th></th></tr></thead>
+    <tbody>
+      {{range .D.Jobs}}
+      <tr>
+        <td class="font-medium text-gray-900">{{.Title}}</td>
+        <td>{{.Contract}}</td>
+        <td>{{.Location}}</td>
+        <td>
+          {{if .Hidden}}<span class="badge bg-gray-100 text-gray-700">{{t $l "jobs.hidden"}}</span>
+          {{else if .Expired}}<span class="badge bg-amber-100 text-amber-800">{{t $l "jobs.expired"}}</span>
+          {{else}}<span class="badge bg-green-100 text-green-800">{{t $l "jobs.published"}}</span>{{end}}
+        </td>
+        <td class="whitespace-nowrap text-right">
+          <a class="btn-secondary btn-sm" href="/p/jobs/{{.UID}}">{{t $l "action.edit"}}</a>
+          <form method="post" action="/p/jobs/{{.UID}}/delete" class="inline" data-confirm="{{t $l "action.confirm_delete"}}">
+            <button class="btn-danger btn-sm">{{t $l "action.delete"}}</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+{{end}}

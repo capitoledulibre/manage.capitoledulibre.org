@@ -1,0 +1,220 @@
+{{define "content"}}
+{{$l := .Lang}}
+{{$pc := .D.PC}}
+<div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <p class="text-sm text-gray-500">{{t $l "dashboard.welcome"}}</p>
+    <h1 class="text-2xl font-bold tracking-tight">{{.Org.Name}}</h1>
+    {{if .D.Badges}}<div class="mt-3">{{template "badges" (dict "Lang" $l "Badges" .D.Badges)}}</div>{{end}}
+  </div>
+  <div class="flex items-center gap-3">
+    {{if .D.CanSwitch}}<a class="btn-secondary btn-sm" href="/p/choose">{{t $l "dashboard.switch_org"}}</a>{{end}}
+    {{if gt (len $pc.Editions) 1}}
+    <form method="get" action="/p/" class="flex items-center gap-2">
+      <label class="text-sm text-gray-600" for="event">{{t $l "dashboard.edition"}}</label>
+      <select class="input w-auto" id="event" name="event">
+        {{range $pc.Editions}}<option value="{{.Slug}}" {{if eq .ID $pc.Event.ID}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+      <button class="btn-secondary btn-sm">OK</button>
+    </form>
+    {{end}}
+  </div>
+</div>
+
+{{if not $pc.Partnership}}
+  <div class="card text-center">
+    <h2 class="text-lg font-semibold">{{t $l "dashboard.no_partnership"}}</h2>
+    <p class="mt-2 text-sm text-gray-600">{{t $l "dashboard.no_partnership_help"}}</p>
+  </div>
+{{else}}
+{{$p := $pc.Partnership}}
+{{$pr := .D.Progress}}
+
+<section class="card mb-6">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <h2 class="text-base font-semibold">{{t $l "dashboard.progress"}} · {{$pc.Event.Name}}</h2>
+    {{if $pr.Ready}}
+      <span class="badge bg-green-100 text-green-800">🎉 {{t $l "dashboard.ready"}}</span>
+    {{else}}
+      <span class="text-sm text-gray-500">{{$pr.Done}}/{{len $pr.Steps}} · {{$pr.Percent}}%</span>
+    {{end}}
+  </div>
+  {{template "progress_bar" $pr}}
+  <ol class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
+    {{range $pr.Steps}}
+    <li class="flex items-start gap-2">
+      {{if .Done}}
+        <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500 text-xs text-white">✓</span>
+      {{else}}
+        <span class="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-gray-300"></span>
+      {{end}}
+      <span class="text-sm {{if .Done}}text-gray-900{{else}}text-gray-500{{end}}">
+        {{t $l .Key}}
+        <span class="block text-xs text-gray-400">{{if .Staff}}{{t $l "step.by_staff"}}{{else}}{{t $l "step.by_you"}}{{end}}</span>
+      </span>
+    </li>
+    {{end}}
+  </ol>
+</section>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    <section class="card">
+      <h2 class="card-title">{{t $l "dashboard.todo"}}</h2>
+      {{if not $pr.Todos}}
+        <p class="text-sm text-gray-600">✅ {{t $l "dashboard.todo_none"}}</p>
+      {{else}}
+      <ul class="divide-y divide-gray-100">
+        {{range $pr.Todos}}
+        <li class="flex flex-wrap items-center justify-between gap-2 py-3">
+          <span class="text-sm">{{t $l .Key}}
+            {{with .Deadline}}<span class="ml-1 text-xs text-red-700">· {{t $l "dashboard.before"}} {{date $l .}}</span>{{end}}
+          </span>
+          {{if .Link}}<a class="btn-secondary btn-sm" href="{{.Link}}">{{t $l "dashboard.do_it"}}</a>{{end}}
+        </li>
+        {{end}}
+      </ul>
+      {{end}}
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">{{t $l "dashboard.documents"}}</h2>
+      <ul class="grid gap-3 sm:grid-cols-2">
+        <li class="rounded-md border border-gray-200 p-4">
+          <p class="text-sm font-medium">{{t $l "doc.quote"}}</p>
+          <ul class="mt-2 space-y-1">
+            {{template "doc_check" (dict "Lang" $l "Done" (or $p.QuoteFile $p.QuoteSentAt) "Date" $p.QuoteSentAt "Label" (t $l "doc.quote_sent"))}}
+            {{template "doc_check" (dict "Lang" $l "Done" $p.QuoteSignedAt "Date" $p.QuoteSignedAt "Label" (t $l "doc.quote_signed"))}}
+          </ul>
+          {{if $p.QuoteFile}}<a class="link mt-2 inline-block text-sm" href="/p/documents/{{$pc.Event.Slug}}/quote">{{t $l "doc.view"}}</a>{{else}}<p class="mt-2 text-xs text-gray-500">{{t $l "doc.not_available"}}</p>{{end}}
+        </li>
+        <li class="rounded-md border border-gray-200 p-4">
+          <p class="text-sm font-medium">{{t $l "doc.invoice"}}</p>
+          <ul class="mt-2 space-y-1">
+            {{template "doc_check" (dict "Lang" $l "Done" (or $p.InvoiceFile $p.InvoiceSentAt) "Date" $p.InvoiceSentAt "Label" (t $l "doc.invoice_sent"))}}
+            {{template "doc_check" (dict "Lang" $l "Done" $p.InvoicePaidAt "Date" $p.InvoicePaidAt "Label" (t $l "doc.invoice_paid"))}}
+          </ul>
+          {{if $p.InvoiceFile}}<a class="link mt-2 inline-block text-sm" href="/p/documents/{{$pc.Event.Slug}}/invoice">{{t $l "doc.view"}}</a>{{else}}<p class="mt-2 text-xs text-gray-500">{{t $l "doc.not_available"}}</p>{{end}}
+        </li>
+        {{if or $pc.Event.PaymentInfo $pc.Event.PaymentMention}}
+        <li class="rounded-md border border-gray-200 p-4 sm:col-span-2">
+          <p class="text-sm font-medium">{{t $l "doc.payment"}}</p>
+          {{with $pc.Event.PaymentInfo}}<p class="mt-2 whitespace-pre-line text-sm text-gray-700">{{.}}</p>{{end}}
+          {{with $p.PONumber}}<p class="mt-2 text-xs text-gray-500">{{t $l "doc.po_reference" .}}</p>{{end}}
+          {{with $pc.Event.PaymentMention}}<p class="mt-2 text-xs text-gray-500">{{.}}</p>{{end}}
+        </li>
+        {{end}}
+        {{range .D.EventDocs}}
+        <li class="rounded-md border border-gray-200 p-4">
+          <p class="text-sm font-medium">{{t $l (printf "doc.%s" .Kind)}}</p>
+          <a class="link mt-2 inline-block text-sm" href="{{.Link}}">{{t $l "doc.view"}}</a>
+        </li>
+        {{end}}
+      </ul>
+    </section>
+
+    {{if .D.Posts}}
+    <section class="card">
+      <h2 class="card-title">{{t $l "social.title"}}</h2>
+      <ul class="divide-y divide-gray-100">
+        {{range .D.Posts}}
+        <li class="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+          <span>
+            <span class="font-medium">{{if eq .Network "other"}}{{t $l "social.network_other"}}{{else}}{{network .Network}}{{end}}</span>
+            {{with .Note}}<span class="text-gray-600">· {{.}}</span>{{end}}
+            <span class="block text-xs text-gray-500">
+              {{if .Published}}{{t $l "social.published"}}{{else}}{{with .PlannedAt}}{{t $l "social.planned_on"}} {{date $l .}}{{else}}{{t $l "social.to_schedule"}}{{end}}{{end}}
+            </span>
+          </span>
+          {{if .Published}}<a class="btn-secondary btn-sm" href="{{.URL}}" rel="noopener" target="_blank">{{t $l "social.view"}} ↗</a>{{else}}<span class="badge bg-gray-100 text-gray-700">{{t $l "social.upcoming"}}</span>{{end}}
+        </li>
+        {{end}}
+      </ul>
+      <p class="help mt-3">{{t $l "social.help"}}</p>
+    </section>
+    {{end}}
+
+    <section class="card">
+      <h2 class="card-title">{{t $l "dashboard.notes"}}</h2>
+      <form method="post" action="/p/notes" class="space-y-4">
+        <input type="hidden" name="event" value="{{$pc.Event.Slug}}">
+        <div>
+          <label class="label" for="po_number">{{t $l "dashboard.po_number"}}</label>
+          <input class="input" id="po_number" name="po_number" value="{{$p.PONumber}}">
+          <p class="help">{{t $l "dashboard.po_help"}}</p>
+        </div>
+        <div>
+          <label class="label" for="partner_notes">{{t $l "dashboard.notes_label"}}</label>
+          <textarea class="input" id="partner_notes" name="partner_notes" rows="4">{{$p.PartnerNotes}}</textarea>
+        </div>
+        <button class="btn">{{t $l "action.save"}}</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="space-y-6">
+    <section class="card">
+      <h2 class="card-title">{{t $l "dashboard.level"}}</h2>
+      <div class="flex items-center gap-4">
+        {{template "medal" .D.Medal}}
+        <div>
+          {{with $pc.Level}}
+            <p class="text-2xl font-bold">{{.Name}}</p>
+          {{else}}
+            <p class="text-sm text-gray-500">{{t $l "dashboard.level_pending"}}</p>
+          {{end}}
+          <p class="text-sm text-gray-500">{{template "price" (dict "Lang" $l "P" .D.Pricing)}}</p>
+        </div>
+      </div>
+      {{if .D.Perks}}
+      <h3 class="mt-6 mb-2 text-sm font-semibold text-gray-700">{{t $l "dashboard.perks"}}</h3>
+      <ul class="space-y-2">
+        {{$done := .D.DonePerks}}
+        {{range .D.Perks}}
+        <li class="flex items-start gap-2 text-sm">
+          {{if hasPerk $done .ID}}<span class="text-green-600">✓</span>{{else}}<span class="text-gray-300">○</span>{{end}}
+          <span class="{{if hasPerk $done .ID}}text-gray-900{{else}}text-gray-600{{end}}">{{.Name $l}}</span>
+        </li>
+        {{end}}
+      </ul>
+      <p class="help mt-3">{{t $l "dashboard.perks_help"}}</p>
+      {{end}}
+    </section>
+
+    {{with .D.Contact}}
+    <section class="card">
+      <h2 class="card-title">{{t $l "dashboard.contact"}}</h2>
+      <div class="flex items-center gap-3">
+        {{template "avatar" (dict "Admin" . "Size" "h-12 w-12 text-base")}}
+        <div class="min-w-0">
+          <p class="font-medium">{{.Label}}</p>
+          <a class="link block truncate text-sm" href="mailto:{{.Email}}">{{.Email}}</a>
+        </div>
+      </div>
+      <p class="help mt-3">{{t $l "dashboard.contact_help"}}</p>
+    </section>
+    {{end}}
+
+    <section class="card">
+      <h2 class="card-title">{{t $l "dashboard.summary"}}</h2>
+      <dl class="space-y-3 text-sm">
+        <div class="flex items-center justify-between gap-2">
+          <dt class="text-gray-500">{{t $l "nav.logo"}}</dt>
+          <dd>{{if .Org.LogoFile}}<span class="logo-chip inline-flex"><img src="{{logoURL .Org.LogoFile}}" alt="" class="h-8 max-w-32 object-contain"></span>{{else}}<a class="link" href="/p/logo">{{t $l "dashboard.add"}}</a>{{end}}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <dt class="text-gray-500">{{t $l "nav.attendees"}}</dt>
+          <dd><a class="link" href="/p/attendees{{.EventQuery}}">{{.D.Attendees}}{{with $pc.Level}}{{if gt .MaxAttendees 0}} / {{.MaxAttendees}}{{end}}{{end}}</a></dd>
+        </div>
+        {{with $pc.Event.StartsOn}}
+        <div class="flex items-center justify-between gap-2">
+          <dt class="text-gray-500">{{t $l "dashboard.event_date"}}</dt>
+          <dd>{{date $l .}}{{with $pc.Event.EndsOn}} → {{date $l .}}{{end}}</dd>
+        </div>
+        {{end}}
+      </dl>
+    </section>
+  </div>
+</div>
+{{end}}
+{{end}}

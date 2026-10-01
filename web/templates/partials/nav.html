@@ -1,0 +1,316 @@
+{{define "partner_nav"}}
+  {{$p := .Path}}
+  <a class="nav-link {{if eq $p "/p/"}}nav-link-active{{end}}" href="/p/{{.EventQuery}}">{{t .Lang "nav.dashboard"}}</a>
+  <a class="nav-link {{if eq $p "/p/organization"}}nav-link-active{{end}}" href="/p/organization">{{t .Lang "nav.organization"}}</a>
+  <a class="nav-link {{if eq $p "/p/logo"}}nav-link-active{{end}}" href="/p/logo">{{t .Lang "nav.logo"}}</a>
+  <a class="nav-link {{if eq $p "/p/attendees"}}nav-link-active{{end}}" href="/p/attendees{{.EventQuery}}">{{t .Lang "nav.attendees"}}</a>
+  <a class="nav-link {{if eq $p "/p/jobs"}}nav-link-active{{end}}" href="/p/jobs">{{t .Lang "nav.jobs"}}</a>
+  <a class="nav-link {{if eq $p "/p/managers"}}nav-link-active{{end}}" href="/p/managers">{{t .Lang "nav.managers"}}</a>
+{{end}}
+
+{{define "admin_nav"}}
+  <a class="nav-link {{if eq .Nav "pipeline"}}nav-link-active{{end}}" href="/admin/">Pipeline</a>
+  <a class="nav-link {{if eq .Nav "partners"}}nav-link-active{{end}}" href="/admin/organizations">Partenaires</a>
+  <a class="nav-link {{if eq .Nav "editions"}}nav-link-active{{end}}" href="/admin/events">Éditions</a>
+  <a class="nav-link" href="/jobs">Jobs publics</a>
+{{end}}
+
+{{define "status_dot"}}<span class="h-2 w-2 shrink-0 rounded-full {{if eq . "confirmed"}}bg-green-500{{else if eq . "negotiating"}}bg-amber-500{{else if eq . "contacted"}}bg-blue-500{{else if eq . "declined"}}bg-red-500{{else}}bg-gray-400{{end}}" aria-hidden="true"></span>{{end}}
+
+{{/* fiche_header is the shared header of a partner file: breadcrumb, name,
+     badges, actions and tabs (one per edition, plus "Organisation"). */}}
+{{define "fiche_header"}}
+{{$h := .}}
+<nav class="mb-3 flex flex-wrap items-center gap-1.5 text-sm text-gray-500" aria-label="Fil d'Ariane">
+  {{with $h.Event}}
+    <a class="link" href="/admin/events/{{.Slug}}">Pipeline {{.Name}}</a>
+  {{else}}
+    <a class="link" href="/admin/organizations">Partenaires</a>
+  {{end}}
+  <span aria-hidden="true">›</span>
+  <span class="text-gray-700">{{$h.Org.Name}}</span>
+</nav>
+
+<div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+  <div class="flex items-center gap-4">
+    {{with $h.Medal}}{{template "medal" .}}{{end}}
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">{{$h.Org.Name}}</h1>
+      {{if $h.Badges}}<div class="mt-2">{{template "badges" (dict "Lang" "fr" "Badges" $h.Badges)}}</div>{{end}}
+    </div>
+  </div>
+  <form method="post" action="/admin/organizations/{{$h.Org.Slug}}/view-as">
+    {{with $h.Event}}<input type="hidden" name="event" value="{{.Slug}}">{{end}}
+    <input type="hidden" name="return" value="{{$h.Return}}">
+    <button class="btn-secondary">👁 Voir {{with $h.Event}}l'édition {{.Year}} {{end}}comme le partenaire</button>
+  </form>
+</div>
+
+<div class="mb-6 flex flex-wrap items-end gap-1 border-b border-gray-200">
+  {{range $h.Tabs}}
+  <a href="{{.URL}}" class="-mb-px inline-flex items-center gap-2 rounded-t-md border px-4 py-2 text-sm font-medium {{if .Active}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if .Active}}aria-current="page"{{end}}>
+    {{if .Status}}{{template "status_dot" .Status}}{{end}}{{.Label}}
+  </a>
+  {{end}}
+  {{if $h.AddEvents}}
+  <details class="relative mb-1 ml-auto">
+    <summary class="btn-secondary btn-sm list-none">+ Édition</summary>
+    <form method="post" action="/admin/organizations/{{$h.Org.Slug}}/partnerships" class="card absolute right-0 z-10 mt-2 w-72 space-y-3 p-4">
+      <input type="hidden" name="return" value="{{$h.Return}}">
+      <select class="input" name="event" aria-label="Édition">{{range $h.AddEvents}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}</select>
+      <p class="help">{{if gt (len $h.Tabs) 1}}Reconduction : statut « Contacté », même niveau et même référent que la dernière édition.{{else}}Le partenaire démarre au statut « Prospect ».{{end}}</p>
+      <button class="btn btn-sm w-full">Ajouter</button>
+    </form>
+  </details>
+  {{end}}
+</div>
+{{end}}
+
+{{/* avatar renders an admin's picture, or their initials. Expects Admin and
+     Size (Tailwind size classes, e.g. "h-8 w-8 text-xs"). */}}
+{{define "avatar"}}
+  {{if .Admin.AvatarFile}}
+    <img src="/avatars/{{.Admin.AvatarFile}}" alt="" class="{{.Size}} shrink-0 rounded-full object-cover ring-1 ring-gray-200">
+  {{else}}
+    <span class="{{.Size}} inline-flex shrink-0 items-center justify-center rounded-full bg-brand-50 font-semibold text-brand-800" aria-hidden="true">{{.Admin.Initials}}</span>
+  {{end}}
+{{end}}
+
+{{/* medal draws a level medal (ribbon, disc, star) from a Medal value. */}}
+{{define "medal"}}
+<svg width="{{.Size}}" height="{{.Size}}" viewBox="0 0 64 64" class="shrink-0" aria-hidden="true">
+  <polygon points="14,0 28,0 36,26 22,26" fill="{{.Deep}}"/>
+  <polygon points="36,0 50,0 42,26 28,26" fill="{{.Dark}}"/>
+  <circle cx="32" cy="40" r="22" fill="{{.Dark}}"/>
+  <circle cx="32" cy="40" r="18.5" fill="{{.Base}}"/>
+  <circle cx="32" cy="40" r="14" fill="none" stroke="{{.Light}}" stroke-width="1.5" opacity=".8"/>
+  <polygon points="32.0,31.5 34.1,37.1 40.1,37.4 35.4,41.1 37.0,46.9 32.0,43.6 27.0,46.9 28.6,41.1 23.9,37.4 29.9,37.1" fill="{{.Light}}"/>
+  <ellipse cx="25" cy="31" rx="7" ry="3" fill="#ffffff" opacity=".35" transform="rotate(-35 25 31)"/>
+</svg>
+{{end}}
+
+{{/* badges lists confirmed partnerships as "Gold sponsor 2025" chips.
+     Expects Lang and Badges. */}}
+{{define "badges"}}
+{{if .Badges}}
+<ul class="flex flex-wrap gap-2">
+  {{range .Badges}}
+  <li class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 py-1 pr-3 pl-1.5 text-xs font-medium text-gray-900 ring-1 ring-gray-200">
+    {{template "medal" .Medal}}
+    {{if .Level}}{{t $.Lang "badge.partner" .Level .Year}}{{else}}{{t $.Lang "badge.partner_nolevel" .Year}}{{end}}
+  </li>
+  {{end}}
+</ul>
+{{end}}
+{{end}}
+
+{{/* flag draws the French or British flag (inline SVG, so it renders the
+     same on every OS, unlike emoji flags). Expects a language code. */}}
+{{define "flag"}}
+{{if eq . "en"}}
+<svg viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" class="h-3.5 w-5 shrink-0 rounded-[2px] ring-1 ring-black/10" role="img" aria-label="English">
+  <rect width="60" height="30" fill="#012169"/>
+  <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+  <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="2"/>
+  <path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/>
+  <path d="M30,0 V30 M0,15 H60" stroke="#C8102E" stroke-width="6"/>
+</svg>
+{{else}}
+<svg viewBox="0 0 3 2" class="h-3.5 w-5 shrink-0 rounded-[2px] ring-1 ring-black/10" role="img" aria-label="Français">
+  <rect width="1" height="2" fill="#002654"/>
+  <rect x="1" width="1" height="2" fill="#fff"/>
+  <rect x="2" width="1" height="2" fill="#CE1126"/>
+</svg>
+{{end}}
+{{end}}
+
+{{/* lang_picker is a two-button language choice with flags. Expects Name
+     (field name), Selected ("fr" or "en") and Label (group label). */}}
+{{define "lang_picker"}}
+<fieldset>
+  <legend class="label">{{.Label}}</legend>
+  <div class="grid grid-cols-2 gap-2">
+    {{$sel := .Selected}}{{$name := .Name}}
+    {{range $code := list "fr" "en"}}
+    <label class="flex cursor-pointer items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 has-checked:bg-brand-50 has-checked:text-brand-800 has-checked:ring-2 has-checked:ring-brand-600">
+      <input type="radio" name="{{$name}}" value="{{$code}}" class="sr-only" {{if eq $code $sel}}checked{{end}}>
+      {{template "flag" $code}}{{if eq $code "fr"}}Français{{else}}English{{end}}
+    </label>
+    {{end}}
+  </div>
+</fieldset>
+{{end}}
+
+{{/* upload is the file upload workflow used everywhere: an "Add" button
+     opens a dialog with a drop zone (click or keyboard opens the file
+     picker), a preview of the chosen file and a "Save" button.
+     Expects: Lang, ID (unique on the page), Action, Field (file field name),
+     Accept (input accept attribute), Formats (shown to the user), MaxBytes,
+     Title, Label (button text), Image (image preview), PDF (first page
+     rendered with pdf.js), Hidden (extra form fields, may be nil) and Notify
+     (adds the "notify managers" checkbox). */}}
+{{define "upload"}}
+{{$l := .Lang}}
+<button type="button" class="btn-secondary btn-sm" data-upload-open="{{.ID}}">{{.Label}}</button>
+<dialog id="{{.ID}}" data-upload data-max-bytes="{{.MaxBytes}}" data-accept="{{.Accept}}"
+        data-msg-too-large="{{t $l "upload.too_large"}}" data-msg-bad-type="{{t $l "upload.bad_type"}}"
+        data-unit-kb="{{t $l "upload.kb"}}" data-unit-mb="{{t $l "upload.mb"}}"
+        {{if .PDF}}data-pdfjs="{{asset "/static/vendor/pdfjs/pdf.min.mjs"}}" data-pdfjs-worker="{{asset "/static/vendor/pdfjs/pdf.worker.min.mjs"}}" data-msg-pages="{{t $l "upload.pages"}}"{{end}}
+        class="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-lg bg-surface p-0 text-gray-900 shadow-xl ring-1 ring-gray-200 backdrop:bg-black/50"
+        aria-labelledby="{{.ID}}-title">
+  <form method="post" action="{{.Action}}" enctype="multipart/form-data">
+    <h2 id="{{.ID}}-title" class="border-b border-gray-200 px-6 py-4 text-lg font-semibold">{{.Title}}</h2>
+    {{range $k, $v := .Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}
+    <input type="file" name="{{.Field}}" accept="{{.Accept}}" class="sr-only" tabindex="-1" data-upload-input>
+
+    <div class="space-y-4 px-6 py-6">
+      <div role="button" tabindex="0" aria-describedby="{{.ID}}-formats" data-upload-zone
+           class="flex min-h-40 sm:min-h-64 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-300 p-6 text-center hover:border-brand-500 focus-visible:border-brand-600 focus-visible:outline-none data-[dragging]:border-brand-600 data-[dragging]:bg-brand-50">
+        <div class="flex flex-col items-center gap-3" data-upload-placeholder>
+          <svg viewBox="0 0 24 24" class="h-14 w-14 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M10 3h4v9h4l-6 7-6-7h4z"/></svg>
+          <p class="text-base font-medium text-gray-600">{{t $l "upload.drop"}}</p>
+        </div>
+        <div class="hidden w-full flex-col items-center gap-3" data-upload-preview>
+          {{if .PDF}}<canvas role="img" aria-label="{{t $l "upload.preview"}}" class="hidden rounded-sm bg-white shadow-lg ring-1 ring-black/10" data-upload-pdf></canvas>{{end}}
+          {{if .Image}}<img src="data:," alt="" width="128" height="128" class="checker h-32 w-32 rounded object-contain" data-upload-thumb>
+          {{else}}<svg viewBox="0 0 24 24" data-upload-icon class="h-14 w-14 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linejoin="round" d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path stroke-linejoin="round" d="M14 3v5h5"/></svg>{{end}}
+          <div class="text-sm">
+            <p class="max-w-80 truncate font-medium" data-upload-name></p>
+            <p class="text-xs text-gray-500" data-upload-size></p>
+            {{if .PDF}}<p class="hidden text-xs text-gray-500" data-upload-pages></p>{{end}}
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col items-center gap-2">
+        <button type="button" class="btn-secondary" data-upload-browse>{{t $l "upload.browse"}}</button>
+        <p id="{{.ID}}-formats" class="text-xs text-gray-500">{{.Formats}} · {{t $l "upload.max"}} {{bytes $l .MaxBytes}}</p>
+      </div>
+      <p class="hidden text-center text-sm text-red-700" role="alert" data-upload-error></p>
+      {{if .Notify}}<label class="flex items-center justify-center gap-2 text-sm"><input type="checkbox" name="notify" checked> {{t $l "upload.notify"}}</label>{{end}}
+    </div>
+
+    <div class="sticky bottom-0 flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+      <button type="button" class="btn-secondary" data-upload-cancel>{{t $l "confirm.cancel"}}</button>
+      <button type="submit" class="btn" disabled data-upload-save>{{t $l "upload.save"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
+{{define "status_badge"}}
+  {{if eq . "prospect"}}<span class="badge bg-gray-100 text-gray-700">Prospect</span>
+  {{else if eq . "contacted"}}<span class="badge bg-blue-100 text-blue-800">Contacté</span>
+  {{else if eq . "negotiating"}}<span class="badge bg-amber-100 text-amber-800">En négociation</span>
+  {{else if eq . "confirmed"}}<span class="badge bg-green-100 text-green-800">Confirmé</span>
+  {{else if eq . "declined"}}<span class="badge bg-red-100 text-red-800">Refusé</span>
+  {{end}}
+{{end}}
+
+{{define "status_label"}}{{if eq . "prospect"}}Prospect{{else if eq . "contacted"}}Contacté{{else if eq . "negotiating"}}En négociation{{else if eq . "confirmed"}}Confirmé{{else if eq . "declined"}}Refusé{{end}}{{end}}
+
+{{/* doc_check renders a green check for a completed document step, or a grey
+     circle with "pending" otherwise. Expects Lang, Done, Date and Label. */}}
+{{define "doc_check"}}
+  <li class="flex items-center gap-2 text-xs">
+    {{if .Done}}
+      <span class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-500 text-[10px] text-white">✓</span>
+      <span class="text-gray-900">{{.Label}}{{with .Date}} · {{date $.Lang .}}{{end}}</span>
+    {{else}}
+      <span class="h-4 w-4 shrink-0 rounded-full border-2 border-gray-300"></span>
+      <span class="text-gray-500">{{.Label}} · {{t .Lang "doc.awaiting"}}</span>
+    {{end}}
+  </li>
+{{end}}
+
+{{/* doc_pill shows the state of a quote or invoice in tables: done (signed
+     or paid), sent, or nothing. Expects Done, Sent, DoneLabel, SentLabel. */}}
+{{define "doc_pill"}}
+{{if .Done}}<span class="badge gap-1 bg-green-100 text-green-800"><svg viewBox="0 0 16 16" class="h-3 w-3" fill="currentColor" aria-hidden="true"><path d="M6.2 11.3 2.9 8l1-1 2.3 2.3 5.9-5.9 1 1z"/></svg>{{.DoneLabel}}</span>
+{{else if .Sent}}<span class="badge bg-blue-100 text-blue-800">{{.SentLabel}}</span>
+{{else}}<span class="text-gray-400">—</span>{{end}}
+{{end}}
+
+{{define "price"}}{{if .P.Set}}{{money .P.Amount}} {{t .Lang (printf "tax.%s" .P.Tax)}}{{end}}{{end}}
+
+{{define "progress_bar"}}
+  <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+    <div class="h-2 rounded-full {{if .Ready}}bg-green-500{{else}}bg-brand-500{{end}}" style="width: {{.Percent}}%"></div>
+  </div>
+{{end}}
+
+{{define "org_fields"}}
+  {{$l := .Lang}}{{$o := .O}}
+  <fieldset class="card">
+    <legend class="card-title float-left w-full">{{t $l "organization.general"}}</legend>
+    <div class="grid clear-both gap-4 sm:grid-cols-2">
+      <div class="sm:col-span-2">
+        <label class="label" for="name">{{t $l "organization.name"}} *</label>
+        <input class="input" id="name" name="name" required value="{{$o.Name}}">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="label" for="website">{{t $l "organization.website"}}</label>
+        <input class="input" id="website" name="website" type="text" inputmode="url" placeholder="https://" value="{{$o.Website}}">
+      </div>
+      <div>
+        <label class="label" for="description_fr">{{t $l "organization.description_fr"}}</label>
+        <textarea class="input" id="description_fr" name="description_fr" rows="5" maxlength="1000">{{$o.DescriptionFR}}</textarea>
+      </div>
+      <div>
+        <label class="label" for="description_en">{{t $l "organization.description_en"}}</label>
+        <textarea class="input" id="description_en" name="description_en" rows="5" maxlength="1000">{{$o.DescriptionEN}}</textarea>
+      </div>
+      <p class="help sm:col-span-2">{{t $l "organization.description_help"}}</p>
+      <div>
+        <label class="label" for="linkedin">LinkedIn</label>
+        <input class="input" id="linkedin" name="linkedin" placeholder="https://www.linkedin.com/company/…" value="{{$o.LinkedIn}}">
+      </div>
+      <div>
+        <label class="label" for="mastodon">Mastodon</label>
+        <input class="input" id="mastodon" name="mastodon" placeholder="@compte@instance" value="{{$o.Mastodon}}">
+      </div>
+      <div>
+        <label class="label" for="bluesky">Bluesky</label>
+        <input class="input" id="bluesky" name="bluesky" placeholder="@compte.bsky.social" value="{{$o.Bluesky}}">
+      </div>
+      <div>
+        <label class="label" for="x">X (Twitter)</label>
+        <input class="input" id="x" name="x" placeholder="@compte" value="{{$o.X}}">
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="card">
+    <legend class="card-title float-left w-full">{{t $l "organization.billing"}}</legend>
+    <div class="grid clear-both gap-4 sm:grid-cols-2">
+      <div class="sm:col-span-2">
+        <label class="label" for="legal_name">{{t $l "organization.legal_name"}}</label>
+        <input class="input" id="legal_name" name="legal_name" value="{{$o.LegalName}}">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="label" for="address_line1">{{t $l "organization.address"}}</label>
+        <input class="input" id="address_line1" name="address_line1" value="{{$o.AddressLine1}}">
+        <input class="input mt-2" name="address_line2" aria-label="{{t $l "organization.address"}} 2" value="{{$o.AddressLine2}}">
+      </div>
+      <div>
+        <label class="label" for="zip_code">{{t $l "organization.zip_code"}}</label>
+        <input class="input" id="zip_code" name="zip_code" value="{{$o.ZipCode}}">
+      </div>
+      <div>
+        <label class="label" for="city">{{t $l "organization.city"}}</label>
+        <input class="input" id="city" name="city" value="{{$o.City}}">
+      </div>
+      <div>
+        <label class="label" for="country">{{t $l "organization.country"}}</label>
+        <input class="input" id="country" name="country" value="{{$o.Country}}">
+      </div>
+      <div>
+        <label class="label" for="siret">SIRET</label>
+        <input class="input" id="siret" name="siret" value="{{$o.SIRET}}">
+      </div>
+      <div>
+        <label class="label" for="vat_number">{{t $l "organization.vat"}}</label>
+        <input class="input" id="vat_number" name="vat_number" value="{{$o.VATNumber}}">
+      </div>
+    </div>
+  </fieldset>
+{{end}}

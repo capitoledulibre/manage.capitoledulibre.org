@@ -1,0 +1,54 @@
+{{define "content"}}
+<h1 class="mb-6 text-2xl font-bold tracking-tight">Partenaires</h1>
+<div class="grid gap-6 lg:grid-cols-3">
+  <section class="card overflow-x-auto p-0 lg:col-span-2">
+    <table class="table">
+      <thead><tr><th>Partenaire</th><th>Dernière édition</th><th>Statut</th></tr></thead>
+      <tbody>
+        {{range .D.Rows}}
+        <tr>
+          <td>
+            <a class="link inline-flex items-center gap-2" href="{{.URL}}">
+              {{if .Org.LogoFile}}<span class="logo-chip inline-flex"><img src="{{logoURL .Org.LogoFile}}" alt="" class="h-6 w-10 object-contain"></span>{{else}}<span class="h-6 w-10"></span>{{end}}
+              {{.Org.Name}}
+            </a>
+          </td>
+          <td class="whitespace-nowrap">
+            {{if .Event}}
+              <span class="inline-flex items-center gap-1.5">{{.Event.Year}}{{with .Level}} · {{template "medal" (levelMedal . 18)}}{{.Name}}{{end}}</span>
+            {{else}}<span class="text-gray-400">—</span>{{end}}
+          </td>
+          <td>{{with .Latest}}{{template "status_badge" .Status}}{{end}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="3" class="text-center text-gray-500">Aucun partenaire.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </section>
+  <section class="card">
+    <h2 class="card-title">Nouveau partenaire</h2>
+    <form method="post" action="/admin/organizations" class="space-y-3">
+      <div><label class="label" for="name">Nom *</label><input class="input" id="name" name="name" required></div>
+      <div>
+        <label class="label" for="event_id">Rattacher à l'édition</label>
+        <select class="input" id="event_id" name="event">
+          <option value="">— aucune —</option>
+          {{range .D.Events}}<option value="{{.Slug}}" {{if .IsCurrent}}selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+      </div>
+      <div>
+        <label class="label" for="status">Statut</label>
+        <select class="input" id="status" name="status">
+          {{range statuses}}<option value="{{.}}">{{template "status_label" .}}</option>{{end}}
+        </select>
+      </div>
+      <div><label class="label" for="manager_name">Nom du premier contact</label><input class="input" id="manager_name" name="manager_name" placeholder="Prénom Nom"></div>
+      <div><label class="label" for="manager_email">Email du premier contact</label><input class="input" id="manager_email" name="manager_email" type="email"></div>
+      {{template "lang_picker" (dict "Name" "lang" "Selected" "fr" "Label" "Langue des emails")}}
+      <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="send_invite"> Envoyer l'invitation maintenant</label>
+      <button class="btn w-full">Créer</button>
+    </form>
+  </section>
+</div>
+{{end}}

@@ -1,0 +1,36 @@
+{{define "content"}}
+{{$l := .Lang}}
+<h1 class="mb-2 text-2xl font-bold tracking-tight">{{t $l "logo.title"}}</h1>
+<p class="mb-6 text-sm text-gray-600">{{t $l "logo.intro"}}</p>
+
+<div class="grid gap-6 md:grid-cols-2">
+  {{range $variant := (list "default" "dark")}}
+  <section class="card">
+    <h2 class="card-title">{{t $l (printf "logo.variant_%s" $variant)}}</h2>
+    {{$file := $.Org.LogoFile}}{{if eq $variant "dark"}}{{$file = $.Org.LogoDarkFile}}{{end}}
+    <div class="mb-4 flex h-40 items-center justify-center rounded-md {{if eq $variant "dark"}}bg-ink{{else}}checker{{end}} p-4">
+      {{if $file}}<img src="{{logoURL $file}}" alt="{{$.Org.Name}}" class="max-h-full max-w-full object-contain">{{else}}<span class="text-sm text-gray-400">{{t $l "logo.none"}}</span>{{end}}
+    </div>
+    {{template "upload" (dict "Lang" $l "ID" (printf "up-logo-%s" $variant) "Action" "/p/logo" "Field" "logo"
+      "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "SVG, PNG, JPEG, WebP" "MaxBytes" (uploadLimit "logo")
+      "Title" (t $l (printf "logo.variant_%s" $variant)) "Label" (t $l (or (and $file "upload.replace") "upload.add"))
+      "Image" true "Hidden" (dict "variant" $variant))}}
+  </section>
+  {{end}}
+</div>
+<p class="help mt-4">{{t $l "logo.help"}}</p>
+
+{{if .D.Logos}}
+<section class="card mt-6">
+  <h2 class="card-title">{{t $l "logo.history"}}</h2>
+  <ul class="divide-y divide-gray-100 text-sm">
+    {{range .D.Logos}}
+    <li class="flex flex-wrap items-center justify-between gap-2 py-2">
+      <span>{{t $l (printf "logo.variant_%s" .Variant)}} · {{datetime $l .UploadedAt}}</span>
+      <span class="text-gray-500">{{actor .UploadedBy}}</span>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+{{end}}

@@ -1,0 +1,117 @@
+{{define "content"}}
+{{$o := .D.O}}
+{{template "fiche_header" .D.Header}}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    <form method="post" action="/admin/organizations/{{$o.Slug}}" class="space-y-6">
+      {{template "org_fields" (dict "Lang" "fr" "O" $o)}}
+      <button class="btn">Enregistrer</button>
+    </form>
+
+    <section class="card">
+      <h2 class="card-title">Offres d'emploi</h2>
+      <ul class="divide-y divide-gray-100">
+        {{range .D.Jobs}}
+        <li class="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+          <span>{{if .URL}}<a class="link" href="{{.URL}}" rel="noopener" target="_blank">{{.Title}}</a>{{else}}{{.Title}}{{end}}
+            {{if .Hidden}}<span class="badge bg-gray-100 text-gray-700">masquée</span>{{else if .Expired}}<span class="badge bg-amber-100 text-amber-800">expirée</span>{{end}}</span>
+          <form method="post" action="/admin/organizations/{{$o.Slug}}/jobs/{{.UID}}/toggle"><button class="btn-secondary btn-sm">{{if .Hidden}}Publier{{else}}Masquer{{end}}</button></form>
+        </li>
+        {{else}}
+        <li class="py-3 text-sm text-gray-500">Aucune offre.</li>
+        {{end}}
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Journal d'activité</h2>
+      <ul class="space-y-2 text-sm">
+        {{$label := .D.ActionLabel}}
+        {{range .D.Activity}}
+        <li class="flex flex-wrap gap-x-3">
+          <span class="text-gray-400">{{datetime "fr" .CreatedAt}}</span>
+          <span class="font-medium">{{call $label .Action}}</span>
+          <span class="text-gray-500">{{.Actor}}</span>
+          {{with .Details}}<span class="w-full whitespace-pre-line text-gray-600">{{.}}</span>{{end}}
+        </li>
+        {{else}}
+        <li class="text-gray-500">Rien pour l'instant.</li>
+        {{end}}
+      </ul>
+    </section>
+  </div>
+
+  <div class="space-y-6">
+    <section class="card">
+      <h2 class="card-title">Managers</h2>
+      <ul class="mb-4 divide-y divide-gray-100">
+        {{range .D.Managers}}
+        <li class="py-3 text-sm">
+          <p class="flex items-center gap-2 font-medium" title="Emails en {{if eq .Lang "en"}}anglais{{else}}français{{end}}">{{or .Name .Email}} {{template "flag" .Lang}}</p>
+          {{if .Name}}<p class="text-xs text-gray-500">{{.Email}}</p>{{end}}
+          <p class="text-xs text-gray-400">Dernière connexion : {{with .LastLoginAt}}{{datetime "fr" .}}{{else}}jamais{{end}}</p>
+          <div class="mt-2 flex gap-2">
+            <form method="post" action="/admin/organizations/{{$o.Slug}}/managers/{{.UID}}/send-link"><button class="btn-secondary btn-sm">Envoyer un lien</button></form>
+            <form method="post" action="/admin/organizations/{{$o.Slug}}/managers/{{.UID}}/delete" data-confirm="Retirer ce manager ?"><button class="btn-danger btn-sm">Retirer</button></form>
+          </div>
+          <details class="mt-2">
+            <summary class="cursor-pointer text-xs text-gray-600">Modifier</summary>
+            {{$lang := .Lang}}
+            <form method="post" action="/admin/organizations/{{$o.Slug}}/managers/{{.UID}}" class="mt-2 space-y-2">
+              <input class="input" name="name" value="{{.Name}}" placeholder="Nom" aria-label="Nom">
+              <input class="input" name="email" type="email" required value="{{.Email}}" aria-label="Email">
+              {{template "lang_picker" (dict "Name" "lang" "Selected" $lang "Label" "Langue des emails")}}
+              <p class="help">Changer l'email déconnecte ce manager.</p>
+              <button class="btn-secondary btn-sm">Enregistrer</button>
+            </form>
+          </details>
+        </li>
+        {{else}}
+        <li class="py-3 text-sm text-gray-500">Aucun manager.</li>
+        {{end}}
+      </ul>
+      <form method="post" action="/admin/organizations/{{$o.Slug}}/managers" class="space-y-2">
+        <input class="input" name="email" type="email" required placeholder="email@entreprise.com" aria-label="Email">
+        <input class="input" name="name" placeholder="Nom (optionnel)" aria-label="Nom">
+        {{template "lang_picker" (dict "Name" "lang" "Selected" "fr" "Label" "Langue des emails")}}
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="send_invite" checked> Envoyer l'invitation</label>
+        <button class="btn w-full">Ajouter</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Logos</h2>
+      <div class="mb-3 grid grid-cols-2 gap-2">
+        <div class="checker flex h-20 items-center justify-center rounded p-2">{{if $o.LogoFile}}<img src="{{logoURL $o.LogoFile}}" alt="" class="max-h-full max-w-full object-contain">{{end}}</div>
+        <div class="flex h-20 items-center justify-center rounded bg-ink p-2">{{if $o.LogoDarkFile}}<img src="{{logoURL $o.LogoDarkFile}}" alt="" class="max-h-full max-w-full object-contain">{{end}}</div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>{{template "upload" (dict "Lang" "fr" "ID" "up-orglogo-default" "Action" (printf "/admin/organizations/%s/logo" $o.Slug) "Field" "logo"
+          "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "SVG, PNG, JPEG, WebP" "MaxBytes" (uploadLimit "logo")
+          "Title" (printf "Logo principal · %s" $o.Name) "Label" (or (and $o.LogoFile "Remplacer") "Ajouter") "Image" true "Hidden" (dict "variant" "default"))}}</div>
+        <div>{{template "upload" (dict "Lang" "fr" "ID" "up-orglogo-dark" "Action" (printf "/admin/organizations/%s/logo" $o.Slug) "Field" "logo"
+          "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "SVG, PNG, JPEG, WebP" "MaxBytes" (uploadLimit "logo")
+          "Title" (printf "Logo fond sombre · %s" $o.Name) "Label" (or (and $o.LogoDarkFile "Remplacer") "Ajouter") "Image" true "Hidden" (dict "variant" "dark"))}}</div>
+      </div>
+      {{if .D.Logos}}
+      <details class="mt-3 text-sm">
+        <summary class="cursor-pointer text-gray-600">Historique ({{len .D.Logos}})</summary>
+        <ul class="mt-2 space-y-1">
+          {{range .D.Logos}}<li><a class="link" href="/admin/files/{{.File}}">{{.Variant}}</a> · {{datetime "fr" .UploadedAt}} · <span class="text-gray-500">{{.UploadedBy}}</span></li>{{end}}
+        </ul>
+      </details>
+      {{end}}
+    </section>
+
+    <section class="card">
+      <h2 class="card-title text-red-700">Zone dangereuse</h2>
+      <form method="post" action="/admin/organizations/{{$o.Slug}}/delete" class="space-y-2">
+        <label class="label" for="confirm">Tapez « {{$o.Name}} » pour supprimer l'organisation et toutes ses données</label>
+        <input class="input" id="confirm" name="confirm" required>
+        <button class="btn-danger w-full">Supprimer définitivement</button>
+      </form>
+    </section>
+  </div>
+</div>
+{{end}}

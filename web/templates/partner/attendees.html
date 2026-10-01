@@ -1,0 +1,86 @@
+{{define "content"}}
+{{$l := .Lang}}
+{{$pc := .D.PC}}
+<h1 class="mb-2 text-2xl font-bold tracking-tight">{{t $l "attendees.title"}}</h1>
+{{if not $pc.Partnership}}
+  <p class="card text-sm text-gray-600">{{t $l "dashboard.no_partnership"}}</p>
+{{else}}
+<p class="mb-6 text-sm text-gray-600">
+  {{t $l "attendees.intro" $pc.Event.Name}}
+  {{with $pc.Event.AttendeesDeadline}}<strong>{{t $l "attendees.deadline" (date $l .)}}</strong>{{end}}
+</p>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <section class="card lg:col-span-2">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-base font-semibold">{{t $l "attendees.list"}}</h2>
+      <span class="text-sm text-gray-500">{{len .D.Attendees}}{{with $pc.Level}}{{if gt .MaxAttendees 0}} / {{.MaxAttendees}}{{end}}{{end}}</span>
+    </div>
+    {{if not .D.Attendees}}
+      <p class="text-sm text-gray-500">{{t $l "attendees.none"}}</p>
+    {{else}}
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead><tr><th>{{t $l "attendees.name"}}</th><th>{{t $l "attendees.role"}}</th><th>{{t $l "attendees.dietary"}}</th><th></th></tr></thead>
+        <tbody>
+          {{range .D.Attendees}}
+          <tr>
+            <td><span class="font-medium text-gray-900">{{.FirstName}} {{.LastName}}</span>{{with .Email}}<br><span class="text-xs text-gray-500">{{.}}</span>{{end}}</td>
+            <td>{{t $l (printf "attendees.role_%s" .Role)}}</td>
+            <td>{{.Dietary}}</td>
+            <td class="text-right">
+              {{if not $.D.Locked}}
+              <form method="post" action="/p/attendees/{{.UID}}/delete{{$.D.Query}}" data-confirm="{{t $l "action.confirm_delete"}}">
+                <button class="btn-danger btn-sm">{{t $l "action.delete"}}</button>
+              </form>
+              {{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </section>
+
+  <section class="card">
+    <h2 class="card-title">{{t $l "attendees.add"}}</h2>
+    {{if .D.Locked}}
+      <p class="text-sm text-gray-600">{{t $l "attendees.locked"}}</p>
+    {{else if .D.Full}}
+      <p class="text-sm text-gray-600">{{t $l "attendees.full"}}</p>
+    {{else}}
+    {{with .D.Form}}{{with .Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $l .}}</div>{{end}}{{end}}
+    {{$a := ""}}{{with .D.Form}}{{$a = .A}}{{end}}
+    <form method="post" action="/p/attendees" class="space-y-3">
+      <input type="hidden" name="event" value="{{$pc.Event.Slug}}">
+      <div>
+        <label class="label" for="first_name">{{t $l "attendees.first_name"}} *</label>
+        <input class="input" id="first_name" name="first_name" required value="{{with $a}}{{.FirstName}}{{end}}">
+      </div>
+      <div>
+        <label class="label" for="last_name">{{t $l "attendees.last_name"}} *</label>
+        <input class="input" id="last_name" name="last_name" required value="{{with $a}}{{.LastName}}{{end}}">
+      </div>
+      <div>
+        <label class="label" for="email">{{t $l "attendees.email"}}</label>
+        <input class="input" id="email" name="email" type="email" value="{{with $a}}{{.Email}}{{end}}">
+      </div>
+      <div>
+        <label class="label" for="role">{{t $l "attendees.role"}}</label>
+        <select class="input" id="role" name="role">
+          <option value="booth">{{t $l "attendees.role_booth"}}</option>
+          <option value="visitor" {{with $a}}{{if eq .Role "visitor"}}selected{{end}}{{end}}>{{t $l "attendees.role_visitor"}}</option>
+        </select>
+      </div>
+      <div>
+        <label class="label" for="dietary">{{t $l "attendees.dietary"}}</label>
+        <input class="input" id="dietary" name="dietary" placeholder="{{t $l "attendees.dietary_placeholder"}}" value="{{with $a}}{{.Dietary}}{{end}}">
+      </div>
+      <button class="btn w-full">{{t $l "action.add"}}</button>
+    </form>
+    {{end}}
+  </section>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,27 @@
+{{define "content"}}
+<div class="mx-auto grid max-w-5xl items-center gap-12 py-8 md:grid-cols-2">
+  <div>
+    <h1 class="text-3xl font-bold tracking-tight">{{t .Lang "login.heading"}}</h1>
+    <p class="mt-4 text-gray-600">{{t .Lang "login.intro"}}</p>
+    <ul class="mt-6 space-y-2 text-sm text-gray-700">
+      <li>✓ {{t .Lang "login.feature_progress"}}</li>
+      <li>✓ {{t .Lang "login.feature_documents"}}</li>
+      <li>✓ {{t .Lang "login.feature_logo"}}</li>
+      <li>✓ {{t .Lang "login.feature_attendees"}}</li>
+      <li>✓ {{t .Lang "login.feature_jobs"}}</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2 class="card-title">{{t .Lang "login.title"}}</h2>
+    {{with .D}}{{with .Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $.Lang .}}</div>{{end}}{{end}}
+    <form method="post" action="/login" class="space-y-4">
+      <div>
+        <label class="label" for="email">{{t .Lang "login.email"}}</label>
+        <input class="input" id="email" type="email" name="email" autocomplete="email" required autofocus value="{{with .D}}{{.Email}}{{end}}">
+      </div>
+      <button class="btn w-full">{{t .Lang "login.submit"}}</button>
+      <p class="help">{{t .Lang "login.help"}}</p>
+    </form>
+  </div>
+</div>
+{{end}}

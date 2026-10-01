@@ -1,0 +1,35 @@
+{{define "content"}}
+{{$a := .Admin}}
+<h1 class="mb-6 text-2xl font-bold tracking-tight">Mon profil</h1>
+<div class="grid gap-6 lg:grid-cols-3">
+  <section class="card lg:col-span-2">
+    <h2 class="card-title">Informations</h2>
+    <form method="post" action="/admin/profile" class="space-y-4">
+      <div>
+        <label class="label" for="name">Nom affiché</label>
+        <input class="input" id="name" name="name" value="{{$a.Name}}" placeholder="Prénom Nom">
+        <p class="help">Affiché dans l'en-tête et dans la colonne « Suivi par » du pipeline. Il n'est plus écrasé par le nom du SSO une fois renseigné.</p>
+      </div>
+      <div>
+        <p class="label">Email</p>
+        <p class="text-sm text-gray-700">{{$a.Email}}</p>
+        <p class="help">Fourni par le SSO, non modifiable ici.</p>
+      </div>
+      <button class="btn">Enregistrer</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2 class="card-title">Avatar</h2>
+    <div class="mb-4 flex items-center gap-4">
+      {{template "avatar" (dict "Admin" $a "Size" "h-20 w-20 text-2xl")}}
+      {{if $a.AvatarFile}}
+      <form method="post" action="/admin/profile/avatar/delete"><button class="btn-danger btn-sm">Retirer</button></form>
+      {{end}}
+    </div>
+    {{template "upload" (dict "Lang" "fr" "ID" "up-avatar" "Action" "/admin/profile/avatar" "Field" "avatar"
+      "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "PNG, JPEG, WebP, SVG" "MaxBytes" (uploadLimit "avatar")
+      "Title" "Avatar" "Label" (or (and $a.AvatarFile "Remplacer") "Ajouter") "Image" true)}}
+    <p class="help mt-2">Une image carrée rend mieux.</p>
+  </section>
+</div>
+{{end}}

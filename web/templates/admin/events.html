@@ -1,0 +1,26 @@
+{{define "content"}}
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-2xl font-bold tracking-tight">Éditions</h1>
+  <a class="btn" href="/admin/events/new">Nouvelle édition</a>
+</div>
+<div class="card overflow-x-auto p-0">
+  <table class="table">
+    <thead><tr><th>Nom</th><th>Année</th><th>Dates</th><th></th></tr></thead>
+    <tbody>
+      {{range .D}}
+      <tr>
+        <td><a class="link" href="/admin/events/{{.Slug}}">{{.Name}}</a> {{if .IsCurrent}}<span class="badge bg-brand-50 text-brand-800">courante</span>{{end}}</td>
+        <td>{{.Year}}</td>
+        <td>{{date "fr" .StartsOn}}{{with .EndsOn}} → {{date "fr" .}}{{end}}</td>
+        <td class="whitespace-nowrap text-right">
+          <a class="btn-secondary btn-sm" href="/admin/events/{{.Slug}}/levels">Niveaux</a>
+          <a class="btn-secondary btn-sm" href="/admin/events/{{.Slug}}/edit">Modifier</a>
+        </td>
+      </tr>
+      {{else}}
+      <tr><td colspan="4" class="text-center text-gray-500">Aucune édition pour l'instant.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}

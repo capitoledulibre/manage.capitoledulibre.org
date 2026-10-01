@@ -1,0 +1,5 @@
+bin/
+data/
+web/static/css/app.css
+.env
+*.db

@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+@source "../../templates";
+
+@theme {
+  /* Brand color, adjust to the event's identity. */
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
+  --color-brand-800: #9a3412;
+
+  /* Background of cards, inputs, header and footer. */
+  --color-surface: #ffffff;
+  /* Fixed dark background, e.g. to preview dark-background logos; it does
+     not change with the theme. */
+  --color-ink: #111827;
+}
+
+/*
+ * Dark theme. Instead of adding dark: variants to every template, the dark
+ * theme redefines the color variables used by Tailwind utilities: grays are
+ * inverted (light text on dark surfaces), light tints (50-200) become dark
+ * tints and dark shades (700-900) become light, so "bg-green-50 text-green-800"
+ * stays readable in both themes. Mid shades (500-600, used for buttons and
+ * bars) are unchanged. The .dark class is set on <html> by the server
+ * (explicit choice) or by theme.js (system preference).
+ */
+:root.dark {
+  color-scheme: dark;
+
+  --color-surface: oklch(21% 0.034 264.665);
+
+  --color-gray-50: oklch(14% 0.028 261.692);
+  --color-gray-100: oklch(26% 0.032 262);
+  --color-gray-200: oklch(31% 0.033 257);
+  --color-gray-300: oklch(40% 0.034 259.733);
+  --color-gray-400: oklch(58% 0.027 264.364);
+  --color-gray-500: oklch(70.7% 0.022 261.325);
+  --color-gray-600: oklch(78% 0.015 260);
+  --color-gray-700: oklch(87.2% 0.01 258.338);
+  --color-gray-900: oklch(96.7% 0.003 264.542);
+
+  --color-red-50: oklch(26% 0.05 20);
+  --color-red-100: oklch(31% 0.07 20);
+  --color-red-200: oklch(40% 0.09 22);
+  --color-red-700: oklch(74% 0.14 25);
+  --color-red-800: oklch(80% 0.12 25);
+
+  --color-amber-50: oklch(26% 0.04 70);
+  --color-amber-100: oklch(32% 0.06 70);
+  --color-amber-800: oklch(84% 0.12 75);
+  --color-amber-900: oklch(88% 0.1 80);
+
+  --color-green-50: oklch(26% 0.045 155);
+  --color-green-100: oklch(31% 0.065 155);
+  --color-green-700: oklch(76% 0.15 150);
+  --color-green-800: oklch(82% 0.13 150);
+
+  --color-blue-100: oklch(31% 0.07 260);
+  --color-blue-800: oklch(82% 0.1 260);
+
+  --color-brand-50: oklch(28% 0.06 45);
+  --color-brand-700: oklch(76% 0.15 50);
+  --color-brand-800: oklch(82% 0.13 55);
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 cursor-pointer;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-surface px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-gray-300 ring-inset hover:bg-gray-50 cursor-pointer;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-surface px-3 py-1.5 text-sm font-semibold text-red-700 ring-1 ring-red-200 ring-inset hover:bg-red-50 cursor-pointer;
+  }
+  .btn-danger-solid {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 cursor-pointer;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .input {
+    @apply block w-full rounded-md border-0 bg-surface px-3 py-2 text-sm text-gray-900 shadow-sm ring-1 ring-gray-300 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-brand-600 focus:ring-inset;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-gray-700;
+  }
+  .help {
+    @apply mt-1 text-xs text-gray-500;
+  }
+  .card {
+    @apply rounded-lg bg-surface p-6 shadow-sm ring-1 ring-gray-200;
+  }
+  .card-title {
+    @apply mb-4 text-base font-semibold text-gray-900;
+  }
+  .link {
+    @apply font-medium text-brand-700 hover:text-brand-800 hover:underline;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+  .table {
+    @apply min-w-full divide-y divide-gray-200 text-sm;
+  }
+  .table th {
+    @apply px-3 py-2 text-left text-xs font-semibold tracking-wide text-gray-500 uppercase;
+  }
+  .table td {
+    @apply px-3 py-2.5 align-middle text-gray-700;
+  }
+  .table tbody tr {
+    @apply border-t border-gray-100;
+  }
+  .nav-link {
+    @apply rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900;
+  }
+  .nav-link-active {
+    @apply bg-brand-50 text-brand-800;
+  }
+  .theme-switch {
+    @apply inline-flex items-center rounded-md p-0.5 ring-1 ring-gray-200;
+  }
+  .theme-switch a {
+    @apply rounded px-1.5 py-0.5 text-xs text-gray-500 hover:text-gray-900;
+  }
+  .theme-switch a[aria-current="true"] {
+    @apply bg-gray-100 text-gray-900;
+  }
+  /* Partner logos are usually designed for a light background: in the dark
+     theme they sit on a small white chip so dark logos stay visible. */
+  :root.dark .logo-chip {
+    @apply rounded bg-white px-1.5 py-0.5;
+  }
+  .alert {
+    @apply rounded-md p-4 text-sm;
+  }
+  .checker {
+    background-image: linear-gradient(45deg, var(--color-gray-200) 25%, transparent 25%), linear-gradient(-45deg, var(--color-gray-200) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-gray-200) 75%), linear-gradient(-45deg, transparent 75%, var(--color-gray-200) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  }
+}

@@ -1,0 +1,38 @@
+{{define "content"}}
+{{$l := .Lang}}
+{{$j := .D.J}}
+<a class="link text-sm" href="/p/jobs">← {{t $l "jobs.manage_title"}}</a>
+<h1 class="mt-2 mb-6 text-2xl font-bold tracking-tight">{{if $j.ID}}{{t $l "jobs.edit"}}{{else}}{{t $l "jobs.new"}}{{end}}</h1>
+{{with .D.Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $l .}}</div>{{end}}
+<form method="post" action="{{if $j.ID}}/p/jobs/{{$j.UID}}{{else}}/p/jobs/new{{end}}" class="card max-w-2xl space-y-4">
+  <div>
+    <label class="label" for="title">{{t $l "jobs.job_title"}} *</label>
+    <input class="input" id="title" name="title" required value="{{$j.Title}}">
+  </div>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label class="label" for="contract">{{t $l "jobs.contract"}}</label>
+      <input class="input" id="contract" name="contract" list="contracts" value="{{$j.Contract}}">
+      <datalist id="contracts"><option value="CDI"><option value="CDD"><option value="Stage / Internship"><option value="Alternance / Apprenticeship"><option value="Freelance"></datalist>
+    </div>
+    <div>
+      <label class="label" for="location">{{t $l "jobs.location"}}</label>
+      <input class="input" id="location" name="location" placeholder="Toulouse, remote…" value="{{$j.Location}}">
+    </div>
+  </div>
+  <div>
+    <label class="label" for="url">{{t $l "jobs.url"}}</label>
+    <input class="input" id="url" name="url" inputmode="url" placeholder="https://" value="{{$j.URL}}">
+  </div>
+  <div>
+    <label class="label" for="description">{{t $l "jobs.description"}}</label>
+    <textarea class="input" id="description" name="description" rows="8">{{$j.Description}}</textarea>
+    <p class="help">{{t $l "jobs.url_or_description"}}</p>
+  </div>
+  <div>
+    <label class="label" for="expires_at">{{t $l "jobs.expires_at"}}</label>
+    <input class="input w-auto" id="expires_at" name="expires_at" type="date" value="{{inputDate $j.ExpiresAt}}">
+  </div>
+  <button class="btn">{{t $l "action.save"}}</button>
+</form>
+{{end}}
