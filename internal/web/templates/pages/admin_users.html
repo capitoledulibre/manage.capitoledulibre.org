@@ -27,7 +27,7 @@
     <td><small>{{range $i, $p := index $.UserPoles .ID}}{{if $i}}, {{end}}{{$p}}{{end}}</small></td>
     <td>{{if .LastLoginAt}}{{date .LastLoginAt}}{{else}}<span class="muted">jamais</span>{{end}}</td>
     <td>{{if .IsAdmin}}<span class="badge ok">admin</span>{{end}}</td>
-    <td class="actions">
+    <td><div class="actions">
       {{if $.Poles}}<form method="post" action="/admin/users/{{.ID}}/join" class="actions"><input type="hidden" name="back" value="{{$back}}">
         <label for="pole-{{.ID}}" class="sr-only">Pôle à rejoindre pour {{.DisplayName}}</label>
         <select id="pole-{{.ID}}" name="pole_id" class="select-sm">{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
@@ -43,7 +43,7 @@
         <input type="hidden" name="back" value="{{$back}}">
         <button class="link danger">supprimer</button></form>
       {{end}}
-    </td>
+    </div></td>
   </tr>
   {{end}}
   </tbody>

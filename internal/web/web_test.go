@@ -1094,3 +1094,21 @@ func TestAdminPoleForms(t *testing.T) {
 		t.Fatal("the event is still there after deletion")
 	}
 }
+
+// TestManagerAddressNotShown: a manager who never gave a name used to be
+// listed by e-mail address on volunteer pages, and on the login page that an
+// invitation link opens to anyone holding it.
+func TestManagerAddressNotShown(t *testing.T) {
+	e := newEnv(t)
+	admin, buvette, _ := setupEvent(t, e, "2")
+	admin.post(fmt.Sprintf("/admin/poles/%d/managers", buvette.ID), 303, url.Values{"email": {"ghost@example.test"}})
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	for _, page := range []string{"/", "/test-2026/buvette", "/test-2026/buvette/join"} {
+		wantNot(t, vol.get(page, 200), "ghost@example.test")
+	}
+	wantNot(t, e.client().get("/login?next="+url.QueryEscape("/test-2026/buvette/join"), 200), "ghost@example.test")
+
+	// Once named, the manager is shown, by name.
+	e.login("ghost@example.test", "Gaspard Responsable")
+	want(t, vol.get("/test-2026/buvette", 200), "Gaspard Responsable")
+}

@@ -457,7 +457,8 @@ fieldset legend { font-weight: 600; font-size: var(--t-sm); }
 }
 .bar i { display: block; height: 100%; background: var(--ok); border-radius: var(--r-pill); transition: width .3s var(--ease); }
 .bar.short i { background: var(--warn); }
-.bar.empty i { background: var(--danger); }
+/* Nobody at all: the fill is zero wide, so it is the track that says so. */
+.bar.empty { background: var(--danger-bg); }
 
 /* --- day sections ------------------------------------------------------ */
 .day { margin-top: 1.75rem; }
@@ -557,7 +558,8 @@ fieldset legend { font-weight: 600; font-size: var(--t-sm); }
 .message footer small { font-size: var(--t-xs); }
 
 .tasks { list-style: none; padding: 0; }
-.tasks li { padding: .5rem 0; border-bottom: 1px solid var(--border); }
+/* Pico sets list-style on every li, not only on the list. */
+.tasks li { list-style: none; padding: .5rem 0; border-bottom: 1px solid var(--border); }
 .tasks li:last-child { border-bottom: none; }
 .tasks form { margin: 0; }
 .tasks label { display: inline; font-weight: 400; }
@@ -565,7 +567,7 @@ fieldset legend { font-weight: 600; font-size: var(--t-sm); }
 .tasks small { margin-left: 1.7rem; display: block; font-size: var(--t-xs); }
 
 /* --- tabs, stats, tables ----------------------------------------------- */
-.tabs { display: flex; gap: .15rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; flex-wrap: wrap; }
+.tabs { display: flex; justify-content: flex-start; gap: .15rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; flex-wrap: wrap; }
 .tabs a {
   padding: .55rem .9rem; text-decoration: none; border-bottom: 2px solid transparent;
   margin-bottom: -1px; color: var(--dim); font-weight: 500; font-size: var(--t-sm);
@@ -630,7 +632,10 @@ tr.urgent td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
   background: var(--pico-primary-background); color: #fff;
   border-color: var(--pico-primary-background);
 }
-.empty {
+/* Empty states are paragraphs. The selector says so because "empty" is also
+   a modifier of coverage bars and planning chips, which used to inherit this
+   whole block and render as large dashed boxes. */
+p.empty {
   text-align: center; padding: 3rem 1.25rem; color: var(--dim); font-size: var(--t-sm);
   background: var(--surface); border: 1px dashed color-mix(in srgb, var(--field-border) 55%, transparent);
   border-radius: var(--r-md);
@@ -690,6 +695,8 @@ details summary { cursor: pointer; }
 .inline-menu { display: inline-block; margin: 0; }
 .inline-menu summary { font-size: var(--t-sm); color: var(--pico-primary); text-decoration: underline; text-underline-offset: 2px; list-style: none; }
 .inline-menu summary::-webkit-details-marker { display: none; }
+/* Pico's disclosure chevron is out of place on a text link. */
+.inline-menu summary::after { display: none; }
 .inline-menu form { margin-top: .35rem; }
 .pager { display: flex; gap: .6rem; align-items: center; justify-content: center; margin: 1.5rem 0; flex-wrap: wrap; font-size: var(--t-sm); }
 .pager a[role=button] { width: auto; margin: 0; }

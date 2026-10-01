@@ -124,6 +124,19 @@ func (s *Server) parseTemplates() error {
 			return strings.Fields(name)[0]
 		},
 		"initials": userInitials,
+		// named keeps the accounts that have a name. Volunteer pages list pole
+		// managers by name; one who never filled theirs in would otherwise be
+		// shown by e-mail address, to every volunteer and, on the login page
+		// reached through an invitation link, to anyone holding the link.
+		"named": func(users []db.User) []db.User {
+			var out []db.User
+			for _, u := range users {
+				if strings.TrimSpace(u.Name) != "" {
+					out = append(out, u)
+				}
+			}
+			return out
+		},
 		"nl2br": func(s string) template.HTML {
 			return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(s), "\n", "<br>"))
 		},

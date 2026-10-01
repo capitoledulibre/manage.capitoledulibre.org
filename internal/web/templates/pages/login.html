@@ -25,6 +25,6 @@
     <button type="submit">Recevoir mon lien de connexion</button>
   </form>
   <p class="hint">Première visite ? Votre compte sera créé automatiquement, {{if .Pole}}et vous arriverez directement sur ce pôle.{{else}}rien d'autre à remplir.{{end}}</p>
-  {{if .Managers}}<p class="hint">Responsable{{if gt (len .Managers) 1}}s{{end}} du pôle : {{range $i, $m := .Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}</p>{{end}}
+  {{with named .Managers}}<p class="hint">Responsable{{if gt (len .) 1}}s{{end}} du pôle : {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
 </article>
 {{end}}

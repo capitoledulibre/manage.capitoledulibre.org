@@ -6,7 +6,7 @@
     {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
     <div>
       <h1>{{.Pole.Name}}</h1>
-      {{if .Managers}}<p class="muted">Responsable{{if gt (len .Managers) 1}}s{{end}} : {{range $i, $m := .Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}</p>{{end}}
+      {{with named .Managers}}<p class="muted">Responsable{{if gt (len .) 1}}s{{end}} : {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
     </div>
   </div>
   {{if .CanManage}}<a href="{{.Pole.ManageURL}}" role="button" class="secondary outline small">Gérer ce pôle</a>{{end}}

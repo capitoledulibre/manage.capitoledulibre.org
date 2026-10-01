@@ -29,7 +29,7 @@
       {{if .IsOpen}}
       <form method="post" action="{{.URL}}/join"><button class="small">Rejoindre à nouveau</button></form>
       {{else}}
-      <small class="muted">Sur invitation&nbsp;: {{if .Coverage.Managers}}demandez à {{range $i, $m := .Coverage.Managers}}{{if $i}} ou {{end}}{{$m.DisplayName}}{{end}}{{else}}demandez au responsable{{end}}.</small>
+      <small class="muted">Sur invitation&nbsp;: {{with named .Coverage.Managers}}demandez à {{range $i, $m := .}}{{if $i}} ou {{end}}{{$m.Name}}{{end}}{{else}}demandez au responsable{{end}}.</small>
       {{end}}
     </li>
     {{end}}
@@ -85,7 +85,7 @@
       </div>
     </div>
     {{if .Description}}<p class="grow">{{nl2br .Description}}</p>{{else}}<div class="grow"></div>{{end}}
-    {{if .Coverage.Managers}}<p class="hint">Responsable{{if gt (len .Coverage.Managers) 1}}s{{end}} : {{range $i, $m := .Coverage.Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}</p>{{end}}
+    {{with named .Coverage.Managers}}<p class="hint">Responsable{{if gt (len .) 1}}s{{end}} : {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
     {{if .Slots}}
     <p class="hint">{{.Slots}} créneau{{if gt .Slots 1}}x{{end}}
       {{if gt .Missing 0}}· <span class="txt-warn">il manque {{.Missing}} bénévole{{if gt .Missing 1}}s{{end}}</span>{{else}}· <span class="txt-ok">complet</span>{{end}}</p>
