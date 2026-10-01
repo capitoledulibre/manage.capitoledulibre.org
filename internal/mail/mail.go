@@ -2,11 +2,14 @@
 package mail
 
 import (
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"mime"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"strings"
 	"time"
@@ -29,13 +32,7 @@ func (m *Mailer) Send(to, subject, body string) error {
 		log.Printf("[mail] to=%s subject=%q\n%s\n", to, subject, body)
 		return nil
 	}
-	msg := strings.Builder{}
-	fmt.Fprintf(&msg, "From: %s\r\n", m.From)
-	fmt.Fprintf(&msg, "To: %s\r\n", to)
-	fmt.Fprintf(&msg, "Subject: %s\r\n", mime.QEncoding.Encode("utf-8", subject))
-	fmt.Fprintf(&msg, "Date: %s\r\n", time.Now().Format(time.RFC1123Z))
-	msg.WriteString("MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n")
-	msg.WriteString(strings.ReplaceAll(body, "\n", "\r\n"))
+	msg := m.message(to, subject, body, time.Now())
 
 	addr := net.JoinHostPort(m.Host, fmt.Sprint(m.Port))
 	var auth smtp.Auth
@@ -43,9 +40,44 @@ func (m *Mailer) Send(to, subject, body string) error {
 		auth = smtp.PlainAuth("", m.User, m.Pass, m.Host)
 	}
 	if m.Port == 465 {
-		return m.sendTLS(addr, auth, to, msg.String())
+		return m.sendTLS(addr, auth, to, msg)
 	}
-	return smtp.SendMail(addr, auth, m.From, []string{to}, []byte(msg.String()))
+	return smtp.SendMail(addr, auth, m.From, []string{to}, []byte(msg))
+}
+
+// message renders the headers and body of one e-mail.
+func (m *Mailer) message(to, subject, body string, now time.Time) string {
+	var msg strings.Builder
+	fmt.Fprintf(&msg, "From: %s\r\n", m.From)
+	fmt.Fprintf(&msg, "To: %s\r\n", to)
+	fmt.Fprintf(&msg, "Subject: %s\r\n", mime.QEncoding.Encode("utf-8", subject))
+	fmt.Fprintf(&msg, "Date: %s\r\n", now.Format(time.RFC1123Z))
+	// Spam filters count a missing Message-ID against a message, and a login
+	// link lost in the spam folder is a volunteer who cannot log in.
+	fmt.Fprintf(&msg, "Message-ID: <%s@%s>\r\n", messageToken(), senderDomain(m.From))
+	msg.WriteString("MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n")
+	msg.WriteString(strings.ReplaceAll(body, "\n", "\r\n"))
+	return msg.String()
+}
+
+// messageToken returns the unique left part of a Message-ID.
+func messageToken() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// senderDomain is the domain of the From address, which is where a
+// Message-ID is expected to come from.
+func senderDomain(from string) string {
+	addr := from
+	if a, err := mail.ParseAddress(from); err == nil {
+		addr = a.Address
+	}
+	if i := strings.LastIndexByte(addr, '@'); i >= 0 && i < len(addr)-1 {
+		return addr[i+1:]
+	}
+	return "localhost"
 }
 
 // sendTLS handles implicit-TLS servers (port 465), which net/smtp.SendMail does not.

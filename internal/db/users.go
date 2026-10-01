@@ -222,8 +222,10 @@ func (d *DB) CreateMagicLink(userID int64, ttl time.Duration) (string, error) {
 	return tok, err
 }
 
-// ConsumeMagicLink validates and burns a token, returning the user id.
-func (d *DB) ConsumeMagicLink(tok string) (int64, error) {
+// PeekMagicLink tells which user a token logs in, without using it up. Mail
+// security gateways open the links of incoming messages to scan them; the
+// page they reach must not spend the token the volunteer is about to click.
+func (d *DB) PeekMagicLink(tok string) (int64, error) {
 	var userID int64
 	var expires string
 	var used sql.NullString
@@ -235,8 +237,22 @@ func (d *DB) ConsumeMagicLink(tok string) (int64, error) {
 	if used.Valid || ParseTime(expires).Before(time.Now()) {
 		return 0, sql.ErrNoRows
 	}
-	if _, err := d.Exec(`UPDATE magic_links SET used_at = ? WHERE token_hash = ?`, Now(), hashToken(tok)); err != nil {
+	return userID, nil
+}
+
+// ConsumeMagicLink validates and burns a token, returning the user id.
+func (d *DB) ConsumeMagicLink(tok string) (int64, error) {
+	userID, err := d.PeekMagicLink(tok)
+	if err != nil {
 		return 0, err
+	}
+	// Burn it only if nobody did in between: two clicks, one session.
+	res, err := d.Exec(`UPDATE magic_links SET used_at = ? WHERE token_hash = ? AND used_at IS NULL`, Now(), hashToken(tok))
+	if err != nil {
+		return 0, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return 0, sql.ErrNoRows
 	}
 	d.Exec(`UPDATE users SET last_login_at = ? WHERE id = ?`, Now(), userID)
 	// Housekeeping: drop expired links.

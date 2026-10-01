@@ -300,7 +300,8 @@ func (s *Server) Handler() http.Handler {
 	// Auth
 	mux.HandleFunc("GET /login", s.loginForm)
 	mux.HandleFunc("POST /login", s.loginSubmit)
-	mux.HandleFunc("GET /auth/{token}", s.authToken)
+	mux.HandleFunc("GET /auth/{token}", s.authConfirm)
+	mux.HandleFunc("POST /auth/{token}", s.authToken)
 	mux.HandleFunc("POST /logout", s.logout)
 
 	// Volunteer

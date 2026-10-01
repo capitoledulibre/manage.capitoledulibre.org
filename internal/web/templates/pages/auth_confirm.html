@@ -1,0 +1,13 @@
+{{define "title"}}Connexion – {{.Org}}{{end}}
+{{define "content"}}
+<article class="login-box">
+  <h1>Connexion</h1>
+  <p>Vous vous connectez à l'espace bénévoles avec l'adresse <strong>{{.Account}}</strong>.</p>
+  <form method="post" action="/auth/{{.Token}}">
+    <input type="hidden" name="next" value="{{.Next}}">
+    <button type="submit" autofocus>Me connecter</button>
+  </form>
+  {{if .Pole}}<p class="hint">Vous arriverez ensuite sur le pôle <strong>{{.Pole.Name}}</strong>.</p>{{end}}
+  <p class="hint">Ce n'est pas vous&nbsp;? Fermez simplement cette page&nbsp;: rien ne se passe sans ce clic.</p>
+</article>
+{{end}}

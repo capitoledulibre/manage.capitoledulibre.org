@@ -6,7 +6,9 @@ event). Volunteers pick their shifts themselves; team leaders see at a glance
 what is still missing.
 
 - **Accounts kept across years** – volunteers log in with a magic link sent by
-  e-mail, no password.
+  e-mail, no password. The link opens a one-click confirmation page rather
+  than logging in straight away, so the mail security gateways that open
+  every link of a message in advance cannot use it up.
 - **Events** – one per year, with a lifecycle: draft → open → frozen →
   archived, and an optional automatic freeze date. Events and poles have
   URL slugs: `/example-2026`, `/example-2026/buvette`.

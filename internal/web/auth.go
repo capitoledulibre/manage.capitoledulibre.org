@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -83,7 +84,12 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	body := fmt.Sprintf("Bonjour,\n\nPour vous connecter à l'espace bénévoles %s, cliquez sur ce lien (valable %d minutes) :\n\n%s\n\nSi vous n'avez pas demandé cette connexion, ignorez simplement ce message.\n",
 		org, int(magicLinkTTL.Minutes()), link)
 	if err := s.Mailer.Send(email, fmt.Sprintf("[%s] Votre lien de connexion", org), body); err != nil {
-		s.serverError(w, r, err)
+		// The mail server being down is not the volunteer's fault, and a bare
+		// 500 page gave them no idea of what to do next.
+		log.Printf("login link to %s: %v", email, err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		data["Error"] = "Le lien de connexion n'a pas pu être envoyé. Réessayez dans quelques minutes ; si le problème continue, prévenez l'équipe d'organisation."
+		s.render(w, r, "login", data)
 		return
 	}
 	sent := s.loginContext(next)
@@ -94,10 +100,43 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "login_sent", sent)
 }
 
+// invalidLink is the page of a login link that expired or was already used.
+func (s *Server) invalidLink(w http.ResponseWriter, r *http.Request) {
+	s.render(w, r, "error", M{"Title": "Lien invalide", "Message": "Ce lien de connexion a expiré ou a déjà été utilisé. Demandez-en un nouveau.", "ShowLogin": true})
+}
+
+// authConfirm is where the e-mailed link lands. It only checks the token and
+// asks for one click: mail security gateways (Outlook Safe Links, Mimecast…)
+// open every link of an incoming message before the recipient does, and when
+// that visit logged in, it spent the token, so the volunteer's own click ended
+// on "link expired". Nothing runs the form on its own either, since some of
+// these scanners execute the page's scripts.
+func (s *Server) authConfirm(w http.ResponseWriter, r *http.Request) {
+	userID, err := s.DB.PeekMagicLink(r.PathValue("token"))
+	if err != nil {
+		s.invalidLink(w, r)
+		return
+	}
+	u, err := s.DB.GetUser(userID)
+	if err != nil {
+		s.invalidLink(w, r)
+		return
+	}
+	next := r.URL.Query().Get("next")
+	if !safePath(next) {
+		next = ""
+	}
+	data := s.loginContext(next)
+	data["Account"] = u.Email
+	data["Token"] = r.PathValue("token")
+	s.render(w, r, "auth_confirm", data)
+}
+
+// authToken opens the session, from the confirmation page's button.
 func (s *Server) authToken(w http.ResponseWriter, r *http.Request) {
 	userID, err := s.DB.ConsumeMagicLink(r.PathValue("token"))
 	if err != nil {
-		s.render(w, r, "error", M{"Title": "Lien invalide", "Message": "Ce lien de connexion a expiré ou a déjà été utilisé. Demandez-en un nouveau.", "ShowLogin": true})
+		s.invalidLink(w, r)
 		return
 	}
 	sid, err := s.DB.CreateSession(userID, sessionTTL)
@@ -110,7 +149,7 @@ func (s *Server) authToken(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode, Secure: s.Cfg.Secure, MaxAge: int(sessionTTL.Seconds()),
 	})
 	u, _ := s.DB.GetUser(userID)
-	next := r.URL.Query().Get("next")
+	next := r.FormValue("next")
 	if !safePath(next) {
 		next = "/"
 	}

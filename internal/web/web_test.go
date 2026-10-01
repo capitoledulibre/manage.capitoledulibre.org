@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -31,11 +32,15 @@ type sentMail struct{ To, Subject, Body string }
 type fakeMailer struct {
 	mu    sync.Mutex
 	mails []sentMail
+	fail  error // returned by Send when set, to play an unreachable server
 }
 
 func (f *fakeMailer) Send(to, subject, body string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.fail != nil {
+		return f.fail
+	}
 	f.mails = append(f.mails, sentMail{To: to, Subject: subject, Body: body})
 	return nil
 }
@@ -126,12 +131,21 @@ func (e *env) login(email, name string) *client {
 	c := e.client()
 	c.post("/login", 200, url.Values{"email": {email}})
 	link := e.mailer.lastLink(e.t)
-	link = e.ts.URL + link[strings.Index(link, "/auth/"):]
-	c.get(link[len(e.ts.URL):], 303)
+	path := link[strings.Index(link, "/auth/"):]
+	c.followLoginLink(path)
 	if name != "" {
 		c.post("/profile", 303, url.Values{"name": {name}})
 	}
 	return c
+}
+
+// followLoginLink opens an e-mailed login link and clicks the button of the
+// page it lands on, as a volunteer does.
+func (c *client) followLoginLink(path string) {
+	c.env.t.Helper()
+	want(c.env.t, c.get(path, 200), "Me connecter")
+	u, _ := url.Parse(path)
+	c.post(u.Path, 303, url.Values{"next": {u.Query().Get("next")}})
 }
 
 func (c *client) do(method, path string, want int, form url.Values) string {
@@ -978,7 +992,7 @@ func TestWelcome(t *testing.T) {
 	c := e.client()
 	c.post("/login", 200, url.Values{"email": {"new@example.test"}, "next": {"/test-2026/buvette"}})
 	link := e.mailer.lastLink(t)
-	c.get(link[strings.Index(link, "/auth/"):], 303)
+	c.followLoginLink(link[strings.Index(link, "/auth/"):])
 
 	page := c.get("/welcome?next=/test-2026/buvette", 200)
 	want(t, page, `for="welcome-name"`)
@@ -1111,4 +1125,38 @@ func TestManagerAddressNotShown(t *testing.T) {
 	// Once named, the manager is shown, by name.
 	e.login("ghost@example.test", "Gaspard Responsable")
 	want(t, vol.get("/test-2026/buvette", 200), "Gaspard Responsable")
+}
+
+// TestLoginLinkSurvivesScanner: mail security gateways open every link of an
+// incoming message before the recipient does. Their visit must neither log
+// them in nor spend the token.
+func TestLoginLinkSurvivesScanner(t *testing.T) {
+	e := newEnv(t)
+	vol := e.client()
+	vol.post("/login", 200, url.Values{"email": {"vol@example.test"}})
+	link := e.mailer.lastLink(t)
+	path := link[strings.Index(link, "/auth/"):]
+
+	scanner := e.client()
+	want(t, scanner.get(path, 200), "vol@example.test")
+	scanner.get("/", 303) // no session for the scanner
+
+	want(t, vol.get(path, 200), "Me connecter")
+	vol.post(path, 303, nil)
+	vol.get("/profile", 200)
+
+	// Used once, the link is spent, whatever opens it next.
+	want(t, scanner.post(path, 200, nil), "Lien invalide")
+	want(t, scanner.get(path, 200), "Lien invalide")
+}
+
+// TestLoginMailFailure: an unreachable mail server gets a sentence, not a 500.
+func TestLoginMailFailure(t *testing.T) {
+	e := newEnv(t)
+	e.mailer.mu.Lock()
+	e.mailer.fail = errors.New("connection refused")
+	e.mailer.mu.Unlock()
+	page := e.client().post("/login", 503, url.Values{"email": {"vol@example.test"}})
+	want(t, page, "n&#39;a pas pu être envoyé")
+	want(t, page, `value="vol@example.test"`) // the address is kept for the retry
 }
