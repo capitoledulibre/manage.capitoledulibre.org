@@ -40,6 +40,12 @@ const (
 	sessionTTL    = 90 * 24 * time.Hour
 	magicLinkTTL  = 30 * time.Minute
 
+	// loginsPerAddress is how many login links one address may ask for every
+	// 15 minutes. Five, not three: a volunteer who does not see the e-mail
+	// come and asks again a few times must not be locked out for a quarter
+	// of an hour; an address still cannot be flooded.
+	loginsPerAddress = 5
+
 	// sessionRenewEvery is how often an active session gets its expiry
 	// pushed back to sessionTTL from now.
 	sessionRenewEvery = 24 * time.Hour
@@ -78,7 +84,7 @@ func New(d *db.DB, cfg config.Config, mailer Mailer) (*Server, error) {
 	s := &Server{
 		DB: d, Cfg: cfg, Mailer: mailer, Uploads: store,
 		Avatars:      avatar.New(d, store, cfg.Gravatar),
-		loginByEmail: ratelimit.New(3, 15*time.Minute),
+		loginByEmail: ratelimit.New(loginsPerAddress, 15*time.Minute),
 		loginByIP:    ratelimit.New(30, 15*time.Minute),
 	}
 	if cfg.OIDCEnabled() {

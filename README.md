@@ -212,7 +212,7 @@ management, uploads, profile pictures, rate limiting), so most changes are
 covered end to end. The Gravatar test serves a local stub, so the suite never
 reaches the real service.
 
-Login requests are rate limited in memory (3 per e-mail address and 30 per IP
+Login requests are rate limited in memory (5 per e-mail address and 30 per IP
 every 15 minutes). The client IP is read from `X-Forwarded-For` only when the
 connection comes from one of `TRUSTED_PROXIES`, taking the rightmost address
 that is not a proxy: from anyone else the header is ignored, since a client

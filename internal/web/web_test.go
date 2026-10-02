@@ -414,7 +414,7 @@ func TestFullFlow(t *testing.T) {
 func TestLoginRateLimit(t *testing.T) {
 	e := newEnv(t)
 	c := e.client()
-	for i := 0; i < 3; i++ {
+	for i := 0; i < loginsPerAddress; i++ {
 		c.post("/login", 200, url.Values{"email": {"spam@example.test"}})
 	}
 	want(t, c.post("/login", 429, url.Values{"email": {"spam@example.test"}}), "Trop de demandes")
