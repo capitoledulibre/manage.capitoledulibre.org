@@ -138,9 +138,10 @@ func (s *Server) parseTemplates() error {
 			}
 			return strings.Fields(name)[0]
 		},
-		"initials": userInitials,
-		"phone":    formatPhone,
-		"telHref":  telHref,
+		"initials":    userInitials,
+		"orgInitials": orgInitials,
+		"phone":       formatPhone,
+		"telHref":     telHref,
 		// named keeps the accounts that have a name. Volunteer pages list pole
 		// managers by name; one who never filled theirs in would otherwise be
 		// shown by e-mail address, to every volunteer and, on the login page
@@ -783,6 +784,25 @@ func redirect(w http.ResponseWriter, r *http.Request, to string) {
 		return
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
+// orgInitials returns up to two letters for the default logo, from the
+// capitalised words of the name: "Example Conf" gives "CL".
+func orgInitials(name string) string {
+	var out []rune
+	for _, word := range strings.Fields(name) {
+		r := []rune(word)[0]
+		if unicode.IsUpper(r) || unicode.IsDigit(r) {
+			out = append(out, r)
+		}
+		if len(out) == 2 {
+			break
+		}
+	}
+	if len(out) == 0 && name != "" {
+		out = []rune(strings.ToUpper(name))[:1]
+	}
+	return string(out)
 }
 
 // userInitials returns one or two uppercase letters for the avatar of an

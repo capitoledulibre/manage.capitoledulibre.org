@@ -35,7 +35,7 @@
 <header class="topbar" id="topbar">
 <nav class="container" aria-label="Navigation principale">
   <ul>
-    <li><a href="/" class="brand">{{if .Logo}}<img class="logo-img" src="/uploads/{{.Logo}}" alt="">{{else}}<span class="logo"></span>{{end}}<strong>{{.Org}}</strong></a></li>
+    <li><a href="/" class="brand">{{if .Logo}}<img class="logo-img" src="/uploads/{{.Logo}}" alt="">{{else}}<span class="logo" aria-hidden="true">{{orgInitials .Org}}</span>{{end}}<strong>{{.Org}}</strong></a></li>
   </ul>
   <ul>
     {{if .User}}

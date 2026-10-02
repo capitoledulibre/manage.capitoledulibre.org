@@ -56,3 +56,11 @@ func TestFormatPhone(t *testing.T) {
 		t.Errorf("telHref = %q", got)
 	}
 }
+
+func TestOrgInitials(t *testing.T) {
+	for in, want := range map[string]string{"Example Conf": "CL", "Bénévoles": "B", "festival": "F", "": ""} {
+		if got := orgInitials(in); got != want {
+			t.Errorf("orgInitials(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
