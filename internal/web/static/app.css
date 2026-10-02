@@ -42,27 +42,30 @@
 }
 
 :root:not([data-theme="dark"]) {
-  --pico-primary: #4f5fd6;
-  --pico-primary-background: #4f5fd6;
-  --pico-primary-border: #4f5fd6;
-  --pico-primary-hover: #3f4dbd;
-  --pico-primary-hover-background: #3f4dbd;
-  --pico-primary-hover-border: #3f4dbd;
-  --pico-primary-underline: rgba(79, 95, 214, .45);
-  --pico-primary-focus: rgba(79, 95, 214, .25);
-  --pico-background-color: #f5f6f9;
+  /* Brand orange and grey neutrals, shared with the partners dashboard. The
+     buttons use its 700 shade rather than the 600: white text keeps 5.2:1
+     on #c2410c, against 3.6:1 on #ea580c. */
+  --pico-primary: #c2410c;
+  --pico-primary-background: #c2410c;
+  --pico-primary-border: #c2410c;
+  --pico-primary-hover: #9a3412;
+  --pico-primary-hover-background: #9a3412;
+  --pico-primary-hover-border: #9a3412;
+  --pico-primary-underline: rgba(194, 65, 12, .45);
+  --pico-primary-focus: rgba(194, 65, 12, .25);
+  --pico-background-color: #f9fafb;
   --surface: #ffffff;
-  --surface-2: #eceef4;
+  --surface-2: #f3f4f6;
   /* Hairline used to draw card and row edges: deliberately faint, the shadow
      does most of the separating. */
-  --border: #e2e5ec;
+  --border: #e5e7eb;
   /* Form controls have to be identifiable on their own, so their border keeps
      3:1 against the surface (WCAG 1.4.11). Pico's own default sits at 2.2:1. */
   --field-border: #8a94a8;
   --pico-form-element-border-color: #8a94a8;
   --pico-form-element-active-border-color: var(--pico-primary);
-  --hero-bg: #eaedfb;
-  --hero-text: #262b52;
+  --hero-bg: #fff7ed;
+  --hero-text: #7c2d12;
   /* Accents (bars, borders, fills) and the darker variants used for text.
      Text tokens keep at least 4.5:1 on both --surface and their own tint. */
   --ok: #2b8a3e;   --ok-bg: #e8f6ec;   --ok-text: #1f6b30;
@@ -70,9 +73,9 @@
   --danger: #c92a2a; --danger-bg: #fdf0f0; --danger-text: #b02020;
   --note-bg: #fff9e3; --note-border: #e6b800;
   --dim: #5a6070; /* readable muted text, used where opacity would fail contrast */
-  --shadow-sm: 0 1px 1.5px rgba(22, 25, 45, .04), 0 1px 3px rgba(22, 25, 45, .04);
-  --shadow-md: 0 1px 2px rgba(22, 25, 45, .04), 0 4px 12px -3px rgba(22, 25, 45, .07);
-  --shadow-lg: 0 2px 4px rgba(22, 25, 45, .04), 0 14px 30px -8px rgba(22, 25, 45, .12);
+  --shadow-sm: 0 1px 1.5px rgba(17, 24, 39, .04), 0 1px 3px rgba(17, 24, 39, .04);
+  --shadow-md: 0 1px 2px rgba(17, 24, 39, .04), 0 4px 12px -3px rgba(17, 24, 39, .07);
+  --shadow-lg: 0 2px 4px rgba(17, 24, 39, .04), 0 14px 30px -8px rgba(17, 24, 39, .12);
   /* Bright ramp: borders, tints, bar fills. Never used for text or as a
      background under white text - several hues cannot carry either. */
   --c0: #4f5fd6; --c1: #e8590c; --c2: #2b8a3e; --c3: #d6336c;
@@ -84,32 +87,33 @@
 }
 
 [data-theme="dark"] {
-  --pico-background-color: #0f1015;
-  /* Pico lightens its own primary for dark mode; ours has to be lightened too,
-     otherwise every link and primary label sits near 3:1. Backgrounds keep the
-     saturated brand indigo, which carries white text at 5.3:1. */
-  --pico-primary: #a3adf5;
-  --pico-primary-background: #4f5fd6;
-  --pico-primary-border: #4f5fd6;
-  --pico-primary-hover: #c2c9fa;
-  --pico-primary-hover-background: #5a69dd;
-  --pico-primary-hover-border: #5a69dd;
-  --pico-primary-underline: rgba(163, 173, 245, .45);
-  --pico-primary-focus: rgba(163, 173, 245, .3);
+  /* The partners dark theme, converted from its oklch values. Links and
+     primary labels use the light orange (7.9:1 on the surface); backgrounds
+     keep the saturated brand orange, which carries white text at 5.2:1. */
+  --pico-background-color: #040915;
+  --pico-primary: #fc9252;
+  --pico-primary-background: #c2410c;
+  --pico-primary-border: #c2410c;
+  --pico-primary-hover: #ffac6e;
+  --pico-primary-hover-background: #9a3412;
+  --pico-primary-hover-border: #9a3412;
+  --pico-primary-underline: rgba(252, 146, 82, .45);
+  --pico-primary-focus: rgba(252, 146, 82, .3);
   --pico-primary-inverse: #ffffff;
-  --surface: #181920;
-  --surface-2: #22242d;
-  --border: #2a2c36;
-  --field-border: #606678;
-  --pico-form-element-border-color: #606678;
+  --surface: #101828;
+  --surface-2: #1b2434;
+  --border: #263141;
+  /* Lighter than the partners field ring (1.9:1): a control has to keep 3:1. */
+  --field-border: #66708a;
+  --pico-form-element-border-color: #66708a;
   --pico-form-element-active-border-color: var(--pico-primary);
-  --hero-bg: #1b1d2b;
-  --hero-text: #e6e8ff;
+  --hero-bg: #411e0d;
+  --hero-text: #ffac6e;
   --ok: #69c17a;   --ok-bg: #17281c;   --ok-text: #7fd08f;
   --warn: #f2a54a; --warn-bg: #332512; --warn-text: #f4b268;
   --danger: #f07070; --danger-bg: #331b1b; --danger-text: #f28a8a;
   --note-bg: #302c18; --note-border: #c9a400;
-  --dim: #9ba2b0;
+  --dim: #99a1af;
   /* Shadows barely register on a dark ground; the hairline and the lifted
      surface do the separating instead. */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
