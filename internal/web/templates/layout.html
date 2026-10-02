@@ -51,8 +51,10 @@
         </summary>
         <ul>
           <li><a href="/profile" {{if eq .Path "/profile"}}aria-current="page"{{end}}>Mon profil</a></li>
-          {{if .User.IsAdmin}}<li aria-hidden="true"><div class="sep"></div></li>
-          <li><a href="/admin" {{if eq .Path "/admin"}}aria-current="page"{{end}}>Administration</a></li>{{end}}
+          {{if or .MenuPoles .MenuEvent .User.IsAdmin}}<li aria-hidden="true"><div class="sep"></div></li>{{end}}
+          {{range .MenuPoles}}<li><a href="{{.ManageURL}}" {{if eq $.Path .ManageURL}}aria-current="page"{{end}}>Gérer : {{.Name}}</a></li>{{end}}
+          {{with .MenuEvent}}<li><a href="{{.AdminURL}}" {{if eq $.Path .AdminURL}}aria-current="page"{{end}}>Tableau de bord de l'événement</a></li>{{end}}
+          {{if .User.IsAdmin}}<li><a href="/admin" {{if eq .Path "/admin"}}aria-current="page"{{end}}>Administration</a></li>{{end}}
           <li aria-hidden="true"><div class="sep"></div></li>
           <li><form method="post" action="/logout"><button class="menu">Déconnexion</button></form></li>
         </ul>

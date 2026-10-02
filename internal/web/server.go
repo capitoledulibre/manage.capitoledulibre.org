@@ -656,6 +656,16 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, dat
 		data = M{}
 	}
 	data["User"] = currentUser(r)
+	// The account menu leads managers and coordinators to their pages, which
+	// otherwise took a detour through the home page and a pole card.
+	if u := currentUser(r); u != nil {
+		if ev, err := s.currentEvent(u); err == nil {
+			data["MenuPoles"], _ = s.DB.ListManagedPoles(ev.ID, u.ID)
+			if s.isEventAdmin(u, ev.ID) {
+				data["MenuEvent"] = ev
+			}
+		}
+	}
 	data["Org"] = s.DB.GetSetting("org_name", "Bénévoles")
 	data["Flash"] = s.popFlash(w, r)
 	data["Path"] = r.URL.Path

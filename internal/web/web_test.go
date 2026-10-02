@@ -1423,3 +1423,20 @@ func TestLoginAddressCorrection(t *testing.T) {
 	want(t, sent, `href="/login?email=vera%40exmaple.test"`)
 	want(t, c.get("/login?email=vera%40exmaple.test", 200), `value="vera@exmaple.test"`)
 }
+
+// TestAccountMenu: managers and coordinators reach their pages from the
+// account menu, volunteers see no management entry.
+func TestAccountMenu(t *testing.T) {
+	e := newEnv(t)
+	admin, buvette, _ := setupEvent(t, e, "2")
+	admin.post(fmt.Sprintf("/admin/poles/%d/managers", buvette.ID), 303, url.Values{"email": {"resp@example.test"}})
+	admin.post("/admin/events/test-2026/coordinators", 303, url.Values{"email": {"coord@example.test"}})
+	mgr := e.login("resp@example.test", "Rémi Responsable")
+	menu := mgr.get("/", 200)
+	want(t, menu, `href="/test-2026/buvette/manage" >Gérer : Buvette`)
+	wantNot(t, menu, "Tableau de bord de l&#39;événement")
+	want(t, e.login("coord@example.test", "Claire Coord").get("/", 200), `href="/admin/events/test-2026" >Tableau de bord de l'événement`)
+	vol := e.login("vol@example.test", "Vera Bénévole").get("/", 200)
+	wantNot(t, vol, "Gérer :")
+	wantNot(t, vol, "Tableau de bord de l'événement")
+}

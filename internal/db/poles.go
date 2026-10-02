@@ -286,6 +286,11 @@ func (d *DB) RemovePoleManager(poleID, userID int64) error {
 	return err
 }
 
+// ListManagedPoles returns the poles the user manages in an event.
+func (d *DB) ListManagedPoles(eventID, userID int64) ([]Pole, error) {
+	return d.queryPoles(`SELECT `+poleCols+` FROM poles WHERE event_id = ? AND id IN (SELECT pole_id FROM pole_managers WHERE user_id = ?) ORDER BY position, name COLLATE NOCASE`, eventID, userID)
+}
+
 // ManagedPoleIDs returns the ids of the poles the user manages in an event.
 func (d *DB) ManagedPoleIDs(eventID, userID int64) (map[int64]bool, error) {
 	rows, err := d.Query(`SELECT pm.pole_id FROM pole_managers pm JOIN poles p ON p.id = pm.pole_id WHERE p.event_id = ? AND pm.user_id = ?`, eventID, userID)
