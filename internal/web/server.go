@@ -320,7 +320,7 @@ func modeHelp(m string) string {
 	case db.ModeInvitation:
 		return "Les responsables et administrateurs ajoutent eux-mêmes les bénévoles."
 	case db.ModeRestricted:
-		return "Seuls les administrateurs et le staff de l'événement ajoutent des bénévoles. Le pôle est masqué des autres."
+		return "Seuls les administrateurs et la coordination de l'événement ajoutent des bénévoles. Le pôle est masqué des autres."
 	}
 	return ""
 }
@@ -396,8 +396,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /admin/events/{event}/volunteers.csv", s.requireEventAdmin(s.adminVolunteersCSV))
 	mux.HandleFunc("GET /admin/events/{event}/planning", s.requireEventAdmin(s.adminPlanning))
 	mux.HandleFunc("POST /admin/events/{event}/duplicate", s.requireAdmin(s.adminEventDuplicate))
-	mux.HandleFunc("POST /admin/events/{event}/staff", s.requireAdmin(s.adminStaffAdd))
-	mux.HandleFunc("POST /admin/events/{event}/staff/{uid}/delete", s.requireAdmin(s.adminStaffRemove))
+	mux.HandleFunc("POST /admin/events/{event}/coordinators", s.requireAdmin(s.adminCoordinatorAdd))
+	mux.HandleFunc("POST /admin/events/{event}/coordinators/{uid}/delete", s.requireAdmin(s.adminCoordinatorRemove))
 	mux.HandleFunc("POST /admin/poles/{id}/delete", s.requirePoleEventAdmin(s.adminPoleDelete))
 	mux.HandleFunc("POST /admin/poles/{id}/managers", s.requirePoleEventAdmin(s.adminManagerAdd))
 	mux.HandleFunc("POST /admin/poles/{id}/managers/{uid}/delete", s.requirePoleEventAdmin(s.adminManagerRemove))
@@ -548,20 +548,20 @@ func (s *Server) requireAdmin(h http.HandlerFunc) http.HandlerFunc {
 }
 
 // canManage tells whether the user may administer the pole: its managers,
-// the staff of its event and administrators.
+// the coordinators of its event and administrators.
 func (s *Server) canManage(u *db.User, poleID int64) bool {
-	return u != nil && (u.IsAdmin || s.DB.IsPoleManager(poleID, u.ID) || s.DB.IsPoleStaff(poleID, u.ID))
+	return u != nil && (u.IsAdmin || s.DB.IsPoleManager(poleID, u.ID) || s.DB.IsPoleCoordinator(poleID, u.ID))
 }
 
 // isEventAdmin tells whether the user runs the event: administrators, and the
-// staff of that event. Staff have every right inside their event except
+// coordinators of that event. Coordinators have every right inside their event except
 // deleting it or creating other editions; accounts, administrator rights and
 // the site settings stay with administrators.
 func (s *Server) isEventAdmin(u *db.User, eventID int64) bool {
-	return u != nil && (u.IsAdmin || s.DB.IsEventStaff(eventID, u.ID))
+	return u != nil && (u.IsAdmin || s.DB.IsEventCoordinator(eventID, u.ID))
 }
 
-// requireEventAdmin guards the /admin/events/{event}/… pages that the staff of
+// requireEventAdmin guards the /admin/events/{event}/… pages that the coordinators of
 // that event may use.
 func (s *Server) requireEventAdmin(h http.HandlerFunc) http.HandlerFunc {
 	return s.requireLogin(func(w http.ResponseWriter, r *http.Request) {

@@ -67,7 +67,7 @@
     <div>
       <label for="np-mode">Accès</label>
       <select id="np-mode" name="access_mode">{{range .Modes}}<option value="{{.}}">{{mode .}}</option>{{end}}</select>
-      <small class="hint">Public : chacun se joint. Sur lien d'invitation : un lien est généré. Sur invitation : les responsables ajoutent. Restreint : seuls les administrateurs et le staff ajoutent, pôle masqué.</small>
+      <small class="hint">Public : chacun se joint. Sur lien d'invitation : un lien est généré. Sur invitation : les responsables ajoutent. Restreint : seuls les administrateurs et la coordination ajoutent, pôle masqué.</small>
     </div>
     <div>
       <label for="np-manager">E-mail du responsable <small class="muted">(optionnel)</small></label>
@@ -99,7 +99,7 @@
   </div>
   <label for="ev-status">Statut</label>
   <select id="ev-status" name="status">{{range .Statuses}}<option value="{{.}}" {{if eq . $.Event.Status}}selected{{end}}>{{status .}}</option>{{end}}</select>
-  <p class="hint"><b>Brouillon</b> : visible des administrateurs, du staff et des responsables seulement. <b>Inscriptions ouvertes</b> : les bénévoles voient l'événement et s'inscrivent. <b>Gelé</b> : visible, mais plus aucune modification par les bénévoles. <b>Archivé</b> : masqué.</p>
+  <p class="hint"><b>Brouillon</b> : visible des administrateurs, de la coordination et des responsables seulement. <b>Inscriptions ouvertes</b> : les bénévoles voient l'événement et s'inscrivent. <b>Gelé</b> : visible, mais plus aucune modification par les bénévoles. <b>Archivé</b> : masqué.</p>
   <label for="ev-freeze">Gel automatique des inscriptions <small class="muted">(optionnel ; chaque pôle peut définir sa propre date)</small></label>
   <input id="ev-freeze" type="datetime-local" name="freeze_at" value="{{inputDT .Event.FreezeAt}}">
   <button type="submit" class="primary-action">Enregistrer</button>
@@ -118,26 +118,26 @@
   </div>
 </div>
 <div class="panel narrow mt-md">
-  <h2>Staff de l'événement</h2>
-  <p class="hint">Le staff gère tout l'événement : tous les pôles, leurs responsables, le planning global, les messages et la liste des bénévoles, le statut et les réglages. Il ne peut ni supprimer l'événement, ni en créer un autre, ni gérer les comptes ou les droits d'administration.</p>
+  <h2>Coordination de l'événement</h2>
+  <p class="hint">La coordination gère tout l'événement : tous les pôles, leurs responsables, le planning global, les messages et la liste des bénévoles, le statut et les réglages. Elle ne peut ni supprimer l'événement, ni en créer un autre, ni gérer les comptes.</p>
   <ul>
-    {{range .Staff}}<li>{{.DisplayName}} <small class="muted">{{.Email}}</small>
-      {{if $.User.IsAdmin}}<form method="post" action="{{$.Event.AdminURL}}/staff/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} du staff ? La personne reste bénévole.')"><button class="link danger">retirer</button></form>{{end}}</li>
+    {{range .Coordinators}}<li>{{.DisplayName}} <small class="muted">{{.Email}}</small>
+      {{if $.User.IsAdmin}}<form method="post" action="{{$.Event.AdminURL}}/coordinators/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} de la coordination ? La personne reste bénévole.')"><button class="link danger">retirer</button></form>{{end}}</li>
     {{else}}<li class="muted">Personne pour l'instant.</li>{{end}}
   </ul>
   {{if .User.IsAdmin}}
-  <form method="post" action="{{.Event.AdminURL}}/staff" class="actions">
-    <label for="new-staff" class="sr-only">E-mail de la personne à ajouter au staff</label>
-    <input id="new-staff" type="email" name="email" list="staff-users" placeholder="e-mail" required class="field-md" autocomplete="off">
-    {{template "user_datalist" (dict "ID" "staff-users" "Users" .AllUsers)}}
-    <button class="small secondary">Ajouter au staff</button>
+  <form method="post" action="{{.Event.AdminURL}}/coordinators" class="actions">
+    <label for="new-coordinator" class="sr-only">E-mail de la personne à ajouter à la coordination</label>
+    <input id="new-coordinator" type="email" name="email" list="coordinator-users" placeholder="e-mail" required class="field-md" autocomplete="off">
+    {{template "user_datalist" (dict "ID" "coordinator-users" "Users" .AllUsers)}}
+    <button class="small secondary">Ajouter à la coordination</button>
   </form>
   {{end}}
 </div>
 {{if .User.IsAdmin}}
 <div class="panel narrow mt-md">
   <h2>Préparer l'événement suivant</h2>
-  <p class="hint">Crée un nouvel événement en brouillon avec les mêmes pôles : réglages, icônes, modes d'accès, listes de tâches par défaut, emplacements, responsables et staff. Les créneaux et les inscriptions ne sont pas repris.</p>
+  <p class="hint">Crée un nouvel événement en brouillon avec les mêmes pôles : réglages, icônes, modes d'accès, listes de tâches par défaut, emplacements, responsables et coordination. Les créneaux et les inscriptions ne sont pas repris.</p>
   <form method="post" action="{{.Event.AdminURL}}/duplicate">
     <label for="dup-name">Nom</label>
     <input id="dup-name" type="text" name="name" required value="{{.Org}} {{.NextYear}}">

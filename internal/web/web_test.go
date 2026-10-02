@@ -1018,9 +1018,9 @@ func TestSignupDeadline(t *testing.T) {
 	want(t, vol.get("/test-2026/buvette", 200), "jeudi 19 novembre inclus")
 }
 
-// TestEventStaff checks the staff role row by row: everything inside their
+// TestEventCoordinators checks the coordination role row by row: everything inside their
 // event, nothing site-wide, nothing in another event.
-func TestEventStaff(t *testing.T) {
+func TestEventCoordinators(t *testing.T) {
 	e := newEnv(t)
 	admin, buvette, _ := setupEvent(t, e, "2")
 	admin.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Orga"}, "access_mode": {"restricted"}})
@@ -1028,61 +1028,61 @@ func TestEventStaff(t *testing.T) {
 	other, _ := e.db.GetEventBySlug("autre-2026")
 	otherPole, _ := e.db.DefaultPole(other.ID)
 
-	staff := e.login("staff@example.test", "Sacha Staff")
-	staff.get("/admin/events/test-2026", 403)
-	admin.post("/admin/events/test-2026/staff", 303, url.Values{"email": {"staff@example.test"}})
-	want(t, admin.get("/admin/events/test-2026?tab=settings", 200), "Sacha Staff")
+	coord := e.login("coord@example.test", "Sacha Coordinatrice")
+	coord.get("/admin/events/test-2026", 403)
+	admin.post("/admin/events/test-2026/coordinators", 303, url.Values{"email": {"coord@example.test"}})
+	want(t, admin.get("/admin/events/test-2026?tab=settings", 200), "Sacha Coordinatrice")
 
 	// Inside the event: dashboard, planning, volunteers, poles, managers,
 	// messages, status.
-	want(t, staff.get("/", 200), `href="/admin/events/test-2026"`)
-	board := staff.get("/admin/events/test-2026?tab=settings", 200)
-	want(t, board, "Staff de l'événement")
-	wantNot(t, board, "Ajouter au staff")
+	want(t, coord.get("/", 200), `href="/admin/events/test-2026"`)
+	board := coord.get("/admin/events/test-2026?tab=settings", 200)
+	want(t, board, "Coordination de l'événement")
+	wantNot(t, board, "Ajouter à la coordination")
 	wantNot(t, board, "Dupliquer l'événement")
 	wantNot(t, board, "Supprimer l'événement")
 	wantNot(t, board, `href="/admin"`)
-	staff.get("/admin/events/test-2026/planning", 200)
-	staff.get("/admin/events/test-2026/volunteers", 200)
-	staff.get("/admin/events/test-2026/volunteers.csv", 200)
-	staff.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Accueil"}, "access_mode": {"public"}})
-	staff.get("/test-2026/buvette/manage", 200)
-	staff.post(fmt.Sprintf("/admin/poles/%d/managers", buvette.ID), 303, url.Values{"email": {"resp@example.test"}})
+	coord.get("/admin/events/test-2026/planning", 200)
+	coord.get("/admin/events/test-2026/volunteers", 200)
+	coord.get("/admin/events/test-2026/volunteers.csv", 200)
+	coord.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Accueil"}, "access_mode": {"public"}})
+	coord.get("/test-2026/buvette/manage", 200)
+	coord.post(fmt.Sprintf("/admin/poles/%d/managers", buvette.ID), 303, url.Values{"email": {"resp@example.test"}})
 	resp, _ := e.db.GetUserByEmail("resp@example.test")
 	if !e.db.IsPoleManager(buvette.ID, resp.ID) {
-		t.Fatal("staff should name pole managers")
+		t.Fatal("coordinators should name pole managers")
 	}
-	staff.post("/admin/events/test-2026/messages", 303, url.Values{"body": {"Briefing samedi 8h"}})
-	staff.post("/admin/events/test-2026", 303, url.Values{"name": {"Test 2026"}, "slug": {"test-2026"}, "status": {"frozen"}, "starts_on": {"2026-11-21"}, "ends_on": {"2026-11-22"}})
+	coord.post("/admin/events/test-2026/messages", 303, url.Values{"body": {"Briefing samedi 8h"}})
+	coord.post("/admin/events/test-2026", 303, url.Values{"name": {"Test 2026"}, "slug": {"test-2026"}, "status": {"frozen"}, "starts_on": {"2026-11-21"}, "ends_on": {"2026-11-22"}})
 	if ev, _ := e.db.GetEventBySlug("test-2026"); ev.Status != db.StatusFrozen {
-		t.Fatal("staff should change the event status")
+		t.Fatal("coordinators should change the event status")
 	}
-	// Restricted poles are the administrators' and the staff's.
-	want(t, staff.get("/", 200), "Orga")
-	staff.post("/test-2026/orga/manage/members", 303, url.Values{"emails": {"vip@example.test"}})
-	staff.post("/admin/users/new", 303, url.Values{"name": {"Nouvelle"}, "email": {"nv@example.test"}, "event_id": {"1"}, "back": {"/admin/events/test-2026/volunteers"}})
+	// Restricted poles are the administrators' and the coordinators'.
+	want(t, coord.get("/", 200), "Orga")
+	coord.post("/test-2026/orga/manage/members", 303, url.Values{"emails": {"vip@example.test"}})
+	coord.post("/admin/users/new", 303, url.Values{"name": {"Nouvelle"}, "email": {"nv@example.test"}, "event_id": {"1"}, "back": {"/admin/events/test-2026/volunteers"}})
 
 	// Site-wide and other events stay out of reach.
-	staff.get("/admin", 403)
-	staff.get("/admin/users", 403)
-	staff.post("/admin/events", 403, url.Values{"name": {"X"}, "starts_on": {"2027-01-01"}, "ends_on": {"2027-01-02"}})
-	staff.post("/admin/events/test-2026/duplicate", 403, url.Values{"name": {"X"}, "starts_on": {"2027-01-01"}, "ends_on": {"2027-01-02"}})
-	staff.post("/admin/events/test-2026/delete", 403, nil)
-	staff.post("/admin/events/test-2026/staff", 403, url.Values{"email": {"friend@example.test"}})
-	staff.post("/admin/users/1/admin", 403, nil)
-	staff.get("/admin/events/autre-2026", 403)
-	staff.get(fmt.Sprintf("/autre-2026/%s/manage", otherPole.Slug), 403)
-	staff.post(fmt.Sprintf("/admin/poles/%d/copy", buvette.ID), 403, url.Values{"event_id": {fmt.Sprint(other.ID)}})
-	staff.post("/admin/users/new", 403, url.Values{"name": {"X"}, "email": {"x@example.test"}})
-	staff.post("/admin/users/new", 403, url.Values{"name": {"X"}, "email": {"x@example.test"}, "pole_id": {fmt.Sprint(otherPole.ID)}})
+	coord.get("/admin", 403)
+	coord.get("/admin/users", 403)
+	coord.post("/admin/events", 403, url.Values{"name": {"X"}, "starts_on": {"2027-01-01"}, "ends_on": {"2027-01-02"}})
+	coord.post("/admin/events/test-2026/duplicate", 403, url.Values{"name": {"X"}, "starts_on": {"2027-01-01"}, "ends_on": {"2027-01-02"}})
+	coord.post("/admin/events/test-2026/delete", 403, nil)
+	coord.post("/admin/events/test-2026/coordinators", 403, url.Values{"email": {"friend@example.test"}})
+	coord.post("/admin/users/1/admin", 403, nil)
+	coord.get("/admin/events/autre-2026", 403)
+	coord.get(fmt.Sprintf("/autre-2026/%s/manage", otherPole.Slug), 403)
+	coord.post(fmt.Sprintf("/admin/poles/%d/copy", buvette.ID), 403, url.Values{"event_id": {fmt.Sprint(other.ID)}})
+	coord.post("/admin/users/new", 403, url.Values{"name": {"X"}, "email": {"x@example.test"}})
+	coord.post("/admin/users/new", 403, url.Values{"name": {"X"}, "email": {"x@example.test"}, "pole_id": {fmt.Sprint(otherPole.ID)}})
 
-	// The staff follows the event to its next edition.
+	// The coordination follows the event to its next edition.
 	admin.post("/admin/events/test-2026/duplicate", 303, url.Values{"name": {"Test 2027"}, "starts_on": {"2027-11-20"}, "ends_on": {"2027-11-21"}})
-	staff.get("/admin/events/test-2027", 200)
+	coord.get("/admin/events/test-2027", 200)
 
-	// Taken off the staff, back to a volunteer.
-	admin.post("/admin/events/test-2026/staff/2/delete", 303, nil)
-	staff.get("/admin/events/test-2026", 403)
+	// Taken off the coordination, back to a volunteer.
+	admin.post("/admin/events/test-2026/coordinators/2/delete", 303, nil)
+	coord.get("/admin/events/test-2026", 403)
 }
 
 // TestAdminPoleForms posts to the URLs the pages actually render: the pole

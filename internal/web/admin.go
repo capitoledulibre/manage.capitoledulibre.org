@@ -283,14 +283,14 @@ func (s *Server) adminEvent(w http.ResponseWriter, r *http.Request) {
 			events = append(events, e)
 		}
 	}
-	staff, _ := s.DB.ListEventStaff(ev.ID)
+	coordinators, _ := s.DB.ListEventCoordinators(ev.ID)
 	var allUsers []db.User
 	if u.IsAdmin && r.URL.Query().Get("tab") == "settings" {
 		allUsers, _ = s.DB.ListUsers()
 	}
 	s.render(w, r, "admin_event", M{
 		"Event": ev, "Coverage": coverage, "Stats": stats, "Messages": msgs, "Modes": db.Modes, "Events": events,
-		"Staff": staff, "AllUsers": allUsers,
+		"Coordinators": coordinators, "AllUsers": allUsers,
 		"NextYear": time.Now().Year() + 1,
 		"Statuses": []string{db.StatusDraft, db.StatusOpen, db.StatusFrozen, db.StatusArchived},
 		"Tab":      r.URL.Query().Get("tab"),
@@ -680,7 +680,7 @@ func (s *Server) adminUserCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 // canRegisterVolunteer tells whether the user may create an account on
-// someone's behalf with this form: administrators always, event staff when
+// someone's behalf with this form: administrators always, event coordinators when
 // the account lands in their event (through a pole of it, or the event itself).
 func (s *Server) canRegisterVolunteer(r *http.Request) bool {
 	u := currentUser(r)
@@ -697,11 +697,11 @@ func (s *Server) canRegisterVolunteer(r *http.Request) bool {
 	return false
 }
 
-// --- staff --------------------------------------------------------------
+// --- coordinators -------------------------------------------------------
 
-// adminStaffAdd puts someone on the staff of an event. Only administrators
+// adminCoordinatorAdd makes someone coordinator of an event. Only administrators
 // grant it: it gives every right inside the event.
-func (s *Server) adminStaffAdd(w http.ResponseWriter, r *http.Request) {
+func (s *Server) adminCoordinatorAdd(w http.ResponseWriter, r *http.Request) {
 	ev, err := s.DB.GetEventBySlug(r.PathValue("event"))
 	if err != nil {
 		s.fail(w, r, err)
@@ -716,25 +716,25 @@ func (s *Server) adminStaffAdd(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, err)
 			return
 		}
-		if err := s.DB.AddEventStaff(ev.ID, u.ID); err != nil {
+		if err := s.DB.AddEventCoordinator(ev.ID, u.ID); err != nil {
 			s.serverError(w, r, err)
 			return
 		}
-		s.flash(w, u.DisplayName()+" fait maintenant partie du staff de « "+ev.Name+" ».")
+		s.flash(w, u.DisplayName()+" fait maintenant partie de la coordination de « "+ev.Name+" ».")
 	}
 	http.Redirect(w, r, ev.AdminURL()+"?tab=settings", http.StatusSeeOther)
 }
 
-func (s *Server) adminStaffRemove(w http.ResponseWriter, r *http.Request) {
+func (s *Server) adminCoordinatorRemove(w http.ResponseWriter, r *http.Request) {
 	ev, err := s.DB.GetEventBySlug(r.PathValue("event"))
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	if err := s.DB.RemoveEventStaff(ev.ID, pathID(r, "uid")); err != nil {
+	if err := s.DB.RemoveEventCoordinator(ev.ID, pathID(r, "uid")); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, "Retiré·e du staff. La personne reste bénévole de l'événement.")
+	s.flash(w, "Retiré·e de la coordination. La personne reste bénévole de l'événement.")
 	http.Redirect(w, r, ev.AdminURL()+"?tab=settings", http.StatusSeeOther)
 }

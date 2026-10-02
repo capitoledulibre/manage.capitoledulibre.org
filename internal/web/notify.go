@@ -137,14 +137,14 @@ func isLate(slot db.Slot) bool {
 
 // notifyLateWithdrawal tells the managers of a pole that a volunteer pulled
 // out of slots starting soon. slots carry their counts after the withdrawal.
-// A pole with no manager falls back on the staff of its event.
+// A pole with no manager falls back on the coordinators of its event.
 func (s *Server) notifyLateWithdrawal(u db.User, pole db.Pole, slots []db.Slot) {
 	if len(slots) == 0 {
 		return
 	}
 	recipients, _ := s.DB.ListPoleManagers(pole.ID)
 	if len(recipients) == 0 {
-		recipients, _ = s.DB.ListEventStaff(pole.EventID)
+		recipients, _ = s.DB.ListEventCoordinators(pole.EventID)
 	}
 	var others []db.User
 	for _, r := range recipients {

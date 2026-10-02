@@ -12,7 +12,7 @@ import (
 )
 
 // currentEvent returns the event to display to the user. When no event is
-// open yet, admins see the most recent one and staff the most recent one they
+// open yet, admins see the most recent one and coordinators the most recent one they
 // run, even if it is a draft: that is the one they are preparing.
 func (s *Server) currentEvent(u *db.User) (db.Event, error) {
 	ev, err := s.DB.CurrentEvent()

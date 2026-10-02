@@ -16,9 +16,9 @@ what is still missing.
   locations (rooms, desks…) and its own freeze date. Four access modes:
   *public* (anyone joins), *private* (join through a generated invitation
   link), *invitation* (managers add members), *restricted* (only
-  administrators and the event staff add members, the pole is hidden from
-  others). Managers, staff and administrators can always add or remove
-  members directly. A default pole
+  administrators and the event coordinators add members, the pole is hidden
+  from others). Managers, coordinators and administrators can always add or
+  remove members directly. A default pole
   created with every event carries the organiser-wide shifts and
   automatically includes every volunteer.
 - **Slots** – time range × location × number of volunteers wanted, with a
@@ -37,7 +37,7 @@ what is still missing.
   time or place, taking someone off one or removing them from a pole e-mails
   the people concerned. A volunteer who pulls out less than 48 hours before a
   shift, by hand or by leaving the pole, warns its managers (or the event
-  staff when it has none). Messages can optionally be pushed by e-mail too,
+  coordinators when it has none). Messages can optionally be pushed by e-mail too,
   per event, per pole or per shift.
 - **Whom to call** – the people of a pole see its managers' names and
   e-mail addresses on each shift page and in the day-before reminder. A
@@ -142,21 +142,22 @@ the same instant.
 
 ## Roles
 
-| | Volunteer | Pole manager | Event staff | Administrator |
+| | Volunteer | Pole manager | Event coordinator | Administrator |
 |---|---|---|---|---|
 | Join poles, sign up on slots, tick tasks | ✓ | ✓ | ✓ | ✓ |
 | Manage slots, locations, notices and members of a pole | | ✓ (own poles) | ✓ (every pole of the event) | ✓ |
 | Dashboard, global planning, global notices, volunteer list and CSV export | | | ✓ (own event) | ✓ |
 | Create poles, name managers, change the event status and settings | | | ✓ (own event) | ✓ |
 | Delete an event, create or duplicate events | | | | ✓ |
-| User accounts, administrator rights, site settings, naming the staff | | | | ✓ |
+| User accounts, administrator rights, site settings, naming the coordinators | | | | ✓ |
 
-The staff of an event is named by an administrator from the event's
-settings tab, and follows the event when it is duplicated into the next
-edition. It is the way to hand an edition over to its core team without
-giving them rights over every other edition and every account.
+The coordinators of an event ("Coordination" in the interface) are named by
+an administrator from the event's settings tab, and follow the event when it
+is duplicated into the next edition. It is the way to hand an edition over to
+its core team without giving them rights over every other edition and every
+account.
 
-Volunteers only see events that are *open* or *frozen*. Managers, staff and
+Volunteers only see events that are *open* or *frozen*. Managers, coordinators and
 administrators can prepare a *draft* event. When an event or a pole is
 frozen (status or date), volunteers can no longer change their signups;
 managers can still edit everything.
