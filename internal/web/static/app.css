@@ -346,6 +346,12 @@ button.link {
   font-size: var(--t-sm); width: auto; cursor: pointer; box-shadow: none; transform: none;
 }
 button.link:active { transform: none; }
+/* Standalone text actions ("supprimer", "retirer", "Régénérer le lien",
+   "copier vers…", "Quitter ce pôle") measured under 24 px high: they keep
+   their look but get a 24 px tall hit area (WCAG 2.5.8). */
+button.link { min-height: 1.5rem; padding: .15rem .1rem; }
+details > summary { min-height: 1.5rem; }
+.inline-menu summary { display: inline-flex; align-items: center; min-height: 1.5rem; }
 button.link.danger { color: var(--danger-text); }
 button.link.muted { color: var(--dim); }
 button.small, a[role=button].small, summary[role=button].small {
