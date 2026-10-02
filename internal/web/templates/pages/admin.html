@@ -18,15 +18,17 @@
     <td>{{if .FreezeAt}}{{datetime .FreezeAt}}{{else}}<span class="muted">—</span>{{end}}</td>
     <td><a href="{{.AdminURL}}">Tableau de bord</a></td>
   </tr>
-  {{else}}<tr><td colspan="5" class="muted">Aucun événement. Créez le premier&nbsp;!</td></tr>{{end}}
+  {{else}}<tr><td colspan="5"><span class="muted">Aucun événement pour l'instant.</span> <a href="/admin/events/new" role="button" class="small">Créer le premier événement</a></td></tr>{{end}}
   </tbody>
 </table>
 </div>
 
 <h2 class="mt-lg">Paramètres</h2>
 <form method="post" action="/admin/settings" class="panel narrow">
-  <label for="org-name">Nom de l'organisation / événement</label>
-  <input id="org-name" type="text" name="org_name" value="{{.OrgName}}" required>
+  {{/* "Organisation / événement" read as the place to create an event: saving
+       an edition's name here created nothing. */}}
+  <label for="org-name">Nom de l'organisation <small class="muted">(affiché dans la barre du haut et les e-mails, d'une édition à l'autre&nbsp;; les événements se créent avec «&nbsp;Nouvel événement&nbsp;»)</small></label>
+  <input id="org-name" type="text" name="org_name" value="{{.OrgName}}" required placeholder="Example Conf">
   <label for="default-pole">Nom du pôle par défaut <small class="muted">(créé avec chaque événement, regroupe tous les bénévoles)</small></label>
   <input id="default-pole" type="text" name="default_pole_name" value="{{.DefaultPoleName}}" required>
   <label for="source-url">Lien vers le code source <small class="muted">(affiché en pied de page, optionnel)</small></label>

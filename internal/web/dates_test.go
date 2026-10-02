@@ -64,3 +64,20 @@ func TestOrgInitials(t *testing.T) {
 		}
 	}
 }
+
+func TestSuggestEventName(t *testing.T) {
+	for _, c := range []struct {
+		org  string
+		year int
+		want string
+	}{
+		{"Example Conf", 2026, "Example Conf 2026"},
+		{"Example Conf 2026", 2026, "Example Conf 2026"},
+		{"Example Conf 2026", 2027, "Example Conf 2027"},
+		{"", 2026, ""},
+	} {
+		if got := suggestEventName(c.org, c.year); got != c.want {
+			t.Errorf("suggestEventName(%q, %d) = %q, want %q", c.org, c.year, got, c.want)
+		}
+	}
+}

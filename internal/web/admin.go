@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/mail"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -240,8 +241,22 @@ func (s *Server) adminPoleCopy(w http.ResponseWriter, r *http.Request) {
 // --- events -----------------------------------------------------------
 
 func (s *Server) adminEventNew(w http.ResponseWriter, r *http.Request) {
-	year := time.Now().Year()
-	s.render(w, r, "event_form", M{"Event": db.Event{Name: fmt.Sprintf("%s %d", s.DB.GetSetting("org_name", ""), year), Status: db.StatusDraft}, "New": true})
+	name := suggestEventName(s.DB.GetSetting("org_name", ""), time.Now().Year())
+	s.render(w, r, "event_form", M{"Event": db.Event{Name: name, Status: db.StatusDraft}, "New": true})
+}
+
+// trailingYear matches a name that already ends with a year.
+var trailingYear = regexp.MustCompile(`\s+(19|20)\d\d$`)
+
+// suggestEventName proposes "<organisation> <year>" for a new edition. An
+// organisation name that already ends with a year ("Example Conf 2026")
+// gave "Example Conf 2026 2026": that year is replaced, not repeated.
+func suggestEventName(org string, year int) string {
+	base := trailingYear.ReplaceAllString(strings.TrimSpace(org), "")
+	if base == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s %d", base, year)
 }
 
 func (s *Server) adminEventCreate(w http.ResponseWriter, r *http.Request) {
@@ -291,7 +306,7 @@ func (s *Server) adminEvent(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "admin_event", M{
 		"Event": ev, "Coverage": coverage, "Stats": stats, "Messages": msgs, "Modes": db.Modes, "Events": events,
 		"Coordinators": coordinators, "AllUsers": allUsers,
-		"NextYear": time.Now().Year() + 1,
+		"NextName": suggestEventName(s.DB.GetSetting("org_name", ""), time.Now().Year()+1),
 		"Statuses": []string{db.StatusDraft, db.StatusOpen, db.StatusFrozen, db.StatusArchived},
 		"Tab":      r.URL.Query().Get("tab"),
 	})

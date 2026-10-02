@@ -140,7 +140,7 @@
   <p class="hint">Crée un nouvel événement en brouillon avec les mêmes pôles&nbsp;: réglages, icônes, modes d'accès, listes de tâches par défaut, emplacements, responsables et coordination. Les créneaux et les inscriptions ne sont pas repris.</p>
   <form method="post" action="{{.Event.AdminURL}}/duplicate">
     <label for="dup-name">Nom</label>
-    <input id="dup-name" type="text" name="name" required value="{{.Org}} {{.NextYear}}">
+    <input id="dup-name" type="text" name="name" required value="{{.NextName}}">
     <div class="grid-2">
       <div><label for="dup-start">Premier jour</label><input id="dup-start" type="date" name="starts_on" required></div>
       <div><label for="dup-end">Dernier jour</label><input id="dup-end" type="date" name="ends_on" required></div>
