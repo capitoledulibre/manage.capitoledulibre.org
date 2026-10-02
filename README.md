@@ -123,7 +123,7 @@ Everything is configured with environment variables; see
 | `PARTNERS_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
 | `PARTNERS_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$PARTNERS_BASE_URL/admin/callback` |
 | `PARTNERS_ADMIN_EMAILS`, `PARTNERS_ADMIN_GROUP` | Who may log in as staff |
-| `PARTNERS_EXPORT_TOKEN` | Token for the JSON export |
+| `PARTNERS_EXPORT_TOKEN` | Token for the JSON export, at least 32 characters (`openssl rand -hex 32`); empty disables token access |
 
 ## JSON export for the website
 

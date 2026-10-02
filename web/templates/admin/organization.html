@@ -14,7 +14,7 @@
       <ul class="divide-y divide-gray-100">
         {{range .D.Jobs}}
         <li class="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-          <span>{{if .URL}}<a class="link" href="{{.URL}}" rel="noopener" target="_blank">{{.Title}}</a>{{else}}{{.Title}}{{end}}
+          <span>{{if .URL}}<a class="link" href="{{.URL}}" rel="noopener noreferrer" target="_blank">{{.Title}}</a>{{else}}{{.Title}}{{end}}
             {{if .Hidden}}<span class="badge bg-gray-100 text-gray-700">masquée</span>{{else if .Expired}}<span class="badge bg-amber-100 text-amber-800">expirée</span>{{end}}</span>
           <form method="post" action="/admin/organizations/{{$o.Slug}}/jobs/{{.UID}}/toggle"><button class="btn-secondary btn-sm">{{if .Hidden}}Publier{{else}}Masquer{{end}}</button></form>
         </li>

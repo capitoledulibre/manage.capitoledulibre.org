@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,10 @@ import (
 const (
 	maxLogoSize = 10 << 20
 	maxPDFSize  = 20 << 20
+	// maxLogoVersions bounds the logo history kept per variant, and so the
+	// disk space a partner can use: logos are the only files partners
+	// upload.
+	maxLogoVersions = 10
 )
 
 func (s *Server) partnerRoutes(mux *http.ServeMux) {
@@ -535,6 +540,17 @@ func (s *Server) saveLogo(w http.ResponseWriter, r *http.Request, org *store.Org
 
 	if err := s.store.AddLogo(r.Context(), &store.Logo{OrgID: org.ID, Variant: variant, File: name, UploadedBy: rc(r).Actor()}); err != nil {
 		return err
+	}
+
+	removed, err := s.store.PruneLogos(r.Context(), org.ID, variant, maxLogoVersions)
+	if err != nil {
+		slog.Error("prune logos", "org", org.Name, "err", err)
+	}
+
+	for _, f := range removed {
+		if err := s.files.Remove(f); err != nil {
+			slog.Error("remove old logo", "file", f, "err", err)
+		}
 	}
 
 	s.record(r, org, nil, "logo.uploaded", variant)

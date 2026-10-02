@@ -16,13 +16,13 @@
           <h2 class="text-lg font-semibold">{{.Org.Name}}</h2>
           {{if .Level}}<span class="badge bg-brand-50 text-brand-800">{{t $.Lang "jobs.sponsor"}} {{.Level}}</span>{{end}}
         </div>
-        {{if .Org.Website}}<a class="link ml-auto text-sm" href="{{.Org.Website}}" rel="noopener" target="_blank">{{t $.Lang "jobs.website"}} ↗</a>{{end}}
+        {{if .Org.Website}}<a class="link ml-auto text-sm" href="{{.Org.Website}}" rel="noopener noreferrer nofollow ugc" target="_blank">{{t $.Lang "jobs.website"}} ↗</a>{{end}}
       </div>
       <ul class="mt-6 divide-y divide-gray-100">
         {{range .Jobs}}
         <li class="py-4">
           <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h3 class="font-medium">{{if .URL}}<a class="link" href="{{.URL}}" rel="noopener" target="_blank">{{.Title}}</a>{{else}}{{.Title}}{{end}}</h3>
+            <h3 class="font-medium">{{if .URL}}<a class="link" href="{{.URL}}" rel="noopener noreferrer nofollow ugc" target="_blank">{{.Title}}</a>{{else}}{{.Title}}{{end}}</h3>
             {{if .Contract}}<span class="badge bg-gray-100 text-gray-700">{{.Contract}}</span>{{end}}
             {{if .Location}}<span class="text-sm text-gray-500">📍 {{.Location}}</span>{{end}}
           </div>

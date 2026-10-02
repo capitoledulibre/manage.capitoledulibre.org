@@ -77,6 +77,9 @@ func (s *Store) Save(r io.Reader, originalName string, kind Kind, maxSize int64)
 	return name, nil
 }
 
+// Dir returns the storage directory.
+func (s *Store) Dir() string { return s.dir }
+
 // Path returns the absolute path of a stored file.
 func (s *Store) Path(name string) (string, error) {
 	if !validName.MatchString(name) {
@@ -84,6 +87,20 @@ func (s *Store) Path(name string) (string, error) {
 	}
 
 	return filepath.Join(s.dir, name), nil
+}
+
+// Remove deletes a stored file; a missing file is not an error.
+func (s *Store) Remove(name string) error {
+	path, err := s.Path(name)
+	if err != nil {
+		return err
+	}
+
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	return nil
 }
 
 // Serve writes a stored file to the response. SVG files are sandboxed so an

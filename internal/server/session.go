@@ -141,13 +141,15 @@ func (s *Server) loadSessions(ctx context.Context, r *http.Request, c *reqCtx) e
 	return nil
 }
 
+// detectLang picks the display language: the explicit choice (cookie), then
+// the manager's email language, then the browser preference.
 func detectLang(r *http.Request, m *store.Manager) string {
-	if m != nil && validLang(m.Lang) {
-		return m.Lang
-	}
-
 	if ck, err := r.Cookie(langCookie); err == nil && validLang(ck.Value) {
 		return ck.Value
+	}
+
+	if m != nil && validLang(m.Lang) {
+		return m.Lang
 	}
 
 	if al := strings.ToLower(r.Header.Get("Accept-Language")); strings.HasPrefix(al, "en") {

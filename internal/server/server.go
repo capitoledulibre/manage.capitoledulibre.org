@@ -134,19 +134,29 @@ func (s *Server) Handler() http.Handler {
 	var h http.Handler = mux
 	h = s.withSession(h)
 	h = protection.Handler(h)
-	h = securityHeaders(h)
+	h = securityHeaders(h, s.cfg.SecureCookies())
 	h = logRequests(h)
 
 	return h
 }
 
-func securityHeaders(h http.Handler) http.Handler {
+// securityHeaders sets the browser security policy. HSTS is only sent when
+// the application is served over HTTPS.
+func securityHeaders(h http.Handler, https bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hd := w.Header()
 		hd.Set("X-Content-Type-Options", "nosniff")
 		hd.Set("X-Frame-Options", "DENY")
 		hd.Set("Referrer-Policy", "same-origin")
-		hd.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'")
+		hd.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; "+
+			"form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
+		hd.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()")
+		hd.Set("Cross-Origin-Opener-Policy", "same-origin")
+
+		if https {
+			hd.Set("Strict-Transport-Security", "max-age=31536000")
+		}
+
 		h.ServeHTTP(w, r)
 	})
 }

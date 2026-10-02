@@ -111,10 +111,18 @@ func Load() (*Config, error) {
 	return c, nil
 }
 
+// MinExportTokenLength is the minimum length of PARTNERS_EXPORT_TOKEN, so it
+// cannot be guessed.
+const MinExportTokenLength = 32
+
 // ValidateServe checks the settings only required by the web server.
 func (c *Config) ValidateServe() error {
 	if !c.Dev && !c.OIDCEnabled() {
 		return fmt.Errorf("OIDC is not configured (PARTNERS_OIDC_ISSUER, PARTNERS_OIDC_CLIENT_ID, PARTNERS_OIDC_CLIENT_SECRET); set PARTNERS_DEV=1 for local development")
+	}
+
+	if c.ExportToken != "" && len(c.ExportToken) < MinExportTokenLength {
+		return fmt.Errorf("PARTNERS_EXPORT_TOKEN must be at least %d characters (e.g. openssl rand -hex 32)", MinExportTokenLength)
 	}
 
 	return nil

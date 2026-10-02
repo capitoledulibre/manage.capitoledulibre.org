@@ -126,7 +126,7 @@
               {{if .Published}}{{t $l "social.published"}}{{else}}{{with .PlannedAt}}{{t $l "social.planned_on"}} {{date $l .}}{{else}}{{t $l "social.to_schedule"}}{{end}}{{end}}
             </span>
           </span>
-          {{if .Published}}<a class="btn-secondary btn-sm" href="{{.URL}}" rel="noopener" target="_blank">{{t $l "social.view"}} ↗</a>{{else}}<span class="badge bg-gray-100 text-gray-700">{{t $l "social.upcoming"}}</span>{{end}}
+          {{if .Published}}<a class="btn-secondary btn-sm" href="{{.URL}}" rel="noopener noreferrer" target="_blank">{{t $l "social.view"}} ↗</a>{{else}}<span class="badge bg-gray-100 text-gray-700">{{t $l "social.upcoming"}}</span>{{end}}
         </li>
         {{end}}
       </ul>

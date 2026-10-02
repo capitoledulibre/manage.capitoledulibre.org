@@ -67,3 +67,20 @@ func TestSiteDefaults(t *testing.T) {
 		t.Errorf("derived: %q %q", c.MailFrom, c.SiteURL)
 	}
 }
+
+func TestExportTokenLength(t *testing.T) {
+	c := &Config{Dev: true, ExportToken: "short"}
+	if err := c.ValidateServe(); err == nil {
+		t.Error("a short export token must be refused")
+	}
+
+	c.ExportToken = "0123456789abcdef0123456789abcdef"
+	if err := c.ValidateServe(); err != nil {
+		t.Errorf("32-character token refused: %v", err)
+	}
+
+	c.ExportToken = ""
+	if err := c.ValidateServe(); err != nil {
+		t.Errorf("no token (export disabled) refused: %v", err)
+	}
+}

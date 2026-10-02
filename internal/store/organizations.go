@@ -390,3 +390,52 @@ func (s *Store) DeleteManager(ctx context.Context, orgID, id int64) error {
 func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
+
+// PruneLogos keeps the keep most recent versions of an organization's logo
+// variant and deletes older ones, never the current logo files. It returns
+// the names of the deleted files, to remove from disk.
+func (s *Store) PruneLogos(ctx context.Context, orgID int64, variant string, keep int) ([]string, error) {
+	var removed []string
+
+	err := s.tx(ctx, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT l.id, l.file FROM logos l JOIN organizations o ON o.id = l.organization_id
+			WHERE l.organization_id = ? AND l.variant = ? AND l.file NOT IN (o.logo_file, o.logo_dark_file)
+			ORDER BY l.uploaded_at DESC, l.id DESC LIMIT -1 OFFSET ?`, orgID, variant, max(keep-1, 0))
+		if err != nil {
+			return err
+		}
+
+		var ids []int64
+
+		for rows.Next() {
+			var (
+				id   int64
+				file string
+			)
+
+			if err := rows.Scan(&id, &file); err != nil {
+				rows.Close()
+
+				return err
+			}
+
+			ids = append(ids, id)
+			removed = append(removed, file)
+		}
+
+		rows.Close()
+
+		for _, id := range ids {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM logos WHERE id = ?`, id); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return removed, nil
+}

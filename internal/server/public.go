@@ -4,12 +4,14 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
 	"partners/internal/i18n"
-	"partners/internal/mail"
+	pmail "partners/internal/mail"
 	"partners/internal/store"
 )
 
@@ -91,7 +93,7 @@ func (s *Server) sendLoginLink(r *http.Request, email, lang string) error {
 
 	lang = managers[0].Lang
 
-	return s.mailer.Send(mail.Message{
+	return s.mailer.Send(pmail.Message{
 		To:      []string{email},
 		Subject: i18n.T(lang, "mail.login.subject"),
 		Body:    i18n.T(lang, "mail.login.body", s.cfg.BaseURL+"/auth/"+token, int(loginTokenTTL.Minutes())),
@@ -105,7 +107,7 @@ func (s *Server) sendInvite(r *http.Request, m *store.Manager, org *store.Organi
 		return err
 	}
 
-	return s.mailer.Send(mail.Message{
+	return s.mailer.Send(pmail.Message{
 		To:      []string{m.Email},
 		Subject: i18n.T(m.Lang, "mail.invite.subject", org.Name),
 		Body:    i18n.T(m.Lang, "mail.invite.body", inviter, org.Name, s.cfg.BaseURL+"/auth/"+token, s.cfg.BaseURL),
@@ -204,14 +206,10 @@ func (s *Server) switchLang(w http.ResponseWriter, r *http.Request) error {
 		return errNotFound
 	}
 
+	// A GET only changes the display language (cookie). The language of a
+	// manager's emails is changed on the profile page, with a POST, so a
+	// third-party site cannot change it.
 	s.setCookie(w, langCookie, lang, 365*24*time.Hour)
-
-	if m := rc(r).Manager; m != nil && !rc(r).Impersonating {
-		m.Lang = lang
-		if err := s.store.UpdateManager(r.Context(), m); err != nil {
-			return err
-		}
-	}
 
 	http.Redirect(w, r, safeRedirect(r.URL.Query().Get("next"), "/"), http.StatusSeeOther)
 
@@ -348,10 +346,21 @@ func (s *Server) avatar(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// validEmail accepts a bare address (no display name), rejecting control
+// characters such as CR/LF that could end up in email headers.
 func validEmail(email string) bool {
+	if len(email) > 254 || strings.IndexFunc(email, unicode.IsControl) >= 0 || strings.ContainsAny(email, " <>,;\"") {
+		return false
+	}
+
+	addr, err := mail.ParseAddress(email)
+	if err != nil || addr.Name != "" || addr.Address != email {
+		return false
+	}
+
 	at := strings.LastIndex(email, "@")
 
-	return len(email) <= 254 && at > 0 && at < len(email)-3 && strings.Contains(email[at:], ".") && !strings.ContainsAny(email, " <>,;\"")
+	return at > 0 && at < len(email)-3 && strings.Contains(email[at:], ".")
 }
 
 // safeRedirect only allows local paths, to avoid open redirects.
