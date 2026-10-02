@@ -288,18 +288,27 @@ func (d *DB) CreateSession(userID int64, ttl time.Duration) (string, error) {
 	return id, err
 }
 
-// SessionUser returns the user attached to a valid session.
-func (d *DB) SessionUser(id string) (User, error) {
+// SessionUser returns the user attached to a valid session, and when the
+// session expires.
+func (d *DB) SessionUser(id string) (User, time.Time, error) {
 	var userID int64
 	var expires string
 	if err := d.QueryRow(`SELECT user_id, expires_at FROM sessions WHERE id = ?`, id).Scan(&userID, &expires); err != nil {
-		return User{}, err
+		return User{}, time.Time{}, err
 	}
-	if ParseTime(expires).Before(time.Now()) {
+	until := ParseTime(expires)
+	if until.Before(time.Now()) {
 		d.Exec(`DELETE FROM sessions WHERE id = ?`, id)
-		return User{}, sql.ErrNoRows
+		return User{}, time.Time{}, sql.ErrNoRows
 	}
-	return d.GetUser(userID)
+	u, err := d.GetUser(userID)
+	return u, until, err
+}
+
+// ExtendSession pushes the expiry of a session to ttl from now.
+func (d *DB) ExtendSession(id string, ttl time.Duration) error {
+	_, err := d.Exec(`UPDATE sessions SET expires_at = ? WHERE id = ?`, FormatTime(time.Now().Add(ttl)), id)
+	return err
 }
 
 // DeleteSession logs a session out.

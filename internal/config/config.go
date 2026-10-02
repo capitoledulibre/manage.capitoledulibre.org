@@ -4,6 +4,7 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -21,6 +22,10 @@ type Config struct {
 	DevMode      bool           // print magic links to stdout instead of e-mailing
 	ReminderHour int            // local hour at which the daily reminder is sent
 	Gravatar     bool           // look missing profile pictures up on gravatar.com
+
+	// TrustedProxies are the peers whose X-Forwarded-For header is believed.
+	// Anyone else could write any address in it and dodge the rate limits.
+	TrustedProxies []netip.Prefix
 
 	SMTPHost string
 	SMTPPort int
@@ -48,6 +53,11 @@ func Load() (Config, error) {
 		SMTPPass:     env("SMTP_PASS", ""),
 		MailFrom:     env("MAIL_FROM", "benevoles@example.org"),
 	}
+	proxies, err := parseProxies(env("TRUSTED_PROXIES", "private"))
+	if err != nil {
+		return c, err
+	}
+	c.TrustedProxies = proxies
 	tz := env("TIMEZONE", "Europe/Paris")
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
@@ -55,6 +65,38 @@ func Load() (Config, error) {
 	}
 	c.Timezone = loc
 	return c, nil
+}
+
+// privateNets are the loopback and private ranges: a reverse proxy on the
+// same host or in the same Docker network connects from one of them, and a
+// client on the Internet cannot.
+var privateNets = []string{"127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"}
+
+// parseProxies reads TRUSTED_PROXIES: a comma-separated list of addresses or
+// CIDR ranges, where "private" stands for the loopback and private ranges and
+// "none" trusts nobody (the server faces the Internet directly).
+func parseProxies(v string) ([]netip.Prefix, error) {
+	var out []netip.Prefix
+	for _, item := range strings.Split(v, ",") {
+		item = strings.TrimSpace(item)
+		switch item {
+		case "", "none":
+			continue
+		case "private":
+			for _, n := range privateNets {
+				out = append(out, netip.MustParsePrefix(n))
+			}
+			continue
+		}
+		if p, err := netip.ParsePrefix(item); err == nil {
+			out = append(out, p.Masked())
+		} else if a, err := netip.ParseAddr(item); err == nil {
+			out = append(out, netip.PrefixFrom(a, a.BitLen()))
+		} else {
+			return nil, fmt.Errorf("invalid TRUSTED_PROXIES entry %q: expected an address, a CIDR range, \"private\" or \"none\"", item)
+		}
+	}
+	return out, nil
 }
 
 func env(key, def string) string {

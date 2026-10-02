@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -38,6 +39,10 @@ const (
 	flashCookie   = "flash"
 	sessionTTL    = 90 * 24 * time.Hour
 	magicLinkTTL  = 30 * time.Minute
+
+	// sessionRenewEvery is how often an active session gets its expiry
+	// pushed back to sessionTTL from now.
+	sessionRenewEvery = 24 * time.Hour
 )
 
 // Server holds the dependencies of the HTTP handlers.
@@ -190,16 +195,47 @@ func (s *Server) parseTemplates() error {
 	return nil
 }
 
-// clientIP returns the caller address, honouring X-Forwarded-For from a proxy.
-func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return strings.TrimSpace(strings.Split(xff, ",")[0])
+// clientIP returns the caller address. X-Forwarded-For is only read when the
+// connection comes from a trusted proxy: from anyone else it is whatever they
+// chose to write, and believing it let one client pose as many to get past
+// the login rate limit. Each proxy appends the address it saw, so the client
+// is the rightmost entry that is not a trusted proxy; the leftmost ones are
+// the client's to forge.
+func (s *Server) clientIP(r *http.Request) string {
+	peer := r.RemoteAddr
+	if ap, err := netip.ParseAddrPort(peer); err == nil {
+		peer = ap.Addr().Unmap().String()
 	}
-	host := r.RemoteAddr
-	if i := strings.LastIndex(host, ":"); i > 0 {
-		host = host[:i]
+	if !s.trustedProxy(peer) {
+		return peer
 	}
-	return host
+	hops := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
+	for i := len(hops) - 1; i >= 0; i-- {
+		hop := strings.TrimSpace(hops[i])
+		if hop == "" {
+			continue
+		}
+		if !s.trustedProxy(hop) {
+			return hop
+		}
+		peer = hop
+	}
+	return peer
+}
+
+// trustedProxy tells whether an address belongs to TRUSTED_PROXIES.
+func (s *Server) trustedProxy(addr string) bool {
+	a, err := netip.ParseAddr(addr)
+	if err != nil {
+		return false
+	}
+	a = a.Unmap()
+	for _, p := range s.Cfg.TrustedProxies {
+		if p.Contains(a) {
+			return true
+		}
+	}
+	return false
 }
 
 func statusLabel(st string) string {
@@ -450,7 +486,17 @@ const userKey ctxKey = 1
 func (s *Server) withUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
-			if u, err := s.DB.SessionUser(c.Value); err == nil {
+			if u, until, err := s.DB.SessionUser(c.Value); err == nil {
+				// The session slides: volunteers come back a few times
+				// between signing up and the event, and a fixed expiry
+				// sent some of them back through the e-mail link right
+				// before the day. Renewed at most once a day, to keep page
+				// views from writing to the database.
+				if time.Until(until) < sessionTTL-sessionRenewEvery {
+					if err := s.DB.ExtendSession(c.Value, sessionTTL); err == nil {
+						s.setSessionCookie(w, c.Value)
+					}
+				}
 				// Fills in the profile picture of an account that has
 				// none, off the request goroutine.
 				s.Avatars.Refresh(u)
@@ -458,6 +504,14 @@ func (s *Server) withUser(next http.Handler) http.Handler {
 			}
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+// setSessionCookie hands the browser the session id, for sessionTTL.
+func (s *Server) setSessionCookie(w http.ResponseWriter, sid string) {
+	http.SetCookie(w, &http.Cookie{
+		Name: sessionCookie, Value: sid, Path: "/", HttpOnly: true,
+		SameSite: http.SameSiteLaxMode, Secure: s.Cfg.Secure, MaxAge: int(sessionTTL.Seconds()),
 	})
 }
 

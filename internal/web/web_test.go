@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -1260,4 +1261,71 @@ func TestManagerContact(t *testing.T) {
 	// A form without the choice (the welcome page) leaves it alone.
 	resp.post("/profile", 303, url.Values{"name": {"Rémi Responsable"}, "phone": {"0611223344"}, "welcome": {"1"}})
 	want(t, vol.get("/slots/1", 200), `href="tel:0611223344"`)
+}
+
+// TestClientIP: X-Forwarded-For is believed only from a trusted proxy, and
+// then read from the right, where a client cannot write.
+func TestClientIP(t *testing.T) {
+	trusted := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("10.0.0.0/8")}
+	cases := []struct {
+		name, remote, xff, want string
+		proxies                 []netip.Prefix
+	}{
+		{"direct, no header", "203.0.113.9:4000", "", "203.0.113.9", trusted},
+		{"forged by a direct client", "203.0.113.9:4000", "1.2.3.4", "203.0.113.9", trusted},
+		{"through the proxy", "127.0.0.1:4000", "198.51.100.5", "198.51.100.5", trusted},
+		{"client prepends a fake", "127.0.0.1:4000", "1.2.3.4, 198.51.100.5", "198.51.100.5", trusted},
+		{"two proxies", "127.0.0.1:4000", "198.51.100.5, 10.0.0.2", "198.51.100.5", trusted},
+		{"IPv6 peer", "[::1]:4000", "198.51.100.5", "::1", trusted},
+		{"no trusted proxy configured", "127.0.0.1:4000", "198.51.100.5", "127.0.0.1", nil},
+	}
+	for _, c := range cases {
+		s := &Server{Cfg: config.Config{TrustedProxies: c.proxies}}
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.RemoteAddr = c.remote
+		if c.xff != "" {
+			r.Header.Set("X-Forwarded-For", c.xff)
+		}
+		if got := s.clientIP(r); got != c.want {
+			t.Errorf("%s: clientIP = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// TestSessionSlides: a volunteer who keeps coming back keeps their session,
+// instead of being sent through the e-mail link again 90 days after the first.
+func TestSessionSlides(t *testing.T) {
+	e := newEnv(t)
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	base, _ := url.Parse(e.ts.URL)
+	var sid string
+	for _, c := range vol.http.Jar.Cookies(base) {
+		if c.Name == sessionCookie {
+			sid = c.Value
+		}
+	}
+	if sid == "" {
+		t.Fatal("no session cookie")
+	}
+	expiry := func() time.Time {
+		_, until, err := e.db.SessionUser(sid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return until
+	}
+	// A fresh session is not rewritten on every page view.
+	before := expiry()
+	vol.get("/profile", 200)
+	if !expiry().Equal(before) {
+		t.Fatal("a fresh session was renewed")
+	}
+	// Ten days from expiry, the next visit pushes it back to the full term.
+	if err := e.db.ExtendSession(sid, 10*24*time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	vol.get("/profile", 200)
+	if left := time.Until(expiry()); left < sessionTTL-time.Hour {
+		t.Fatalf("session not renewed: %v left", left)
+	}
 }

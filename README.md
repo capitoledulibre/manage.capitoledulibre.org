@@ -95,6 +95,7 @@ Environment variables (a `.env` file in the working directory is read too):
 | `TIMEZONE` | `Europe/Paris` | Display timezone |
 | `COOKIE_SECURE` | unset | Set to `1` behind HTTPS |
 | `REMINDER_HOUR` | `18` | Local hour of the daily reminder e-mail |
+| `TRUSTED_PROXIES` | `private` | Peers whose `X-Forwarded-For` is believed: addresses or CIDR ranges, `private` (loopback and private ranges), or `none` |
 | `GRAVATAR` | `1` | Look profile pictures up on gravatar.com (server side, cached); `0` disables it |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | `587` | SMTP server (port 465 uses implicit TLS) |
 | `MAIL_FROM` | `benevoles@example.org` | Sender address |
@@ -193,8 +194,11 @@ covered end to end. The Gravatar test serves a local stub, so the suite never
 reaches the real service.
 
 Login requests are rate limited in memory (3 per e-mail address and 30 per IP
-every 15 minutes). Behind a reverse proxy, the client IP is read from
-`X-Forwarded-For`. The server stops gracefully on SIGINT/SIGTERM.
+every 15 minutes). The client IP is read from `X-Forwarded-For` only when the
+connection comes from one of `TRUSTED_PROXIES`, taking the rightmost address
+that is not a proxy: from anyone else the header is ignored, since a client
+could otherwise write a new address in it for every attempt. A session lasts
+90 days from the last visit. The server stops gracefully on SIGINT/SIGTERM.
 
 ## License
 

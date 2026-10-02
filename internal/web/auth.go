@@ -59,7 +59,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, "login", data)
 		return
 	}
-	if !s.loginByIP.Allow(clientIP(r)) || !s.loginByEmail.Allow(email) {
+	if !s.loginByIP.Allow(s.clientIP(r)) || !s.loginByEmail.Allow(email) {
 		w.WriteHeader(http.StatusTooManyRequests)
 		data["Error"] = "Trop de demandes de connexion. Vérifiez votre boîte de réception, puis réessayez dans un quart d'heure."
 		s.render(w, r, "login", data)
@@ -144,10 +144,7 @@ func (s *Server) authToken(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: sid, Path: "/", HttpOnly: true,
-		SameSite: http.SameSiteLaxMode, Secure: s.Cfg.Secure, MaxAge: int(sessionTTL.Seconds()),
-	})
+	s.setSessionCookie(w, sid)
 	u, _ := s.DB.GetUser(userID)
 	next := r.FormValue("next")
 	if !safePath(next) {
