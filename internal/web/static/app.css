@@ -69,7 +69,9 @@
   /* Accents (bars, borders, fills) and the darker variants used for text.
      Text tokens keep at least 4.5:1 on both --surface and their own tint. */
   --ok: #2b8a3e;   --ok-bg: #e8f6ec;   --ok-text: #1f6b30;
-  --warn: #d9700a; --warn-bg: #fff5e8; --warn-text: #a05200;
+  /* Warnings are amber-yellow, a hue away from the brand orange: in orange,
+     "il manque 20 bénévoles" read like one more link or button. */
+  --warn: #ca8a04; --warn-bg: #fefce8; --warn-text: #975c06;
   --danger: #c92a2a; --danger-bg: #fdf0f0; --danger-text: #b02020;
   --note-bg: #fff9e3; --note-border: #e6b800;
   --dim: #5a6070; /* readable muted text, used where opacity would fail contrast */
@@ -110,7 +112,7 @@
   --hero-bg: #411e0d;
   --hero-text: #ffac6e;
   --ok: #69c17a;   --ok-bg: #17281c;   --ok-text: #7fd08f;
-  --warn: #f2a54a; --warn-bg: #332512; --warn-text: #f4b268;
+  --warn: #eab308; --warn-bg: #2a2410; --warn-text: #facc15;
   --danger: #f07070; --danger-bg: #331b1b; --danger-text: #f28a8a;
   --note-bg: #302c18; --note-border: #c9a400;
   --dim: #99a1af;
