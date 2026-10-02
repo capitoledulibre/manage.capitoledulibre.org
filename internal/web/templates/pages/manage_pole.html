@@ -29,7 +29,7 @@
   <section class="day">
     <h2><span class="pill">{{parseDay .Day}}</span></h2>
     <div class="scroll-x" tabindex="0" role="region" aria-label="Créneaux du {{parseDay .Day}}">
-    <table class="compact">
+    <table class="compact stack">
       <thead><tr><th>Horaire</th><th>Emplacement</th><th>Intitulé</th><th>Bénévoles</th><th>Inscrits</th><th>Attente</th><th>Tâches</th><th>Actions</th></tr></thead>
       <tbody>
       {{range .Slots}}

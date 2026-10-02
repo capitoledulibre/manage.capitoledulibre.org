@@ -763,3 +763,52 @@ table.planning td { line-height: 2.1; }
   .pole-card:hover, .chip:hover { transform: none; }
   button:active, [type=submit]:active, [role=button]:active { transform: none; }
 }
+
+/* --- tables on a phone ------------------------------------------------- */
+/* Six or eight columns do not fit 390 px: the coverage, the actions and
+   half the rows' meaning sat beyond the right edge. Below 640 px a row
+   becomes a card and each cell carries its column name, set from the
+   header by a script in the layout. */
+@media (max-width: 640px) {
+  .scroll-x:has(> table.stack) { overflow: visible; }
+  table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; }
+  table.stack thead {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  table.stack tr {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+    box-shadow: var(--shadow-sm); padding: .55rem .85rem; margin-bottom: .6rem;
+  }
+  table.stack td {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    padding: .3rem 0; border: 0; background: none; text-align: right; white-space: normal;
+  }
+  table.stack td[data-label]::before {
+    content: attr(data-label); flex: none; text-align: left;
+    font-size: var(--t-micro); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--dim);
+  }
+  /* The first cell names the row: no label, and it leads. */
+  table.stack td:first-child { display: block; font-weight: 600; text-align: left; }
+  /* A card has no columns to keep aligned: an empty cell is just noise. */
+  table.stack td:empty { display: none; }
+  table.stack td:first-child::before { content: none; }
+  table.stack td .actions, table.stack td form { justify-content: flex-end; }
+  table.stack tr.urgent td { background: none; box-shadow: none; }
+  table.stack tr.urgent { border-left: 3px solid var(--warn); background: var(--warn-bg); }
+}
+
+/* --- figures and tabs on a phone --------------------------------------- */
+@media (max-width: 640px) {
+  /* Four tiles took a whole screen before the content: same figures,
+     half the height. */
+  .stats { grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: 1rem; }
+  .stats div { padding: .55rem .75rem; }
+  .stats b { font-size: 1.3rem; }
+  .stats .sub { font-size: .85rem; }
+  /* Tabs stay on one line and scroll sideways rather than leave the last
+     one alone on a second line. */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { white-space: nowrap; flex: none; }
+}

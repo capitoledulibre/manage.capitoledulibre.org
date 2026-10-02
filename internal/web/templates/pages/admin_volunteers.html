@@ -13,7 +13,7 @@
   <span id="vol-count" class="hint" role="status" aria-live="polite">{{len .Volunteers}} bénévole{{if gt (len .Volunteers) 1}}s{{end}}</span>
 </div>
 <div class="scroll-x" tabindex="0" role="region" aria-label="Liste des bénévoles">
-<table class="compact" id="volunteers-table">
+<table class="compact stack" id="volunteers-table">
   <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Pôles</th><th>Créneaux</th><th>Actions</th></tr></thead>
   <tbody>
   {{range .Volunteers}}

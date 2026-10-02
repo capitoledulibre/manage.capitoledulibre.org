@@ -21,7 +21,7 @@
 
 {{if or (not .Tab) (eq .Tab "poles")}}
 <div class="scroll-x" tabindex="0" role="region" aria-label="Couverture par pôle">
-<table class="compact">
+<table class="compact stack">
   <thead><tr><th>Pôle</th><th>Responsables</th><th>Bénévoles</th><th>Créneaux</th><th>Couverture</th><th>Incomplets</th><th>Actions</th></tr></thead>
   <tbody>
   {{range .Coverage}}

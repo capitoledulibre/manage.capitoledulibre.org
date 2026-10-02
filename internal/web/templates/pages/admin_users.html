@@ -18,7 +18,7 @@
 {{if .Users}}
 <p class="hint">Comptes {{.From}} à {{.To}} sur {{.Total}}{{if .Q}} correspondant à « {{.Q}} »{{end}}.</p>
 <div class="scroll-x" tabindex="0" role="region" aria-label="Liste des comptes">
-<table class="compact">
+<table class="compact stack">
   <thead><tr><th>Nom</th><th>E-mail</th><th>Téléphone</th><th>Pôles{{if .Event}} ({{.Event.Name}}){{end}}</th><th>Dernière connexion</th><th>Actions</th></tr></thead>
   <tbody>
   {{range .Users}}
