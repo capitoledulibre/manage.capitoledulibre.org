@@ -58,7 +58,9 @@ func (s *Server) managePole(w http.ResponseWriter, r *http.Request) {
 	managers, _ := s.DB.ListPoleManagers(pole.ID)
 	volunteers := map[int64][]db.User{}
 	var capacity, filled, short int
+	hasUrgent := false
 	for _, sl := range slots {
+		hasUrgent = hasUrgent || isUrgent(sl)
 		volunteers[sl.ID], _ = s.DB.ListSlotVolunteers(sl.ID)
 		capacity += sl.Capacity
 		filled += sl.Filled
@@ -79,7 +81,7 @@ func (s *Server) managePole(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, r, "manage_pole", M{
 		"CanAddMembers": eventAdmin || pole.ManagersCanAdd(), "AllUsers": allUsers, "Waiting": waiting,
-		"Pole": pole, "Event": ed, "EventAdmin": eventAdmin, "Days": groupSlots(slots, s.Cfg.Timezone), "Locations": locations,
+		"Pole": pole, "Event": ed, "EventAdmin": eventAdmin, "HasUrgent": hasUrgent, "Days": groupSlots(slots, s.Cfg.Timezone), "Locations": locations,
 		"Messages": msgs, "Members": members, "Managers": managers, "Volunteers": volunteers,
 		"Capacity": capacity, "Filled": filled, "Short": short, "SlotCount": len(slots),
 		"Tab": r.URL.Query().Get("tab"),

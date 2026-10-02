@@ -24,7 +24,7 @@
 </nav>
 
 {{if or (not .Tab) (eq .Tab "planning")}}
-  {{if .Days}}<p class="hint">Les lignes surlignées sont les créneaux incomplets qui commencent dans moins de 48 heures.</p>{{end}}
+  {{if .HasUrgent}}<p class="hint">Les lignes surlignées sont les créneaux incomplets qui commencent dans moins de 48 heures.</p>{{end}}
   {{range .Days}}
   <section class="day">
     <h2><span class="pill">{{parseDay .Day}}</span></h2>
@@ -34,11 +34,12 @@
       <tbody>
       {{range .Slots}}
       <tr class="{{if urgent .}}urgent{{end}}">
-        <td class="nowrap"><b>{{time .StartsAt}}</b> – {{time .EndsAt}}</td>
+        <td class="nowrap"><a href="/slots/{{.ID}}" title="Page du créneau"><b>{{time .StartsAt}}</b> – {{time .EndsAt}}</a></td>
         <td>{{if .LocationName}}{{.LocationName}}{{else}}<span class="muted">—</span>{{end}}</td>
-        {{/* The intitulé is optional: an empty cell used to render an empty
-             link, invisible to the mouse and unreadable to a screen reader. */}}
-        <td><a href="/slots/{{.ID}}">{{if .Title}}{{.Title}}{{else}}<span class="muted">sans intitulé</span>{{end}}</a></td>
+        {{/* The intitulé is optional; the link to the slot page sits on the
+             time, which every row has. "sans intitulé" underlined on every
+             row of a pole without titles was noise. */}}
+        <td>{{if .Title}}{{.Title}}{{else}}<span class="muted">—</span>{{end}}</td>
         <td class="nowrap"><span class="bar{{if not .IsFull}} short{{end}}{{if eq .Filled 0}} empty{{end}}" aria-hidden="true"><i style="width:{{pct .Filled .Capacity}}%"></i></span> {{.Filled}}/{{.Capacity}}</td>
         <td><small>{{range $i, $u := index $.Volunteers .ID}}{{if $i}}, {{end}}{{$u.DisplayName}}{{else}}<span class="muted">personne</span>{{end}}</small></td>
         {{/* People waiting means the slot is undersized, not just full. */}}

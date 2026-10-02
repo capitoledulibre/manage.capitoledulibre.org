@@ -165,17 +165,8 @@ func (s *Server) parseTemplates() error {
 			}
 			return out
 		},
-		"add": func(a, b int) int { return a + b },
-		// urgent marks a slot that still needs volunteers and starts soon.
-		// Highlighting every not-yet-full slot painted whole plannings amber
-		// on day one, which drowned the signal.
-		"urgent": func(sl db.Slot) bool {
-			if sl.IsFull() {
-				return false
-			}
-			d := time.Until(sl.StartsAt)
-			return d > 0 && d < 48*time.Hour
-		},
+		"add":    func(a, b int) int { return a + b },
+		"urgent": isUrgent,
 		"dict": func(kv ...any) M {
 			m := M{}
 			for i := 0; i+1 < len(kv); i += 2 {
@@ -294,6 +285,11 @@ func dateRange(from, to string, loc *time.Location) string {
 		return fmt.Sprintf("du %d %s au %d %s", a.Day(), monthYear(a), b.Day(), monthYear(b))
 	}
 }
+
+// isUrgent marks a slot that still needs volunteers and starts soon.
+// Highlighting every not-yet-full slot painted whole plannings amber on day
+// one, which drowned the signal.
+func isUrgent(sl db.Slot) bool { return !sl.IsFull() && isLate(sl) }
 
 // formatPhone groups a French ten-digit number by pairs, "06 11 22 33 44",
 // which is how it is read and dialled; anything else is shown as typed.
