@@ -2,13 +2,31 @@
 {{define "content"}}
 <div class="page-header">
   <div><h1>Mon planning</h1><p class="muted">{{.Event.Name}} · {{.Count}} créneau{{if gt .Count 1}}x{{end}}</p></div>
-  {{if .Count}}<a href="/me.ics" role="button" class="secondary outline small">Télécharger (.ics)</a>{{end}}
 </div>
+
+{{range .Days}}
+<section class="day{{if eq .Day $.Today}} today{{end}}">
+  <h2><span class="pill">{{parseDay .Day}}{{if eq .Day $.Today}} · aujourd'hui{{end}}</span></h2>
+  {{range .Slots}}
+  <article class="slot mine">
+    <div class="slot-row">
+      <div class="slot-time">{{time .StartsAt}}<span class="dash">–</span>{{time .EndsAt}}</div>
+      <div class="slot-info"><a class="slot-title" href="/slots/{{.ID}}">{{.PoleName}}{{if .Title}} – {{.Title}}{{end}}</a>{{if .LocationName}}<span class="badge">{{.LocationName}}</span>{{end}}</div>
+      <div class="slot-action"><a href="/slots/{{.ID}}" role="button" class="secondary outline small">Détails</a></div>
+    </div>
+  </article>
+  {{end}}
+</section>
+{{else}}
+{{if not .Waiting}}<p class="empty">Vous n'êtes inscrit·e sur aucun créneau pour l'instant. <a href="/">Choisissez un pôle</a> ou voyez <a href="/slots">où on a besoin de vous</a>.</p>{{end}}
+{{end}}
+{{template "waiting_list" .Waiting}}
 
 {{/* A downloaded file goes stale as soon as a manager moves a slot; the
      subscription keeps the volunteer's calendar right on its own. */}}
-<details class="panel" {{if not .Count}}open{{end}}>
-  <summary><b>Synchroniser avec mon agenda</b> <small class="muted">— mise à jour automatique</small></summary>
+{{if .Count}}
+<details class="panel mt-md">
+  <summary><b>Ajouter mon planning à mon agenda</b> <small class="muted">— se met à jour tout seul</small></summary>
   <p class="hint">Ajoutez ce lien dans votre agenda (Google Agenda, Apple Calendrier, Thunderbird…) comme « calendrier par abonnement ». Vos créneaux y apparaîtront, et toute modification suivra sans que vous ayez à retélécharger quoi que ce soit.</p>
   <div class="invite">
     <label for="calendar-url" class="sr-only">Lien d'abonnement à votre planning</label>
@@ -19,6 +37,7 @@
   <form method="post" action="/me/calendar/reset" onsubmit="return confirm('Générer un nouveau lien ? Les agendas déjà abonnés cesseront de se mettre à jour tant qu’ils n’auront pas le nouveau lien.')">
     <button class="link muted">Régénérer le lien</button>
   </form>
+  <p class="hint">Sans abonnement, vous pouvez aussi <a href="/me.ics">télécharger le fichier .ics</a> une fois&nbsp;; il ne suivra pas les changements.</p>
   <script>
   (function () {
     var btn = document.getElementById("calendar-copy");
@@ -37,23 +56,5 @@
   })();
   </script>
 </details>
-
-{{range .Days}}
-<section class="day{{if eq .Day $.Today}} today{{end}}">
-  <h2><span class="pill">{{parseDay .Day}}{{if eq .Day $.Today}} · aujourd'hui{{end}}</span></h2>
-  {{range .Slots}}
-  <article class="slot mine">
-    <div class="slot-row">
-      <div class="slot-time">{{time .StartsAt}}<span class="dash">–</span>{{time .EndsAt}}</div>
-      <div class="slot-info"><a class="slot-title" href="/slots/{{.ID}}">{{.PoleName}}{{if .Title}} – {{.Title}}{{end}}</a>{{if .LocationName}}<span class="badge">{{.LocationName}}</span>{{end}}</div>
-      <div class="slot-fill"><small>{{.Filled}}/{{.Capacity}} bénévoles</small></div>
-      <div class="slot-action"><a href="/slots/{{.ID}}" role="button" class="secondary outline small">Détails</a></div>
-    </div>
-  </article>
-  {{end}}
-</section>
-{{else}}
-{{if not .Waiting}}<p class="empty">Vous n'êtes inscrit·e sur aucun créneau pour l'instant. <a href="/">Choisissez un pôle</a> ou voyez <a href="/slots">où on a besoin de vous</a>.</p>{{end}}
 {{end}}
-{{template "waiting_list" .Waiting}}
 {{end}}
