@@ -23,7 +23,7 @@
   </section>
   <div class="space-y-6">
   {{if and .Manager (not .Impersonating)}}
-  <section class="card">
+  <section class="card scroll-mt-24" id="profile">
     <h2 class="card-title">{{t $l "profile.title"}}</h2>
     <form method="post" action="/p/profile" class="space-y-3">
       <p class="text-sm text-gray-600">{{.Manager.Email}}</p>

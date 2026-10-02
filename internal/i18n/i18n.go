@@ -83,6 +83,8 @@ var messages = map[string][2]string{
 	"confirm.title":         {"Confirmation", "Confirmation"},
 	"confirm.ok":            {"Confirmer", "Confirm"},
 	"confirm.cancel":        {"Annuler", "Cancel"},
+	"menu.label":            {"Menu du compte", "Account menu"},
+	"menu.profile":          {"Mon profil", "My profile"},
 	"theme.label":           {"Thème", "Theme"},
 	"theme.system":          {"Thème du système", "System theme"},
 	"theme.light":           {"Thème clair", "Light theme"},

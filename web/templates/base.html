@@ -33,23 +33,17 @@
         {{if and (eq .Area "admin") .Admin}}{{template "admin_nav" .}}{{end}}
       </nav>
       <div class="flex items-center gap-3 text-sm">
-        <nav class="theme-switch" aria-label="{{t .Lang "theme.label"}}">
-          <a href="/theme/system?next={{.RequestURI}}" title="{{t .Lang "theme.system"}}" aria-label="{{t .Lang "theme.system"}}" aria-current="{{eq .Theme "system"}}">◐</a>
-          <a href="/theme/light?next={{.RequestURI}}" title="{{t .Lang "theme.light"}}" aria-label="{{t .Lang "theme.light"}}" aria-current="{{eq .Theme "light"}}">☀&#xFE0E;</a>
-          <a href="/theme/dark?next={{.RequestURI}}" title="{{t .Lang "theme.dark"}}" aria-label="{{t .Lang "theme.dark"}}" aria-current="{{eq .Theme "dark"}}">☾</a>
-        </nav>
         {{if ne .Area "admin"}}
           {{if eq .Lang "fr"}}<a class="link inline-flex items-center gap-1.5" href="/lang/en?next={{.RequestURI}}" hreflang="en" lang="en">{{template "flag" "en"}}English</a>{{else}}<a class="link inline-flex items-center gap-1.5" href="/lang/fr?next={{.RequestURI}}" hreflang="fr" lang="fr">{{template "flag" "fr"}}Français</a>{{end}}
         {{end}}
-        {{if and (eq .Area "partner") .Manager (not .Impersonating)}}
-          <form method="post" action="/logout"><button class="nav-link">{{t .Lang "nav.logout"}}</button></form>
-        {{end}}
         {{if and (eq .Area "admin") .Admin}}
-          <a href="/admin/profile" class="flex items-center gap-2 rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100" title="Mon profil">
-            {{template "avatar" (dict "Admin" .Admin "Size" "h-7 w-7 text-xs")}}
-            <span class="hidden sm:inline">{{.Admin.Label}}</span>
-          </a>
-          <form method="post" action="/admin/logout"><button class="nav-link">Déconnexion</button></form>
+          {{template "user_menu" (dict "Page" . "Admin" .Admin "Name" .Admin.Label "Email" .Admin.Email "Initials" .Admin.Initials
+            "ProfileURL" "/admin/profile" "LogoutAction" "/admin/logout")}}
+        {{else if and (eq .Area "partner") .Manager (not .Impersonating)}}
+          {{template "user_menu" (dict "Page" . "Name" .Manager.Label "Email" .Manager.Email "Initials" .Manager.Initials
+            "ProfileURL" "/p/managers#profile" "LogoutAction" "/logout")}}
+        {{else}}
+          {{template "theme_switch" .}}
         {{end}}
       </div>
     </div>

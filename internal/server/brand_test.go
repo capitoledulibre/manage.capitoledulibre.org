@@ -140,3 +140,38 @@ func TestNoNativeDialogs(t *testing.T) {
 	_, body := e.get(e.client(), "/")
 	mustContain(t, body, `<dialog id="confirm-dialog"`, `data-confirm-message`, `value="ok"`, ">Confirmer<", ">Annuler<")
 }
+
+// TestUserMenu: logged-in users get a drop-down with profile, theme and
+// logout; other pages keep the theme switch in the header.
+func TestUserMenu(t *testing.T) {
+	e := newEnv(t)
+	f := e.fixture(nil)
+
+	count := func(body, s string) int { return strings.Count(body, s) }
+
+	// Staff: avatar menu with the admin profile and logout.
+	admin := e.adminClient()
+	_, body := e.get(admin, "/admin/organizations")
+	mustContain(t, body, `<details class="relative" data-menu>`, `href="/admin/profile" class="menu-item`, `action="/admin/logout"`, "Mon profil")
+
+	if count(body, `class="theme-switch"`) != 1 {
+		t.Error("the theme switch must only be in the menu")
+	}
+
+	// Partner manager: initials, profile on the managers page.
+	alice := e.loginAs("alice@acme.test")
+	_, body = e.get(alice, "/p/")
+	mustContain(t, body, "data-menu", `href="/p/managers#profile"`, `action="/logout"`, "alice@acme.test")
+
+	// Public pages and the staff view of a partner: no user menu.
+	_, body = e.get(e.client(), "/")
+	if strings.Contains(body, "data-menu") || count(body, `class="theme-switch"`) != 1 {
+		t.Error("public page: theme switch expected in the header, no user menu")
+	}
+
+	e.post(admin, "/admin/organizations/"+f.acme.Slug+"/view-as", nil)
+	_, body = e.get(admin, "/p/")
+	if strings.Contains(body, "data-menu") {
+		t.Error("the staff view of a partner must not show the partner's user menu")
+	}
+}

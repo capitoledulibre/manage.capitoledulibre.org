@@ -197,6 +197,56 @@
 </dialog>
 {{end}}
 
+{{/* theme_switch is the system / light / dark choice. Expects the Page. */}}
+{{define "theme_switch"}}
+<nav class="theme-switch" aria-label="{{t .Lang "theme.label"}}">
+  <a href="/theme/system?next={{.RequestURI}}" title="{{t .Lang "theme.system"}}" aria-label="{{t .Lang "theme.system"}}" aria-current="{{eq .Theme "system"}}">◐</a>
+  <a href="/theme/light?next={{.RequestURI}}" title="{{t .Lang "theme.light"}}" aria-label="{{t .Lang "theme.light"}}" aria-current="{{eq .Theme "light"}}">☀&#xFE0E;</a>
+  <a href="/theme/dark?next={{.RequestURI}}" title="{{t .Lang "theme.dark"}}" aria-label="{{t .Lang "theme.dark"}}" aria-current="{{eq .Theme "dark"}}">☾</a>
+</nav>
+{{end}}
+
+{{/* user_menu is the drop-down of the logged-in user: profile, theme and
+     logout. A <details> element keeps it usable without JavaScript; app.js
+     closes it on outside click and Escape. Expects Page, Name, Email,
+     Initials, Admin (staff only, for the avatar), ProfileURL and
+     LogoutAction. */}}
+{{define "user_menu"}}
+{{$l := .Page.Lang}}
+<details class="relative" data-menu>
+  <summary class="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1 text-gray-700 hover:bg-gray-100 [&::-webkit-details-marker]:hidden" aria-haspopup="menu" aria-label="{{t $l "menu.label"}}">
+    {{if .Admin}}{{template "avatar" (dict "Admin" .Admin "Size" "h-7 w-7 text-xs")}}
+    {{else}}<span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden="true">{{.Initials}}</span>{{end}}
+    <span class="hidden max-w-40 truncate sm:inline">{{.Name}}</span>
+    <svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M5.2 7.7a.75.75 0 0 1 1.06.04L10 11.7l3.74-3.96a.75.75 0 1 1 1.1 1.02l-4.3 4.55a.75.75 0 0 1-1.1 0l-4.3-4.55a.75.75 0 0 1 .06-1.06z"/></svg>
+  </summary>
+  <div class="absolute right-0 z-30 mt-2 w-64 rounded-lg bg-surface p-1 shadow-lg ring-1 ring-gray-200" role="menu">
+    <div class="border-b border-gray-200 px-3 pt-2 pb-3">
+      <p class="truncate font-medium text-gray-900">{{.Name}}</p>
+      {{if ne .Name .Email}}<p class="truncate text-xs text-gray-500">{{.Email}}</p>{{end}}
+    </div>
+    <a href="{{.ProfileURL}}" class="menu-item mt-1" role="menuitem">
+      <svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0z"/></svg>
+      {{t $l "menu.profile"}}
+    </a>
+    <div class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700">
+      <span class="inline-flex items-center gap-2">
+        <svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M10 2a8 8 0 1 0 0 16V2z"/><path fill-rule="evenodd" d="M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm0 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/></svg>
+        {{t $l "theme.label"}}
+      </span>
+      {{template "theme_switch" .Page}}
+    </div>
+    <div class="my-1 border-t border-gray-200"></div>
+    <form method="post" action="{{.LogoutAction}}">
+      <button class="menu-item text-red-700" role="menuitem">
+        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/><path d="M13 14l4-4-4-4"/><path d="M17 10H8"/></svg>
+        {{t $l "nav.logout"}}
+      </button>
+    </form>
+  </div>
+</details>
+{{end}}
+
 {{define "status_badge"}}
   {{if eq . "prospect"}}<span class="badge bg-gray-100 text-gray-700">Prospect</span>
   {{else if eq . "contacted"}}<span class="badge bg-blue-100 text-blue-800">Contacté</span>

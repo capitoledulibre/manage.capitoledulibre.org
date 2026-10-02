@@ -250,3 +250,23 @@
     });
   });
 })();
+
+// Drop-down menus (<details data-menu>): close on outside click and Escape,
+// and keep a single one open.
+(() => {
+  const menus = () => document.querySelectorAll("details[data-menu][open]");
+
+  document.addEventListener("click", (event) => {
+    menus().forEach((menu) => {
+      if (!menu.contains(event.target)) menu.removeAttribute("open");
+    });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    menus().forEach((menu) => {
+      menu.removeAttribute("open");
+      menu.querySelector("summary").focus();
+    });
+  });
+})();

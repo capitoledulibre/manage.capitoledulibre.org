@@ -121,6 +121,9 @@
   .nav-link-active {
     @apply bg-brand-50 text-brand-800;
   }
+  .menu-item {
+    @apply flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus-visible:bg-gray-100 focus-visible:outline-none;
+  }
   .theme-switch {
     @apply inline-flex items-center rounded-md p-0.5 ring-1 ring-gray-200;
   }

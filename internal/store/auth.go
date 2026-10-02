@@ -169,10 +169,13 @@ func scanAdmin(row interface{ Scan(...any) error }) (*Admin, error) {
 }
 
 // Initials returns up to two letters used when the admin has no avatar.
-func (a *Admin) Initials() string {
+func (a *Admin) Initials() string { return initials(a.Label()) }
+
+// initials returns up to two capital letters of a name, "?" when it has none.
+func initials(label string) string {
 	var out []rune
 
-	for _, w := range strings.Fields(a.Label()) {
+	for _, w := range strings.Fields(label) {
 		for _, r := range w {
 			if unicode.IsLetter(r) {
 				out = append(out, unicode.ToUpper(r))

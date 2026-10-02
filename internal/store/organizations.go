@@ -258,6 +258,18 @@ type Manager struct {
 	LastLoginAt *time.Time
 }
 
+// Label is the name to display for a manager.
+func (m *Manager) Label() string {
+	if m.Name != "" {
+		return m.Name
+	}
+
+	return m.Email
+}
+
+// Initials are shown in place of an avatar.
+func (m *Manager) Initials() string { return initials(m.Label()) }
+
 const managerCols = `id, uid, organization_id, email, name, lang, invited_by, created_at, last_login_at`
 
 func scanManager(row interface{ Scan(...any) error }) (*Manager, error) {
