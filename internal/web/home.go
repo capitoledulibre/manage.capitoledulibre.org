@@ -293,7 +293,7 @@ func (s *Server) calendarReset(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, "Nouveau lien d'abonnement généré. L'ancien ne fonctionne plus : réabonnez vos agendas.")
+	s.flash(w, "Nouveau lien d'abonnement généré. L'ancien ne fonctionne plus\u00a0: réabonnez vos agendas.")
 	http.Redirect(w, r, "/me", http.StatusSeeOther)
 }
 
@@ -327,7 +327,7 @@ func (s *Server) profilePhoto(w http.ResponseWriter, r *http.Request) {
 	name, err := s.Uploads.Save(r, "photo")
 	switch {
 	case err != nil:
-		s.flash(w, "Image refusée : PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
+		s.flash(w, "Image refusée\u00a0: PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
 	case name == "":
 		s.flash(w, "Choisissez un fichier image.")
 	default:
@@ -351,7 +351,7 @@ func (s *Server) profilePhotoDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.dropImage(old)
-	s.flash(w, "Photo retirée : vos initiales sont affichées à la place.")
+	s.flash(w, "Photo retirée\u00a0: vos initiales sont affichées à la place.")
 	http.Redirect(w, r, "/profile", http.StatusSeeOther)
 }
 

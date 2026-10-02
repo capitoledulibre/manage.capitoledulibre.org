@@ -140,12 +140,12 @@ func (s *Server) poleJoin(w http.ResponseWriter, r *http.Request) {
 	case pole.IsOpen():
 	case pole.IsPrivate():
 		if strings.TrimSpace(r.FormValue("key")) != pole.AccessKey {
-			s.flash(w, "Ce lien d'invitation n'est pas valable pour le pôle « "+pole.Name+" ». Demandez-en un nouveau au responsable.")
+			s.flash(w, "Ce lien d'invitation n'est pas valable pour le pôle «\u00a0"+pole.Name+"\u00a0». Demandez-en un nouveau au responsable.")
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 	default:
-		s.flash(w, "Le pôle « "+pole.Name+" » est sur invitation : un responsable doit vous ajouter.")
+		s.flash(w, "Le pôle «\u00a0"+pole.Name+"\u00a0» est sur invitation\u00a0: un responsable doit vous ajouter.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -153,7 +153,7 @@ func (s *Server) poleJoin(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, "Vous avez rejoint le pôle « "+pole.Name+" ». Choisissez vos créneaux !")
+	s.flash(w, "Vous avez rejoint le pôle «\u00a0"+pole.Name+"\u00a0». Choisissez vos créneaux\u00a0!")
 	http.Redirect(w, r, pole.URL(), http.StatusSeeOther)
 }
 
@@ -169,7 +169,7 @@ func (s *Server) poleLeave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
-		s.flash(w, "Les inscriptions sont closes : contactez un responsable pour vous désengager.")
+		s.flash(w, "Les inscriptions sont closes\u00a0: contactez un responsable pour vous désengager.")
 		http.Redirect(w, r, pole.URL(), http.StatusSeeOther)
 		return
 	}
@@ -188,7 +188,7 @@ func (s *Server) poleLeave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.notifyLateWithdrawal(*u, pole, late)
-	s.flash(w, "Vous avez quitté le pôle « "+pole.Name+" ».")
+	s.flash(w, "Vous avez quitté le pôle «\u00a0"+pole.Name+"\u00a0».")
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -320,7 +320,7 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
 	// manager.
 	autoJoin := !member && pole.IsOpen()
 	if !member && !autoJoin {
-		s.respondSlot(w, r, data, "Ce pôle est sur invitation : demandez au responsable de vous ajouter.", "")
+		s.respondSlot(w, r, data, "Ce pôle est sur invitation\u00a0: demandez au responsable de vous ajouter.", "")
 		return
 	}
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
@@ -332,7 +332,7 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
 		if len(overlaps) > 0 {
 			data["Overlaps"] = overlaps
 			if isHX(r) {
-				data["Announce"] = "Attention : ce créneau chevauche un créneau où vous êtes déjà inscrit·e. Confirmez pour vous inscrire quand même."
+				data["Announce"] = "Attention\u00a0: ce créneau chevauche un créneau où vous êtes déjà inscrit·e. Confirmez pour vous inscrire quand même."
 				s.fragment(w, "slot_card", data)
 				return
 			}
@@ -358,12 +358,12 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) {
 	slot, _ = s.DB.GetSlot(slot.ID, u.ID)
 	data = s.cardData(r, slot, pole, ed, member)
 	if !okSignup {
-		s.respondSlot(w, r, data, "Ce créneau est déjà complet : personne d'autre n'est attendu.", "")
+		s.respondSlot(w, r, data, "Ce créneau est déjà complet\u00a0: personne d'autre n'est attendu.", "")
 		return
 	}
-	done := "Inscription enregistrée : " + pole.Name + ", " + s.slotLabel(slot) + "."
+	done := "Inscription enregistrée\u00a0: " + pole.Name + ", " + s.slotLabel(slot) + "."
 	if autoJoin {
-		done = "Vous avez rejoint le pôle « " + pole.Name + " ». " + done
+		done = "Vous avez rejoint le pôle «\u00a0" + pole.Name + "\u00a0». " + done
 	}
 	s.respondSlot(w, r, data, "", done)
 }
@@ -381,7 +381,7 @@ func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) {
 	}
 	member := s.DB.IsPoleMember(pole.ID, u.ID)
 	if ed.SignupsLocked(pole.FreezeAt, time.Now()) {
-		s.respondSlot(w, r, s.cardData(r, slot, pole, ed, member), "Les inscriptions sont closes : contactez un responsable pour vous désengager.", "")
+		s.respondSlot(w, r, s.cardData(r, slot, pole, ed, member), "Les inscriptions sont closes\u00a0: contactez un responsable pour vous désengager.", "")
 		return
 	}
 	if err := s.DB.Unsignup(slot.ID, u.ID); err != nil {
@@ -394,7 +394,7 @@ func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) {
 		s.notifyLateWithdrawal(*u, pole, []db.Slot{slot})
 	}
 	s.respondSlot(w, r, s.cardData(r, slot, pole, ed, member), "",
-		"Désinscription enregistrée : "+s.slotLabel(slot)+". Vous pouvez vous réinscrire sur ce créneau.")
+		"Désinscription enregistrée\u00a0: "+s.slotLabel(slot)+". Vous pouvez vous réinscrire sur ce créneau.")
 }
 
 func (s *Server) taskToggle(w http.ResponseWriter, r *http.Request) {
@@ -426,7 +426,7 @@ func (s *Server) taskToggle(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		s.fragment(w, "task_list", M{"Tasks": tasks, "CanTick": true, "Slot": slot,
-			"Announce": fmt.Sprintf("Tâches : %d sur %d faites.", done, total)})
+			"Announce": fmt.Sprintf("Tâches\u00a0: %d sur %d faites.", done, total)})
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/slots/%d", slot.ID), http.StatusSeeOther)

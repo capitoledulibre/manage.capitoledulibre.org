@@ -949,7 +949,7 @@ func TestMessageNotification(t *testing.T) {
 	if len(mails) != 1 {
 		t.Fatalf("expected 1 message notification, got %d", len(mails))
 	}
-	want(t, mails[0].Subject, "Message : le pôle")
+	want(t, mails[0].Subject, "Message\u00a0: le pôle")
 	want(t, mails[0].Body, "Rendez-vous 15 minutes avant")
 
 	// Event-wide messages reach every volunteer of the event.
@@ -980,7 +980,7 @@ func TestOpenSlots(t *testing.T) {
 	hx := *vol
 	hx.hx = true
 	frag := hx.post("/slots/1/signup", 200, url.Values{"back": {"/slots"}})
-	want(t, frag, "Vous avez rejoint le pôle « Buvette »")
+	want(t, frag, "Vous avez rejoint le pôle «\u00a0Buvette\u00a0»")
 	want(t, frag, "Me désinscrire")
 	want(t, frag, `class="slot-title"><span class="pole-icon`) // the card still names its pole
 	buvette, _ := e.db.GetPoleBySlug("test-2026", "buvette")
@@ -1433,7 +1433,7 @@ func TestAccountMenu(t *testing.T) {
 	admin.post("/admin/events/test-2026/coordinators", 303, url.Values{"email": {"coord@example.test"}})
 	mgr := e.login("resp@example.test", "Rémi Responsable")
 	menu := mgr.get("/", 200)
-	want(t, menu, `href="/test-2026/buvette/manage" >Gérer : Buvette`)
+	want(t, menu, `href="/test-2026/buvette/manage" >Gérer&nbsp;: Buvette`)
 	wantNot(t, menu, "Tableau de bord de l&#39;événement")
 	want(t, e.login("coord@example.test", "Claire Coord").get("/", 200), `href="/admin/events/test-2026" >Tableau de bord de l'événement`)
 	vol := e.login("vol@example.test", "Vera Bénévole").get("/", 200)

@@ -5,7 +5,7 @@
   <p>Un lien de connexion a été envoyé à <strong>{{.Email}}</strong>. Il est valable 30 minutes.</p>
   <p class="hint">Ce n'est pas la bonne adresse&nbsp;? <a href="/login?email={{.Email}}{{if .Next}}&next={{.Next}}{{end}}">La corriger</a>.</p>
   {{if .Pole}}<p class="hint">En cliquant dessus, vous arriverez sur le pôle <strong>{{.Pole.Name}}</strong> pour le rejoindre.</p>{{end}}
-  <p class="hint">Rien reçu ? Vérifiez vos courriers indésirables, puis <a href="/login{{if .Next}}?next={{.Next}}{{end}}">demandez un nouveau lien</a>.</p>
-  {{if .Link}}<p class="flash">Mode développement : <a href="{{.Link}}">se connecter directement</a></p>{{end}}
+  <p class="hint">Rien reçu&nbsp;? Vérifiez vos courriers indésirables, puis <a href="/login{{if .Next}}?next={{.Next}}{{end}}">demandez un nouveau lien</a>.</p>
+  {{if .Link}}<p class="flash">Mode développement&nbsp;: <a href="{{.Link}}">se connecter directement</a></p>{{end}}
 </article>
 {{end}}

@@ -4,7 +4,7 @@
 <div class="page-header c{{.Pole.Color}}">
   <div class="page-title">
     {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
-    <div><h1>{{.Pole.Name}}</h1><p class="muted">{{.Event.Name}} · <span class="badge">{{status .Event.Status}}</span> · <span class="badge key">{{mode .Pole.AccessMode}}</span>{{if .Pole.IsDefault}} <span class="badge">pôle par défaut : tous les bénévoles</span>{{end}}</p></div>
+    <div><h1>{{.Pole.Name}}</h1><p class="muted">{{.Event.Name}} · <span class="badge">{{status .Event.Status}}</span> · <span class="badge key">{{mode .Pole.AccessMode}}</span>{{if .Pole.IsDefault}} <span class="badge">pôle par défaut&nbsp;: tous les bénévoles</span>{{end}}</p></div>
   </div>
   <a href="{{.Pole.ManageURL}}/slots/new" role="button" class="small">+ Nouveau créneau</a>
 </div>
@@ -53,7 +53,7 @@
     </div>
   </section>
   {{else}}
-  <p class="empty">Aucun créneau. <a href="{{.Pole.ManageURL}}/slots/new">Créez le premier</a> : vous pourrez générer toute une journée de créneaux en une fois, avec leur liste de tâches.</p>
+  <p class="empty">Aucun créneau. <a href="{{.Pole.ManageURL}}/slots/new">Créez le premier</a>&nbsp;: vous pourrez générer toute une journée de créneaux en une fois, avec leur liste de tâches.</p>
   {{end}}
 
 {{else if eq .Tab "members"}}
@@ -68,7 +68,7 @@
       <div id="member-search-results"></div>
       <details>
         <summary class="hint">Ajouter des personnes qui n'ont pas encore de compte</summary>
-        <p class="hint">Une personne par ligne, adresse seule ou « Prénom Nom &lt;adresse&gt; ». Le compte est créé, la personne se connectera avec son e-mail.</p>
+        <p class="hint">Une personne par ligne, adresse seule ou «&nbsp;Prénom Nom &lt;adresse&gt;&nbsp;». Le compte est créé, la personne se connectera avec son e-mail.</p>
         <form method="post" action="{{.Pole.ManageURL}}/members">
           <label for="member-emails" class="sr-only">Adresses e-mail à inviter, une par ligne</label>
           <textarea id="member-emails" name="emails" rows="3" placeholder="Alice Martin &lt;alice@exemple.org&gt;&#10;bob@exemple.org" required></textarea>
@@ -76,14 +76,14 @@
         </form>
       </details>
       {{else}}
-      <p class="hint">Ce pôle est <b>restreint</b> : seuls les administrateurs peuvent y ajouter des bénévoles.</p>
+      <p class="hint">Ce pôle est <b>restreint</b>&nbsp;: seuls les administrateurs peuvent y ajouter des bénévoles.</p>
       {{end}}
     </div>
     <div class="panel">
       <h2>Comment rejoindre ce pôle</h2>
       <p><span class="badge key">{{mode .Pole.AccessMode}}</span> <small class="muted">{{modeHelp .Pole.AccessMode}}</small></p>
       {{if .Pole.IsPrivate}}
-      <p class="hint">Transmettez ce lien aux bénévoles concernés :</p>
+      <p class="hint">Transmettez ce lien aux bénévoles concernés&nbsp;:</p>
       <div class="invite">
         <label for="invite-url" class="sr-only">Lien d'invitation du pôle</label>
         <input id="invite-url" type="text" readonly value="{{.BaseURL}}{{.Pole.URL}}/join?key={{.Pole.AccessKey}}" onclick="this.select()">
@@ -161,7 +161,7 @@
       <textarea id="p-desc" name="description" rows="3">{{.Pole.Description}}</textarea>
       {{if not .Pole.IsDefault}}
       <fieldset class="modes">
-        <legend>Qui peut rejoindre ce pôle ?</legend>
+        <legend>Qui peut rejoindre ce pôle&nbsp;?</legend>
         {{range $m := .Modes}}
         {{if or (ne $m "restricted") $.EventAdmin (eq $.Pole.AccessMode "restricted")}}
         <label><input type="radio" name="access_mode" value="{{$m}}" {{if eq $m $.Pole.AccessMode}}checked{{end}}><span>{{mode $m}}<small>{{modeHelp $m}}</small></span></label>
@@ -171,7 +171,7 @@
       {{end}}
       <label for="p-tasks">Liste de tâches par défaut <small class="muted">(une par ligne, proposée à chaque nouveau créneau du pôle)</small></label>
       <textarea id="p-tasks" name="default_tasks" rows="4" placeholder="Ouvrir la salle&#10;Vérifier le matériel&#10;Ranger en fin de créneau">{{.Pole.DefaultTasks}}</textarea>
-      <label for="p-freeze">Gel des inscriptions pour ce pôle <small class="muted">(optionnel, remplace la date de l'événement{{if .Event.FreezeAt}} : {{datetime .Event.FreezeAt}}{{end}})</small></label>
+      <label for="p-freeze">Gel des inscriptions pour ce pôle <small class="muted">(optionnel, remplace la date de l'événement{{if .Event.FreezeAt}}&nbsp;: {{datetime .Event.FreezeAt}}{{end}})</small></label>
       <input id="p-freeze" type="datetime-local" name="freeze_at" value="{{inputDT .Pole.FreezeAt}}">
       <button type="submit" class="primary-action">Enregistrer le pôle</button>
     </form>
@@ -194,7 +194,7 @@
       <p class="hint">Pour subdiviser le calendrier (salles, stands, postes). Facultatif.</p>
       <ul>
         {{range .Locations}}<li>{{.Name}} <form method="post" action="/manage/locations/{{.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer l’emplacement « {{.Name}} » ? Ses créneaux seront conservés, sans emplacement.')"><button class="link danger">supprimer</button></form></li>
-        {{else}}<li class="muted">Aucun emplacement : les créneaux s'appliquent à tout le pôle.</li>{{end}}
+        {{else}}<li class="muted">Aucun emplacement&nbsp;: les créneaux s'appliquent à tout le pôle.</li>{{end}}
       </ul>
       <form method="post" action="{{.Pole.ManageURL}}/locations">
         <label for="p-locations" class="sr-only">Emplacements à ajouter, un par ligne</label>

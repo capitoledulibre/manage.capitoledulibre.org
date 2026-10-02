@@ -19,11 +19,11 @@
       </select>
     </div>
   </div>
-  <label for="s-title">Intitulé <small class="muted">(optionnel, ex : « Accueil des conférenciers »)</small></label>
+  <label for="s-title">Intitulé <small class="muted">(optionnel, ex&nbsp;: «&nbsp;Accueil des conférenciers&nbsp;»)</small></label>
   <input id="s-title" type="text" name="title" value="{{.Slot.Title}}">
 
   {{if .New}}
-  <label for="s-tasks">Liste de tâches du créneau <small class="muted">(une par ligne ; les bénévoles inscrits les cochent le jour J. Pré-remplie avec la liste par défaut du pôle, modifiable dans ses réglages)</small></label>
+  <label for="s-tasks">Liste de tâches du créneau <small class="muted">(une par ligne&nbsp;; les bénévoles inscrits les cochent le jour J. Pré-remplie avec la liste par défaut du pôle, modifiable dans ses réglages)</small></label>
   <textarea id="s-tasks" name="tasks" rows="4" placeholder="Ouvrir la salle&#10;Vérifier le vidéoprojecteur&#10;Compter les participants">{{.Tasks}}</textarea>
   <details {{if or .RepeatUntil .AllLocations}}open{{end}}>
     <summary>Générer une série de créneaux</summary>
@@ -64,9 +64,9 @@
     {{end}}
 
     {{if .Waiting}}
-    <p class="hint"><b>{{len .Waiting}} bénévole{{if gt (len .Waiting) 1}}s{{end}} en attente d'une place :</b>
+    <p class="hint"><b>{{len .Waiting}} bénévole{{if gt (len .Waiting) 1}}s{{end}} en attente d'une place&nbsp;:</b>
       {{range $i, $u := .Waiting}}{{if $i}}, {{end}}{{$u.DisplayName}}{{end}}.
-      Augmentez le nombre de bénévoles souhaités ci-dessus pour leur ouvrir la place ; ils seront prévenus par e-mail.</p>
+      Augmentez le nombre de bénévoles souhaités ci-dessus pour leur ouvrir la place&nbsp;; ils seront prévenus par e-mail.</p>
     {{end}}
 
     <details>
@@ -78,7 +78,7 @@
         </div>
         <button class="small secondary outline">Créer le compte et inscrire</button>
       </form>
-      <p class="hint">Un compte est créé avec cette adresse et la personne rejoint le pôle. Vérifiez l'adresse : elle servira à se connecter.</p>
+      <p class="hint">Un compte est créé avec cette adresse et la personne rejoint le pôle. Vérifiez l'adresse&nbsp;: elle servira à se connecter.</p>
     </details>
   </section>
   <section id="tasks">

@@ -81,7 +81,7 @@
   {{if .Error}}<p class="slot-note error" role="alert">{{.Error}}</p>{{end}}
   {{if .Overlaps}}
   <div class="slot-note warn" role="alert">
-    <p>Ce créneau chevauche un autre de vos créneaux :
+    <p>Ce créneau chevauche un autre de vos créneaux&nbsp;:
       {{range .Overlaps}}<b>{{.PoleName}}{{if .Title}} – {{.Title}}{{end}} ({{time .StartsAt}}–{{time .EndsAt}})</b> {{end}}</p>
     <form method="post" action="/slots/{{.Slot.ID}}/signup"
           hx-post="/slots/{{.Slot.ID}}/signup" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"

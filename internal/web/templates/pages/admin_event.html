@@ -67,7 +67,7 @@
     <div>
       <label for="np-mode">Accès</label>
       <select id="np-mode" name="access_mode">{{range .Modes}}<option value="{{.}}">{{mode .}}</option>{{end}}</select>
-      <small class="hint">Public : chacun se joint. Sur lien d'invitation : un lien est généré. Sur invitation : les responsables ajoutent. Restreint : seuls les administrateurs et la coordination ajoutent, pôle masqué.</small>
+      <small class="hint">Public&nbsp;: chacun se joint. Sur lien d'invitation&nbsp;: un lien est généré. Sur invitation&nbsp;: les responsables ajoutent. Restreint&nbsp;: seuls les administrateurs et la coordination ajoutent, pôle masqué.</small>
     </div>
     <div>
       <label for="np-manager">E-mail du responsable <small class="muted">(optionnel)</small></label>
@@ -91,7 +91,7 @@
 <form method="post" action="{{.Event.AdminURL}}" class="narrow">
   <label for="ev-name">Nom</label>
   <input id="ev-name" type="text" name="name" value="{{.Event.Name}}" required>
-  <label for="ev-slug">Adresse <small class="muted">(lettres, chiffres et tirets ; l'événement est accessible sur {{.BaseURL}}/…)</small></label>
+  <label for="ev-slug">Adresse <small class="muted">(lettres, chiffres et tirets&nbsp;; l'événement est accessible sur {{.BaseURL}}/…)</small></label>
   <input id="ev-slug" type="text" name="slug" value="{{.Event.Slug}}" pattern="[a-z0-9-]+" required>
   <div class="grid-2">
     <div><label for="ev-start">Premier jour</label><input id="ev-start" type="date" name="starts_on" value="{{.Event.StartsOn}}" required></div>
@@ -99,8 +99,8 @@
   </div>
   <label for="ev-status">Statut</label>
   <select id="ev-status" name="status">{{range .Statuses}}<option value="{{.}}" {{if eq . $.Event.Status}}selected{{end}}>{{status .}}</option>{{end}}</select>
-  <p class="hint"><b>Brouillon</b> : visible des administrateurs, de la coordination et des responsables seulement. <b>Inscriptions ouvertes</b> : les bénévoles voient l'événement et s'inscrivent. <b>Gelé</b> : visible, mais plus aucune modification par les bénévoles. <b>Archivé</b> : masqué.</p>
-  <label for="ev-freeze">Gel automatique des inscriptions <small class="muted">(optionnel ; chaque pôle peut définir sa propre date)</small></label>
+  <p class="hint"><b>Brouillon</b>&nbsp;: visible des administrateurs, de la coordination et des responsables seulement. <b>Inscriptions ouvertes</b>&nbsp;: les bénévoles voient l'événement et s'inscrivent. <b>Gelé</b>&nbsp;: visible, mais plus aucune modification par les bénévoles. <b>Archivé</b>&nbsp;: masqué.</p>
+  <label for="ev-freeze">Gel automatique des inscriptions <small class="muted">(optionnel&nbsp;; chaque pôle peut définir sa propre date)</small></label>
   <input id="ev-freeze" type="datetime-local" name="freeze_at" value="{{inputDT .Event.FreezeAt}}">
   <button type="submit" class="primary-action">Enregistrer</button>
 </form>
@@ -119,7 +119,7 @@
 </div>
 <div class="panel narrow mt-md">
   <h2>Coordination de l'événement</h2>
-  <p class="hint">La coordination gère tout l'événement : tous les pôles, leurs responsables, le planning global, les messages et la liste des bénévoles, le statut et les réglages. Elle ne peut ni supprimer l'événement, ni en créer un autre, ni gérer les comptes.</p>
+  <p class="hint">La coordination gère tout l'événement&nbsp;: tous les pôles, leurs responsables, le planning global, les messages et la liste des bénévoles, le statut et les réglages. Elle ne peut ni supprimer l'événement, ni en créer un autre, ni gérer les comptes.</p>
   <ul>
     {{range .Coordinators}}<li>{{.DisplayName}} <small class="muted">{{.Email}}</small>
       {{if $.User.IsAdmin}}<form method="post" action="{{$.Event.AdminURL}}/coordinators/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} de la coordination ? La personne reste bénévole.')"><button class="link danger">retirer</button></form>{{end}}</li>
@@ -137,7 +137,7 @@
 {{if .User.IsAdmin}}
 <div class="panel narrow mt-md">
   <h2>Préparer l'événement suivant</h2>
-  <p class="hint">Crée un nouvel événement en brouillon avec les mêmes pôles : réglages, icônes, modes d'accès, listes de tâches par défaut, emplacements, responsables et coordination. Les créneaux et les inscriptions ne sont pas repris.</p>
+  <p class="hint">Crée un nouvel événement en brouillon avec les mêmes pôles&nbsp;: réglages, icônes, modes d'accès, listes de tâches par défaut, emplacements, responsables et coordination. Les créneaux et les inscriptions ne sont pas repris.</p>
   <form method="post" action="{{.Event.AdminURL}}/duplicate">
     <label for="dup-name">Nom</label>
     <input id="dup-name" type="text" name="name" required value="{{.Org}} {{.NextYear}}">

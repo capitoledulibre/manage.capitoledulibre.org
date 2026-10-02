@@ -85,14 +85,14 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		link += "?next=" + next
 	}
 	org := s.DB.GetSetting("org_name", "Bénévoles")
-	body := fmt.Sprintf("Bonjour,\n\nPour vous connecter à l'espace bénévoles %s, cliquez sur ce lien (valable %d minutes) :\n\n%s\n\nSi vous n'avez pas demandé cette connexion, ignorez simplement ce message.\n",
+	body := fmt.Sprintf("Bonjour,\n\nPour vous connecter à l'espace bénévoles %s, cliquez sur ce lien (valable %d minutes)\u00a0:\n\n%s\n\nSi vous n'avez pas demandé cette connexion, ignorez simplement ce message.\n",
 		org, int(magicLinkTTL.Minutes()), link)
 	if err := s.Mailer.Send(email, fmt.Sprintf("[%s] Votre lien de connexion", org), body); err != nil {
 		// The mail server being down is not the volunteer's fault, and a bare
 		// 500 page gave them no idea of what to do next.
 		log.Printf("login link to %s: %v", email, err)
 		w.WriteHeader(http.StatusServiceUnavailable)
-		data["Error"] = "Le lien de connexion n'a pas pu être envoyé. Réessayez dans quelques minutes ; si le problème continue, prévenez l'équipe d'organisation."
+		data["Error"] = "Le lien de connexion n'a pas pu être envoyé. Réessayez dans quelques minutes\u00a0; si le problème continue, prévenez l'équipe d'organisation."
 		s.render(w, r, "login", data)
 		return
 	}

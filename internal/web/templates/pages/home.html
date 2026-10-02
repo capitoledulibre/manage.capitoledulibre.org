@@ -45,7 +45,7 @@
   <h2>Bienvenue&nbsp;! Deux étapes et c'est fait</h2>
   <ol>
     <li><strong>Choisissez un pôle</strong> ci-dessous, selon ce que vous aimez faire. Pas de préférence&nbsp;? Voyez directement <a href="/slots">où on a besoin de vous</a>.</li>
-    <li><strong>Inscrivez-vous sur les créneaux</strong> qui vous arrangent, autant que vous voulez. Certains pôles sont sur invitation : le responsable vous ajoute ou vous transmet un lien.</li>
+    <li><strong>Inscrivez-vous sur les créneaux</strong> qui vous arrangent, autant que vous voulez. Certains pôles sont sur invitation&nbsp;: le responsable vous ajoute ou vous transmet un lien.</li>
   </ol>
   <p class="hint">Vous pourrez revenir modifier vos créneaux à tout moment{{with .Event.FreezeAt}} jusqu'au {{deadline .}}{{else}}, tant que les inscriptions sont ouvertes{{end}}.</p>
 </article>
@@ -90,7 +90,7 @@
       </div>
     </div>
     {{if .Description}}<p class="grow">{{nl2br .Description}}</p>{{else}}<div class="grow"></div>{{end}}
-    {{with named .Coverage.Managers}}<p class="hint">Responsable{{if gt (len .) 1}}s{{end}} : {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+    {{with named .Coverage.Managers}}<p class="hint">Responsable{{if gt (len .) 1}}s{{end}}&nbsp;: {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
     {{if .Slots}}
     <p class="hint">{{.Slots}} créneau{{if gt .Slots 1}}x{{end}}
       {{if gt .Missing 0}}· <span class="txt-warn">il manque {{.Missing}} bénévole{{if gt .Missing 1}}s{{end}}</span>{{else}}· <span class="txt-ok">complet</span>{{end}}</p>

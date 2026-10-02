@@ -5,7 +5,7 @@
   <h1>{{.Pole.Name}}</h1>
   <p class="muted">{{if .Event.LogoURL}}<img class="event-logo" src="{{.Event.LogoURL}}" alt="">{{end}}{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}</p>
   {{if .Pole.Description}}<p>{{nl2br .Pole.Description}}</p>{{end}}
-  {{with named .Managers}}<p class="hint">Responsable{{if gt (len .) 1}}s{{end}} : {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+  {{with named .Managers}}<p class="hint">Responsable{{if gt (len .) 1}}s{{end}}&nbsp;: {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
   {{if .Closed}}
     <p class="flash error" role="alert">Les inscriptions à cet événement sont fermées.</p>
   {{else if .Valid}}

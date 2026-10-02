@@ -65,7 +65,7 @@ func (s *Server) greeting(u db.User) string {
 }
 
 func (s *Server) signature() string {
-	return fmt.Sprintf("\nVotre planning : %s/me\n\nMerci pour votre aide !\n%s\n", s.Cfg.BaseURL, s.org())
+	return fmt.Sprintf("\nVotre planning\u00a0: %s/me\n\nMerci pour votre aide\u00a0!\n%s\n", s.Cfg.BaseURL, s.org())
 }
 
 // --- cancellations -------------------------------------------------------
@@ -73,9 +73,9 @@ func (s *Server) signature() string {
 // notifySlotDeleted warns the volunteers of a slot that it no longer exists.
 func (s *Server) notifySlotDeleted(volunteers []db.User, pole db.Pole, slot db.Slot) {
 	line := s.slotLine(pole, slot)
-	s.notify(volunteers, s.subject("Créneau annulé : %s", pole.Name), func(u db.User) string {
+	s.notify(volunteers, s.subject("Créneau annulé\u00a0: %s", pole.Name), func(u db.User) string {
 		return s.greeting(u) +
-			"Le créneau sur lequel vous étiez inscrit·e a été supprimé :\n\n  " + line + "\n\n" +
+			"Le créneau sur lequel vous étiez inscrit·e a été supprimé\u00a0:\n\n  " + line + "\n\n" +
 			"Vous n'avez donc plus rien à faire à ce moment-là. N'hésitez pas à choisir un autre créneau.\n" +
 			s.signature()
 	})
@@ -84,11 +84,11 @@ func (s *Server) notifySlotDeleted(volunteers []db.User, pole db.Pole, slot db.S
 // notifySignupRemoved warns one volunteer that a manager took them off a slot.
 func (s *Server) notifySignupRemoved(u db.User, pole db.Pole, slot db.Slot) {
 	line := s.slotLine(pole, slot)
-	s.notify([]db.User{u}, s.subject("Inscription annulée : %s", pole.Name), func(u db.User) string {
+	s.notify([]db.User{u}, s.subject("Inscription annulée\u00a0: %s", pole.Name), func(u db.User) string {
 		return s.greeting(u) +
-			"Un responsable a annulé votre inscription sur ce créneau :\n\n  " + line + "\n\n" +
-			"Vous restez membre du pôle « " + pole.Name + " » et pouvez vous inscrire sur un autre créneau.\n" +
-			fmt.Sprintf("\nLe pôle : %s%s\n", s.Cfg.BaseURL, pole.URL()) +
+			"Un responsable a annulé votre inscription sur ce créneau\u00a0:\n\n  " + line + "\n\n" +
+			"Vous restez membre du pôle «\u00a0" + pole.Name + "\u00a0» et pouvez vous inscrire sur un autre créneau.\n" +
+			fmt.Sprintf("\nLe pôle\u00a0: %s%s\n", s.Cfg.BaseURL, pole.URL()) +
 			s.signature()
 	})
 }
@@ -97,7 +97,7 @@ func (s *Server) notifySignupRemoved(u db.User, pole db.Pole, slot db.Slot) {
 // which also cancelled the slots they had there.
 func (s *Server) notifyPoleRemoved(u db.User, pole db.Pole, slotCount int) {
 	s.notify([]db.User{u}, s.subject("Retrait du pôle %s", pole.Name), func(u db.User) string {
-		b := s.greeting(u) + "Un responsable vous a retiré·e du pôle « " + pole.Name + " ».\n"
+		b := s.greeting(u) + "Un responsable vous a retiré·e du pôle «\u00a0" + pole.Name + "\u00a0».\n"
 		if slotCount > 0 {
 			b += fmt.Sprintf("\nVos %d inscription(s) sur les créneaux de ce pôle ont été annulées.\n", slotCount)
 		}
@@ -114,12 +114,12 @@ func (s *Server) notifyPoleRemoved(u db.User, pole db.Pole, slotCount int) {
 func (s *Server) notifySlotChanged(volunteers []db.User, pole db.Pole, before, after db.Slot) {
 	was, now := s.slotLine(pole, before), s.slotLine(pole, after)
 	url := fmt.Sprintf("%s/slots/%d", s.Cfg.BaseURL, after.ID)
-	s.notify(volunteers, s.subject("Créneau modifié : %s", pole.Name), func(u db.User) string {
+	s.notify(volunteers, s.subject("Créneau modifié\u00a0: %s", pole.Name), func(u db.User) string {
 		return s.greeting(u) +
-			"Un créneau sur lequel vous êtes inscrit·e a changé :\n\n" +
+			"Un créneau sur lequel vous êtes inscrit·e a changé\u00a0:\n\n" +
 			"  Avant      : " + was + "\n" +
 			"  Désormais  : " + now + "\n\n" +
-			"Vous restez inscrit·e. Si le nouvel horaire ne vous convient plus, vous pouvez vous désinscrire : " + url + "\n" +
+			"Vous restez inscrit·e. Si le nouvel horaire ne vous convient plus, vous pouvez vous désinscrire\u00a0: " + url + "\n" +
 			s.signature()
 	})
 }
@@ -154,17 +154,17 @@ func (s *Server) notifyLateWithdrawal(u db.User, pole db.Pole, slots []db.Slot) 
 	}
 	var lines strings.Builder
 	for _, sl := range slots {
-		fmt.Fprintf(&lines, "  %s : %d/%d inscrit·es\n    %s/manage/slots/%d\n", s.slotLine(pole, sl), sl.Filled, sl.Capacity, s.Cfg.BaseURL, sl.ID)
+		fmt.Fprintf(&lines, "  %s\u00a0: %d/%d inscrit·es\n    %s/manage/slots/%d\n", s.slotLine(pole, sl), sl.Filled, sl.Capacity, s.Cfg.BaseURL, sl.ID)
 	}
 	who := u.DisplayName()
 	if u.Phone != "" {
 		who += " (" + u.Phone + ")"
 	}
-	s.notify(others, s.subject("Désistement de dernière minute : %s", pole.Name), func(m db.User) string {
+	s.notify(others, s.subject("Désistement de dernière minute\u00a0: %s", pole.Name), func(m db.User) string {
 		return s.greeting(m) +
-			who + " vient de se désinscrire d'un créneau qui commence dans moins de 48 heures :\n\n" +
+			who + " vient de se désinscrire d'un créneau qui commence dans moins de 48 heures\u00a0:\n\n" +
 			lines.String() + "\n" +
-			"S'il y avait une liste d'attente, elle a été prévenue ; sinon, il faudra peut-être trouver quelqu'un d'autre.\n" +
+			"S'il y avait une liste d'attente, elle a été prévenue\u00a0; sinon, il faudra peut-être trouver quelqu'un d'autre.\n" +
 			s.signature()
 	})
 }
@@ -177,11 +177,11 @@ func (s *Server) notifyLateWithdrawal(u db.User, pole db.Pole, slots []db.Slot) 
 func (s *Server) notifyPlaceFreed(waiting []db.User, pole db.Pole, slot db.Slot) {
 	line := s.slotLine(pole, slot)
 	url := fmt.Sprintf("%s/slots/%d", s.Cfg.BaseURL, slot.ID)
-	s.notify(waiting, s.subject("Une place s'est libérée : %s", pole.Name), func(u db.User) string {
+	s.notify(waiting, s.subject("Une place s'est libérée\u00a0: %s", pole.Name), func(u db.User) string {
 		return s.greeting(u) +
-			"Une place vient de se libérer sur un créneau que vous attendiez :\n\n  " + line + "\n\n" +
-			"Premier arrivé, premier servi : " + url + "\n" +
-			"\nSi vous ne le prenez pas, vous n'avez rien à faire ; nous vous préviendrons à la prochaine place libre.\n" +
+			"Une place vient de se libérer sur un créneau que vous attendiez\u00a0:\n\n  " + line + "\n\n" +
+			"Premier arrivé, premier servi\u00a0: " + url + "\n" +
+			"\nSi vous ne le prenez pas, vous n'avez rien à faire\u00a0; nous vous préviendrons à la prochaine place libre.\n" +
 			s.signature()
 	})
 }
@@ -190,9 +190,9 @@ func (s *Server) notifyPlaceFreed(waiting []db.User, pole db.Pole, slot db.Slot)
 
 // notifyMessage forwards a newly published message to the people it concerns.
 func (s *Server) notifyMessage(recipients []db.User, scope, body, link string) {
-	s.notify(recipients, s.subject("Message : %s", scope), func(u db.User) string {
+	s.notify(recipients, s.subject("Message\u00a0: %s", scope), func(u db.User) string {
 		return s.greeting(u) +
-			"Un message vient d'être publié pour " + scope + " :\n\n" +
+			"Un message vient d'être publié pour " + scope + "\u00a0:\n\n" +
 			indent(body) + "\n\n" +
 			link + "\n" + s.signature()
 	})

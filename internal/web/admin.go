@@ -57,7 +57,7 @@ func (s *Server) adminSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) adminLogo(w http.ResponseWriter, r *http.Request) {
 	name, err := s.Uploads.Save(r, "logo")
 	if err != nil {
-		s.flash(w, "Image refusée : PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
+		s.flash(w, "Image refusée\u00a0: PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
 	} else if name != "" {
 		old := s.DB.GetSetting("org_logo", "")
 		s.DB.SetSetting("org_logo", name)
@@ -83,7 +83,7 @@ func (s *Server) adminEventImage(w http.ResponseWriter, r *http.Request) {
 	}
 	name, err := s.Uploads.Save(r, "image")
 	if err != nil {
-		s.flash(w, "Image refusée : PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
+		s.flash(w, "Image refusée\u00a0: PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
 	} else if name != "" {
 		if err := s.DB.SetEventImage(ev.ID, name); err != nil {
 			s.serverError(w, r, err)
@@ -205,7 +205,7 @@ func (s *Server) adminEventDuplicate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	created, _ := s.DB.GetEvent(id)
-	s.flash(w, "Événement créé en brouillon avec les pôles, emplacements et responsables de « "+src.Name+" ». Les créneaux sont à recréer.")
+	s.flash(w, "Événement créé en brouillon avec les pôles, emplacements et responsables de «\u00a0"+src.Name+"\u00a0». Les créneaux sont à recréer.")
 	http.Redirect(w, r, created.AdminURL(), http.StatusSeeOther)
 }
 
@@ -233,7 +233,7 @@ func (s *Server) adminPoleCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	copied, _ := s.DB.GetPole(id)
-	s.flash(w, "Pôle « "+pole.Name+" » copié : réglages, emplacements et responsables. Les créneaux et bénévoles ne sont pas repris.")
+	s.flash(w, "Pôle «\u00a0"+pole.Name+"\u00a0» copié\u00a0: réglages, emplacements et responsables. Les créneaux et bénévoles ne sont pas repris.")
 	http.Redirect(w, r, copied.ManageURL()+"?tab=settings", http.StatusSeeOther)
 }
 
@@ -361,7 +361,7 @@ func (s *Server) adminEventMessage(w http.ResponseWriter, r *http.Request) {
 			for _, v := range vols {
 				recipients = append(recipients, v.User)
 			}
-			s.notifyMessage(recipients, "les bénévoles de « "+ev.Name+" »", body, s.Cfg.BaseURL+ev.URL())
+			s.notifyMessage(recipients, "les bénévoles de «\u00a0"+ev.Name+"\u00a0»", body, s.Cfg.BaseURL+ev.URL())
 			s.flash(w, fmt.Sprintf("Message publié et envoyé à %d bénévole(s).", len(recipients)))
 		} else {
 			s.flash(w, "Message publié sur la page d'accueil de l'événement.")
@@ -395,7 +395,7 @@ func (s *Server) adminPoleCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	created, _ := s.DB.GetPole(id)
-	s.flash(w, "Pôle « "+name+" » créé.")
+	s.flash(w, "Pôle «\u00a0"+name+"\u00a0» créé.")
 	http.Redirect(w, r, created.ManageURL()+"?tab=settings", http.StatusSeeOther)
 }
 
@@ -586,7 +586,7 @@ func (s *Server) adminUserJoinPole(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, u.DisplayName()+" a été ajouté·e au pôle « "+pole.Name+" ».")
+	s.flash(w, u.DisplayName()+" a été ajouté·e au pôle «\u00a0"+pole.Name+"\u00a0».")
 	back := r.FormValue("back")
 	if !safePath(back) {
 		back = "/admin/users"
@@ -628,7 +628,7 @@ func (s *Server) adminUserCreate(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, err)
 			return
 		}
-		msg += " et ajouté·e au pôle « " + pole.Name + " »"
+		msg += " et ajouté·e au pôle «\u00a0" + pole.Name + "\u00a0»"
 	case eventID != 0:
 		// No pole chosen: still attach the person to the event through its
 		// default pole so they show up in the event's volunteer list.
@@ -646,7 +646,7 @@ func (s *Server) adminUserCreate(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, err)
 			return
 		}
-		msg += " comme bénévole de « " + ev.Name + " », sans pôle pour l'instant"
+		msg += " comme bénévole de «\u00a0" + ev.Name + "\u00a0», sans pôle pour l'instant"
 	default:
 		msg += ". Sans événement ni pôle, la personne n'apparaît que dans Admin → Comptes"
 	}
@@ -695,7 +695,7 @@ func (s *Server) adminCoordinatorAdd(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, err)
 			return
 		}
-		s.flash(w, u.DisplayName()+" fait maintenant partie de la coordination de « "+ev.Name+" ».")
+		s.flash(w, u.DisplayName()+" fait maintenant partie de la coordination de «\u00a0"+ev.Name+"\u00a0».")
 	}
 	http.Redirect(w, r, ev.AdminURL()+"?tab=settings", http.StatusSeeOther)
 }

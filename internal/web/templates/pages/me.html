@@ -27,13 +27,13 @@
 {{if .Count}}
 <details class="panel mt-md">
   <summary><b>Ajouter mon planning à mon agenda</b> <small class="muted">— se met à jour tout seul</small></summary>
-  <p class="hint">Ajoutez ce lien dans votre agenda (Google Agenda, Apple Calendrier, Thunderbird…) comme « calendrier par abonnement ». Vos créneaux y apparaîtront, et toute modification suivra sans que vous ayez à retélécharger quoi que ce soit.</p>
+  <p class="hint">Ajoutez ce lien dans votre agenda (Google Agenda, Apple Calendrier, Thunderbird…) comme «&nbsp;calendrier par abonnement&nbsp;». Vos créneaux y apparaîtront, et toute modification suivra sans que vous ayez à retélécharger quoi que ce soit.</p>
   <div class="invite">
     <label for="calendar-url" class="sr-only">Lien d'abonnement à votre planning</label>
     <input id="calendar-url" type="text" readonly value="{{.CalendarURL}}" onclick="this.select()">
     <button id="calendar-copy" class="small secondary outline" type="button">Copier</button>
   </div>
-  <p class="hint">Ce lien est personnel et donne accès à votre planning : ne le partagez pas.</p>
+  <p class="hint">Ce lien est personnel et donne accès à votre planning&nbsp;: ne le partagez pas.</p>
   <form method="post" action="/me/calendar/reset" onsubmit="return confirm('Générer un nouveau lien ? Les agendas déjà abonnés cesseront de se mettre à jour tant qu’ils n’auront pas le nouveau lien.')">
     <button class="link muted">Régénérer le lien</button>
   </form>

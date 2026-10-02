@@ -60,7 +60,7 @@ func (s *Sender) body(u db.User, day time.Time, slots []db.MySlot) string {
 	var b strings.Builder
 	contacts := map[int64]string{}
 	fmt.Fprintf(&b, "Bonjour %s,\n\n", u.DisplayName())
-	fmt.Fprintf(&b, "Voici vos créneaux de bénévolat pour %s :\n\n", FormatDay(day, s.Loc))
+	fmt.Fprintf(&b, "Voici vos créneaux de bénévolat pour %s\u00a0:\n\n", FormatDay(day, s.Loc))
 	for _, sl := range slots {
 		fmt.Fprintf(&b, "  • %s – %s  %s", sl.StartsAt.In(s.Loc).Format("15:04"), sl.EndsAt.In(s.Loc).Format("15:04"), sl.PoleName)
 		if sl.LocationName != "" {
@@ -71,10 +71,10 @@ func (s *Sender) body(u db.User, day time.Time, slots []db.MySlot) string {
 		}
 		fmt.Fprintf(&b, "\n    %s/slots/%d\n", s.BaseURL, sl.ID)
 		if c := s.contact(sl.PoleID, contacts); c != "" {
-			fmt.Fprintf(&b, "    Contact : %s\n", c)
+			fmt.Fprintf(&b, "    Contact\u00a0: %s\n", c)
 		}
 	}
-	fmt.Fprintf(&b, "\nVotre planning complet : %s/me\n\nMerci pour votre aide !\n", s.BaseURL)
+	fmt.Fprintf(&b, "\nVotre planning complet\u00a0: %s/me\n\nMerci pour votre aide\u00a0!\n", s.BaseURL)
 	return b.String()
 }
 
@@ -97,7 +97,7 @@ func (s *Sender) contact(poleID int64, cache map[int64]string) string {
 		}
 		parts = append(parts, p)
 	}
-	cache[poleID] = strings.Join(parts, " ; ")
+	cache[poleID] = strings.Join(parts, "\u00a0; ")
 	return cache[poleID]
 }
 

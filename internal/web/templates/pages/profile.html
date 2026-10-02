@@ -38,7 +38,7 @@
     </div>
     {{if .Gravatar}}
     <p class="hint">{{if eq .User.AvatarSource "gravatar"}}Cette image vient de <a href="https://gravatar.com">gravatar.com</a>, où elle est associée à votre adresse.{{else if eq .User.AvatarSource "none"}}La recherche automatique sur <a href="https://gravatar.com">gravatar.com</a> est désactivée pour votre compte.{{else if ne .User.AvatarSource "upload"}}Sans photo, un avatar associé à votre adresse sur <a href="https://gravatar.com">gravatar.com</a> est cherché une fois.{{end}}
-      {{if ne .User.AvatarSource "upload"}}La recherche est faite par ce serveur et l'image est recopiée ici : votre navigateur, comme celui des autres bénévoles, ne contacte jamais gravatar.com.{{end}}</p>
+      {{if ne .User.AvatarSource "upload"}}La recherche est faite par ce serveur et l'image est recopiée ici&nbsp;: votre navigateur, comme celui des autres bénévoles, ne contacte jamais gravatar.com.{{end}}</p>
     {{end}}
   </div>
   <details class="mt-md">

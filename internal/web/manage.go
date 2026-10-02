@@ -142,7 +142,7 @@ func (s *Server) managePoleImage(w http.ResponseWriter, r *http.Request) {
 	}
 	name, err := s.Uploads.Save(r, "image")
 	if err != nil {
-		s.flash(w, "Image refusée : PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
+		s.flash(w, "Image refusée\u00a0: PNG, JPEG, GIF ou WebP, 2 Mo maximum.")
 	} else if name != "" {
 		if err := s.DB.SetPoleImage(pole.ID, name); err != nil {
 			s.serverError(w, r, err)
@@ -313,7 +313,7 @@ func (s *Server) managePoleMessage(w http.ResponseWriter, r *http.Request) {
 			for _, m := range members {
 				recipients = append(recipients, m.User)
 			}
-			s.notifyMessage(recipients, "le pôle « "+pole.Name+" »", body, s.Cfg.BaseURL+pole.URL())
+			s.notifyMessage(recipients, "le pôle «\u00a0"+pole.Name+"\u00a0»", body, s.Cfg.BaseURL+pole.URL())
 			s.flash(w, fmt.Sprintf("Message publié et envoyé à %d bénévole(s) du pôle.", len(recipients)))
 		} else {
 			s.flash(w, "Message publié sur la page du pôle.")
@@ -625,7 +625,7 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, u.DisplayName()+" a été ajouté·e au créneau et au pôle « "+pole.Name+" ».")
+	s.flash(w, u.DisplayName()+" a été ajouté·e au créneau et au pôle «\u00a0"+pole.Name+"\u00a0».")
 	http.Redirect(w, r, fmt.Sprintf("/manage/slots/%d#volunteers", slot.ID), http.StatusSeeOther)
 }
 

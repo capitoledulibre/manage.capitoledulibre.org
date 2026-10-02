@@ -42,7 +42,7 @@ func TestBodyNamesContact(t *testing.T) {
 		return s.body(vol, day, slots)
 	}
 	b := body()
-	if !strings.Contains(b, "Contact : Rémi Responsable, resp@example.test") {
+	if !strings.Contains(b, "Contact\u00a0: Rémi Responsable, resp@example.test") {
 		t.Fatalf("no contact in the recap:\n%s", b)
 	}
 	if strings.Contains(b, "0611223344") {
