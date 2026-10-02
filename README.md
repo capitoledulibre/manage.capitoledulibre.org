@@ -70,12 +70,17 @@ cp .env.example .env      # edit SMTP settings, BASE_URL, etc.
 ./benevoles serve
 ```
 
-Open the site, log in once with your e-mail, then grant yourself
-administrator rights:
+Administrators, the *staff*, log in through OpenID Connect from the
+"Connexion staff" link of the login page: register the application with your
+identity provider (redirect URL `BASE_URL/admin/callback`), then set
+`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and say who is let in
+with `ADMIN_EMAILS` and/or `ADMIN_GROUP`. The server refuses to start without
+it, unless `DEV_MODE=1`.
 
-```sh
-./benevoles make-admin you@example.org
-```
+Administrator rights come with the session that login opens, for 12 hours,
+not with the account: the same address logged in by e-mail link is a
+volunteer. Everyone else (volunteers, pole managers, event coordinators) keeps
+the e-mail link.
 
 From the **Admin** menu: set the organisation name, create an event, add
 poles and their managers, then switch the event to *open* when the shifts
@@ -99,13 +104,15 @@ Environment variables (a `.env` file in the working directory is read too):
 | `GRAVATAR` | `1` | Look profile pictures up on gravatar.com (server side, cached); `0` disables it |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | `587` | SMTP server (port 465 uses implicit TLS) |
 | `MAIL_FROM` | `benevoles@example.org` | Sender address |
-| `DEV_MODE` | unset | Set to `1` to print e-mails (and login links) to stdout instead of sending them |
+| `DEV_MODE` | unset | Set to `1` to print e-mails (and login links) to stdout instead of sending them; without OIDC, also offers a password-less staff login when `BASE_URL` is a loopback address |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | unset | OpenID Connect provider for the staff login |
+| `ADMIN_EMAILS` | unset | Comma-separated addresses allowed in as staff (in development, restricts the password-less login) |
+| `ADMIN_GROUP` | unset | Value of the `groups` claim that lets someone in as staff |
 
 ### Commands
 
 ```
 benevoles serve                 start the web server (default)
-benevoles make-admin EMAIL      grant administrator rights
 benevoles remind [YYYY-MM-DD]   send reminder e-mails for a day (default: tomorrow)
 benevoles backup [PATH]         write a consistent copy of the database
 ```
@@ -142,14 +149,14 @@ the same instant.
 
 ## Roles
 
-| | Volunteer | Pole manager | Event coordinator | Administrator |
+| | Volunteer | Pole manager | Event coordinator | Staff (administrator) |
 |---|---|---|---|---|
 | Join poles, sign up on slots, tick tasks | ✓ | ✓ | ✓ | ✓ |
 | Manage slots, locations, notices and members of a pole | | ✓ (own poles) | ✓ (every pole of the event) | ✓ |
 | Dashboard, global planning, global notices, volunteer list and CSV export | | | ✓ (own event) | ✓ |
 | Create poles, name managers, change the event status and settings | | | ✓ (own event) | ✓ |
 | Delete an event, create or duplicate events | | | | ✓ |
-| User accounts, administrator rights, site settings, naming the coordinators | | | | ✓ |
+| User accounts, site settings, naming the coordinators | | | | ✓ |
 
 The coordinators of an event ("Coordination" in the interface) are named by
 an administrator from the event's settings tab, and follow the event when it
@@ -186,6 +193,12 @@ make test    # go vet + go test
 `make dev` listens on :8080; set `ADDR=:8081 BASE_URL=http://localhost:8081`
 in front of it to use another port. The database is `./benevoles.db`, created
 on first start: delete it to start over.
+
+Without OIDC, `make dev` offers a password-less staff login at `/admin/login`
+("Connexion staff" on the login page): any address opens an administrator
+session, or only those of `ADMIN_EMAILS` when it is set. It is only there
+when `DEV_MODE=1` and `BASE_URL` is a loopback address, so a `DEV_MODE`
+forgotten on a public server does not open the administration.
 
 Login links are printed on the console. Layout: `internal/db` (SQLite access,
 migrations embedded from `internal/db/migrations`), `internal/web` (handlers,

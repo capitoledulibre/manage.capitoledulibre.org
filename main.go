@@ -3,7 +3,6 @@
 // Usage:
 //
 //	benevoles serve                 start the HTTP server (default)
-//	benevoles make-admin EMAIL      grant administrator rights to an account
 //	benevoles remind [YYYY-MM-DD]   send the reminder e-mails for a day (default: tomorrow)
 //	benevoles backup [PATH]         write a consistent copy of the database
 package main
@@ -51,12 +50,20 @@ func main() {
 		if err := cfg.CheckMail(); err != nil {
 			log.Fatal(err)
 		}
+		if err := cfg.CheckAdminLogin(); err != nil {
+			log.Fatal(err)
+		}
 		srv, err := web.New(database, cfg, mailer)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if n, _ := database.CountAdmins(); n == 0 {
-			log.Printf("no administrator yet: log in once, then run `benevoles make-admin you@example.org`")
+		switch {
+		case cfg.OIDCEnabled():
+			log.Printf("staff login through OIDC (%s)", cfg.OIDCIssuer)
+		case cfg.DevAdminLogin():
+			log.Printf("development staff login, no password: %s/admin/login", cfg.BaseURL)
+		default:
+			log.Printf("no staff login: DEV_MODE only offers it when BASE_URL is a loopback address")
 		}
 		go sender.RunDaily(cfg.ReminderHour)
 		server := &http.Server{
@@ -83,19 +90,6 @@ func main() {
 		// give them a chance to finish before the process exits.
 		srv.WaitMail()
 		srv.Avatars.Wait()
-
-	case "make-admin":
-		if len(os.Args) < 3 {
-			log.Fatal("usage: benevoles make-admin EMAIL")
-		}
-		u, err := database.GetOrCreateUser(os.Args[2])
-		if err != nil {
-			log.Fatal(err)
-		}
-		if err := database.SetAdmin(u.ID, true); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("%s is now an administrator\n", u.Email)
 
 	case "remind":
 		day := time.Now().In(cfg.Timezone).Add(24 * time.Hour)
@@ -131,6 +125,6 @@ func main() {
 		fmt.Printf("backup written to %s (%.1f MiB)\n", path, float64(info.Size())/(1024*1024))
 
 	default:
-		log.Fatalf("unknown command %q (serve, make-admin, remind, backup)", cmd)
+		log.Fatalf("unknown command %q (serve, remind, backup)", cmd)
 	}
 }

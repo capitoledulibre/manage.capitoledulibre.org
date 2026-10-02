@@ -16,7 +16,7 @@ import (
 // application, and a bare "Connexion" form gave no clue about which pole or
 // which event was involved, so the destination is resolved and displayed.
 func (s *Server) loginContext(next string) M {
-	data := M{"Next": next}
+	data := M{"Next": next, "StaffLogin": s.staffLogin()}
 	if path := next; path != "" {
 		if i := strings.IndexByte(path, '?'); i >= 0 {
 			path = path[:i]
@@ -139,12 +139,12 @@ func (s *Server) authToken(w http.ResponseWriter, r *http.Request) {
 		s.invalidLink(w, r)
 		return
 	}
-	sid, err := s.DB.CreateSession(userID, sessionTTL)
+	sid, err := s.DB.CreateSession(userID, sessionTTL, false)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	s.setSessionCookie(w, sid)
+	s.setSessionCookie(w, sid, sessionTTL)
 	u, _ := s.DB.GetUser(userID)
 	next := r.FormValue("next")
 	if !safePath(next) {

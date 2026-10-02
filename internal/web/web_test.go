@@ -95,6 +95,12 @@ func (e *env) waitMail() { e.srv.WaitMail() }
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
+	return newEnvWith(t, nil)
+}
+
+// newEnvWith is newEnv with the configuration adjusted by tweak first.
+func newEnvWith(t *testing.T, tweak func(*config.Config)) *env {
+	t.Helper()
 	dir := t.TempDir()
 	d, err := db.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -105,6 +111,9 @@ func newEnv(t *testing.T) *env {
 	}
 	loc, _ := time.LoadLocation("Europe/Paris")
 	cfg := config.Config{BaseURL: "http://example.test", Timezone: loc, UploadDir: filepath.Join(dir, "uploads"), DevMode: true}
+	if tweak != nil {
+		tweak(&cfg)
+	}
 	mailer := &fakeMailer{}
 	srv, err := New(d, cfg, mailer)
 	if err != nil {
@@ -138,6 +147,30 @@ func (e *env) login(email, name string) *client {
 		c.post("/profile", 303, url.Values{"name": {name}})
 	}
 	return c
+}
+
+// becomeAdmin swaps the client's session for an administrator one on the
+// same account, which is what the staff login ends with. TestStaffLogin and
+// TestOIDCLogin cover that login itself.
+func (c *client) becomeAdmin() {
+	c.env.t.Helper()
+	base, _ := url.Parse(c.env.ts.URL)
+	for _, ck := range c.http.Jar.Cookies(base) {
+		if ck.Name != sessionCookie {
+			continue
+		}
+		sess, err := c.env.db.GetSession(ck.Value)
+		if err != nil {
+			c.env.t.Fatal(err)
+		}
+		sid, err := c.env.db.CreateSession(sess.User.ID, adminSessionTTL, true)
+		if err != nil {
+			c.env.t.Fatal(err)
+		}
+		c.http.Jar.SetCookies(base, []*http.Cookie{{Name: sessionCookie, Value: sid, Path: "/"}})
+		return
+	}
+	c.env.t.Fatal("becomeAdmin: the client is not logged in")
 }
 
 // followLoginLink opens an e-mailed login link and clicks the button of the
@@ -208,7 +241,7 @@ func TestFullFlow(t *testing.T) {
 	admin := e.login("admin@example.test", "Alice Admin")
 	want(t, admin.get("/", 200), "Aucun événement")
 	admin.get("/admin", 403)
-	e.db.SetAdmin(1, true)
+	admin.becomeAdmin()
 	admin.post("/admin/events", 303, url.Values{"name": {"Test 2026"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
 	want(t, admin.get("/admin/events/test-2026", 200), "Général")
 	admin.post("/admin/events/test-2026/poles", 303, url.Values{"name": {"Buvette"}, "access_mode": {"private"}, "manager_email": {"resp@example.test"}})
@@ -475,7 +508,7 @@ func (e *env) enableGravatar(emails ...string) *gravatarStub {
 func TestProfilePhoto(t *testing.T) {
 	e := newEnv(t)
 	admin := e.login("admin@example.test", "Alice Admin")
-	e.db.SetAdmin(1, true)
+	admin.becomeAdmin()
 	admin.post("/admin/events", 303, url.Values{"name": {"Ed"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
 	admin.post("/admin/events/ed/poles", 303, url.Values{"name": {"Buvette"}, "access_mode": {"public"}})
 	admin.post("/admin/events/ed", 303, url.Values{"name": {"Ed"}, "status": {"open"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
@@ -571,7 +604,7 @@ func TestGravatarFallback(t *testing.T) {
 func TestUploads(t *testing.T) {
 	e := newEnv(t)
 	admin := e.login("admin@example.test", "Alice")
-	e.db.SetAdmin(1, true)
+	admin.becomeAdmin()
 	admin.post("/admin/events", 303, url.Values{"name": {"Ed"}, "starts_on": {"2026-11-14"}, "ends_on": {"2026-11-15"}})
 	admin.post("/admin/events/ed/poles", 303, url.Values{"name": {"Buvette"}, "access_mode": {"public"}})
 
@@ -645,7 +678,7 @@ func TestPagesRender(t *testing.T) {
 	want(t, anon.get("/login", 200), `class="skip-link"`)
 
 	admin := e.login("admin@example.test", "Admine")
-	e.db.SetAdmin(1, true)
+	admin.becomeAdmin()
 	want(t, admin.get("/", 200), "Aucun événement en cours")
 	admin.post("/admin/events", 303, url.Values{
 		"name": {"Test 2026"}, "starts_on": {"2026-11-21"}, "ends_on": {"2026-11-22"}})
@@ -667,14 +700,15 @@ func TestPagesRender(t *testing.T) {
 	want(t, loginWithNext, "invité·e à rejoindre le pôle")
 	want(t, loginWithNext, "Buvette")
 
-	// Account list: paged, searched server-side, with the confirmation on the
-	// administrator toggle. A second account is needed: the row of the signed-in
-	// administrator hides the destructive actions.
+	// Account list: paged and searched server-side. Administration is no
+	// longer granted from it: it comes with the staff login. A second account
+	// is needed: the row of the signed-in administrator hides the destructive
+	// actions.
 	e.login("vol@example.test", "Victor Bénévole")
 	users := admin.get("/admin/users", 200)
 	want(t, users, `role="search"`)
-	want(t, users, "rendre admin")
-	want(t, users, "droits d’administration")
+	want(t, users, "Supprimer le compte vol@example.test")
+	wantNot(t, users, "rendre admin")
 	want(t, admin.get("/admin/users?q=zzzz", 200), "Aucun compte ne correspond")
 	want(t, admin.get("/admin/users?q=admin", 200), "admin@example.test")
 
@@ -743,7 +777,7 @@ func TestSafePath(t *testing.T) {
 func setupEvent(t *testing.T, e *env, capacity string) (*client, db.Pole, string) {
 	t.Helper()
 	admin := e.login("chef@example.test", "Chef Orga")
-	e.db.SetAdmin(1, true)
+	admin.becomeAdmin()
 	admin.post("/admin/events", 303, url.Values{
 		"name": {"Test 2026"}, "starts_on": {"2026-11-21"}, "ends_on": {"2026-11-22"}})
 	admin.post("/admin/events/test-2026", 303, url.Values{
@@ -883,6 +917,7 @@ func TestWaitlist(t *testing.T) {
 	}
 	// Managers need to see that the slot is undersized.
 	admin := e.login("chef@example.test", "")
+	admin.becomeAdmin()
 	want(t, admin.get("/manage/slots/1", 200), "Bénévoles inscrits")
 }
 
@@ -1069,7 +1104,6 @@ func TestEventCoordinators(t *testing.T) {
 	coord.post("/admin/events/test-2026/duplicate", 403, url.Values{"name": {"X"}, "starts_on": {"2027-01-01"}, "ends_on": {"2027-01-02"}})
 	coord.post("/admin/events/test-2026/delete", 403, nil)
 	coord.post("/admin/events/test-2026/coordinators", 403, url.Values{"email": {"friend@example.test"}})
-	coord.post("/admin/users/1/admin", 403, nil)
 	coord.get("/admin/events/autre-2026", 403)
 	coord.get(fmt.Sprintf("/autre-2026/%s/manage", otherPole.Slug), 403)
 	coord.post(fmt.Sprintf("/admin/poles/%d/copy", buvette.ID), 403, url.Values{"event_id": {fmt.Sprint(other.ID)}})
@@ -1308,11 +1342,11 @@ func TestSessionSlides(t *testing.T) {
 		t.Fatal("no session cookie")
 	}
 	expiry := func() time.Time {
-		_, until, err := e.db.SessionUser(sid)
+		sess, err := e.db.GetSession(sid)
 		if err != nil {
 			t.Fatal(err)
 		}
-		return until
+		return sess.ExpiresAt
 	}
 	// A fresh session is not rewritten on every page view.
 	before := expiry()

@@ -27,4 +27,5 @@
   <p class="hint">Première visite ? Votre compte sera créé automatiquement, {{if .Pole}}et vous arriverez directement sur ce pôle.{{else}}rien d'autre à remplir.{{end}}</p>
   {{with named .Managers}}<p class="hint">Responsable{{if gt (len .) 1}}s{{end}} du pôle : {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
 </article>
+{{if and .StaffLogin (not .Pole)}}<p class="center"><small><a href="/admin/login" class="muted">Connexion staff</a></small></p>{{end}}
 {{end}}

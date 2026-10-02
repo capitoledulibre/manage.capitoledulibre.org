@@ -407,11 +407,6 @@ func (s *Server) profileSubmit(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) profileDelete(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
-	if u.IsAdmin {
-		s.flash(w, "Un administrateur ne peut pas supprimer son propre compte. Retirez d'abord le rôle administrateur.")
-		http.Redirect(w, r, "/profile", http.StatusSeeOther)
-		return
-	}
 	if err := s.DB.DeleteUser(u.ID); err != nil {
 		s.serverError(w, r, err)
 		return

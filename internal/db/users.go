@@ -16,7 +16,6 @@ type User struct {
 	Email       string
 	Name        string
 	Phone       string
-	IsAdmin     bool
 	CreatedAt   time.Time
 	LastLoginAt *time.Time
 
@@ -29,6 +28,10 @@ type User struct {
 	// SharePhone lets the volunteers of the poles this account manages see
 	// its phone number.
 	SharePhone bool
+
+	// IsAdmin is not stored with the account: it is set for the length of a
+	// session opened through the staff login (see Session.Admin).
+	IsAdmin bool
 }
 
 // Where a profile picture came from. Recorded explicitly so that an uploaded
@@ -65,7 +68,7 @@ func (u User) DisplayName() string {
 	return u.Email
 }
 
-const userCols = `u.id, u.email, u.name, u.phone, u.is_admin, u.created_at, u.last_login_at,
+const userCols = `u.id, u.email, u.name, u.phone, u.created_at, u.last_login_at,
 	u.avatar, u.avatar_source, u.avatar_checked_at, u.share_phone`
 
 // scanUser reads the userCols columns, plus any extra column the query
@@ -74,7 +77,7 @@ func scanUser(row interface{ Scan(...any) error }, extra ...any) (User, error) {
 	var u User
 	var created string
 	var last, checked sql.NullString
-	dest := []any{&u.ID, &u.Email, &u.Name, &u.Phone, &u.IsAdmin, &created, &last,
+	dest := []any{&u.ID, &u.Email, &u.Name, &u.Phone, &created, &last,
 		&u.Avatar, &u.AvatarSource, &checked, &u.SharePhone}
 	if err := row.Scan(append(dest, extra...)...); err != nil {
 		return u, err
@@ -166,19 +169,6 @@ func (d *DB) ImageInUse(name string) bool {
 		(SELECT COUNT(*) FROM settings WHERE key = 'org_logo' AND value = ?)`,
 		name, name, name, name).Scan(&n)
 	return err != nil || n > 0
-}
-
-// SetAdmin grants or revokes the global administrator flag.
-func (d *DB) SetAdmin(id int64, admin bool) error {
-	_, err := d.Exec(`UPDATE users SET is_admin = ? WHERE id = ?`, admin, id)
-	return err
-}
-
-// CountAdmins returns the number of administrators.
-func (d *DB) CountAdmins() (int, error) {
-	var n int
-	err := d.QueryRow(`SELECT COUNT(*) FROM users WHERE is_admin = 1`).Scan(&n)
-	return n, err
 }
 
 // ListUsers returns all users ordered by name then e-mail. Callers rendering
@@ -282,27 +272,41 @@ func (d *DB) ConsumeMagicLink(tok string) (int64, error) {
 // --- sessions -----------------------------------------------------------
 
 // CreateSession opens a browser session.
-func (d *DB) CreateSession(userID int64, ttl time.Duration) (string, error) {
+// admin marks a session opened through the staff login, which carries the
+// administrator rights.
+func (d *DB) CreateSession(userID int64, ttl time.Duration, admin bool) (string, error) {
 	id := randomToken()
-	_, err := d.Exec(`INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)`, id, userID, FormatTime(time.Now().Add(ttl)))
+	_, err := d.Exec(`INSERT INTO sessions (id, user_id, expires_at, admin) VALUES (?, ?, ?, ?)`, id, userID, FormatTime(time.Now().Add(ttl)), admin)
 	return id, err
 }
 
-// SessionUser returns the user attached to a valid session, and when the
-// session expires.
-func (d *DB) SessionUser(id string) (User, time.Time, error) {
+// Session is a valid browser session.
+type Session struct {
+	User      User // IsAdmin set from Admin
+	ExpiresAt time.Time
+	Admin     bool
+}
+
+// GetSession returns a valid session with its user.
+func (d *DB) GetSession(id string) (Session, error) {
+	var sess Session
 	var userID int64
 	var expires string
-	if err := d.QueryRow(`SELECT user_id, expires_at FROM sessions WHERE id = ?`, id).Scan(&userID, &expires); err != nil {
-		return User{}, time.Time{}, err
+	if err := d.QueryRow(`SELECT user_id, expires_at, admin FROM sessions WHERE id = ?`, id).Scan(&userID, &expires, &sess.Admin); err != nil {
+		return sess, err
 	}
-	until := ParseTime(expires)
-	if until.Before(time.Now()) {
+	sess.ExpiresAt = ParseTime(expires)
+	if sess.ExpiresAt.Before(time.Now()) {
 		d.Exec(`DELETE FROM sessions WHERE id = ?`, id)
-		return User{}, time.Time{}, sql.ErrNoRows
+		return Session{}, sql.ErrNoRows
 	}
 	u, err := d.GetUser(userID)
-	return u, until, err
+	if err != nil {
+		return Session{}, err
+	}
+	u.IsAdmin = sess.Admin
+	sess.User = u
+	return sess, nil
 }
 
 // ExtendSession pushes the expiry of a session to ttl from now.

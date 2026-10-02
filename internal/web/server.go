@@ -53,6 +53,9 @@ type Server struct {
 	Uploads *upload.Store
 	Avatars *avatar.Fetcher
 
+	// oidc is the staff login, nil when OIDC is not configured.
+	oidc *oidcClient
+
 	loginByEmail *ratelimit.Limiter
 	loginByIP    *ratelimit.Limiter
 
@@ -77,6 +80,13 @@ func New(d *db.DB, cfg config.Config, mailer Mailer) (*Server, error) {
 		Avatars:      avatar.New(d, store, cfg.Gravatar),
 		loginByEmail: ratelimit.New(3, 15*time.Minute),
 		loginByIP:    ratelimit.New(30, 15*time.Minute),
+	}
+	if cfg.OIDCEnabled() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if s.oidc, err = newOIDCClient(ctx, cfg); err != nil {
+			return nil, err
+		}
 	}
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
@@ -378,6 +388,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /manage/slots/{id}/volunteers", s.requireLogin(s.manageSlotAddVolunteer))
 	mux.HandleFunc("POST /manage/slots/{id}/volunteers/{uid}/delete", s.requireLogin(s.manageSlotRemoveVolunteer))
 
+	// Staff login (OIDC, or the password-less form in development)
+	mux.HandleFunc("GET /admin/login", s.adminLogin)
+	mux.HandleFunc("POST /admin/login/dev", s.adminDevLogin)
+	mux.HandleFunc("GET /admin/callback", s.adminCallback)
+
 	// Administration
 	mux.HandleFunc("GET /admin", s.requireAdmin(s.adminHome))
 	mux.HandleFunc("POST /admin/settings", s.requireAdmin(s.adminSettings))
@@ -403,7 +418,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/poles/{id}/managers/{uid}/delete", s.requirePoleEventAdmin(s.adminManagerRemove))
 	mux.HandleFunc("POST /admin/poles/{id}/copy", s.requirePoleEventAdmin(s.adminPoleCopy))
 	mux.HandleFunc("GET /admin/users", s.requireAdmin(s.adminUsers))
-	mux.HandleFunc("POST /admin/users/{id}/admin", s.requireAdmin(s.adminUserToggleAdmin))
 	mux.HandleFunc("POST /admin/users/{id}/delete", s.requireAdmin(s.adminUserDelete))
 	mux.HandleFunc("POST /admin/users/{id}/join", s.requireLogin(s.adminUserJoinPole))
 	mux.HandleFunc("POST /admin/users/new", s.requireLogin(s.adminUserCreate))
@@ -486,15 +500,17 @@ const userKey ctxKey = 1
 func (s *Server) withUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
-			if u, until, err := s.DB.SessionUser(c.Value); err == nil {
-				// The session slides: volunteers come back a few times
-				// between signing up and the event, and a fixed expiry
-				// sent some of them back through the e-mail link right
-				// before the day. Renewed at most once a day, to keep page
-				// views from writing to the database.
-				if time.Until(until) < sessionTTL-sessionRenewEvery {
+			if sess, err := s.DB.GetSession(c.Value); err == nil {
+				u := sess.User
+				// A volunteer session slides: volunteers come back a few
+				// times between signing up and the event, and a fixed
+				// expiry sent some of them back through the e-mail link
+				// right before the day. Renewed at most once a day, to keep
+				// page views from writing to the database. An administrator
+				// session does not: it ends after adminSessionTTL.
+				if !sess.Admin && time.Until(sess.ExpiresAt) < sessionTTL-sessionRenewEvery {
 					if err := s.DB.ExtendSession(c.Value, sessionTTL); err == nil {
-						s.setSessionCookie(w, c.Value)
+						s.setSessionCookie(w, c.Value, sessionTTL)
 					}
 				}
 				// Fills in the profile picture of an account that has
@@ -507,11 +523,11 @@ func (s *Server) withUser(next http.Handler) http.Handler {
 	})
 }
 
-// setSessionCookie hands the browser the session id, for sessionTTL.
-func (s *Server) setSessionCookie(w http.ResponseWriter, sid string) {
+// setSessionCookie hands the browser the session id, for ttl.
+func (s *Server) setSessionCookie(w http.ResponseWriter, sid string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
 		Name: sessionCookie, Value: sid, Path: "/", HttpOnly: true,
-		SameSite: http.SameSiteLaxMode, Secure: s.Cfg.Secure, MaxAge: int(sessionTTL.Seconds()),
+		SameSite: http.SameSiteLaxMode, Secure: s.Cfg.Secure, MaxAge: int(ttl.Seconds()),
 	})
 }
 
@@ -537,14 +553,23 @@ func (s *Server) requireLogin(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// requireAdmin guards the site-wide administration. Opening one of its pages
+// without an administrator session leads to the staff login; any other
+// request is refused.
 func (s *Server) requireAdmin(h http.HandlerFunc) http.HandlerFunc {
-	return s.requireLogin(func(w http.ResponseWriter, r *http.Request) {
-		if !currentUser(r).IsAdmin {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u := currentUser(r)
+		switch {
+		case u != nil && u.IsAdmin:
+			h(w, r)
+		case r.Method == http.MethodGet && !isHX(r) && s.staffLogin():
+			http.Redirect(w, r, "/admin/login?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
+		case u == nil:
+			s.requireLogin(h)(w, r)
+		default:
 			s.forbidden(w, r)
-			return
 		}
-		h(w, r)
-	})
+	}
 }
 
 // canManage tells whether the user may administer the pole: its managers,

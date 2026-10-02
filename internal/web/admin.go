@@ -538,31 +538,6 @@ func (s *Server) adminUsers(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "admin_users", data)
 }
 
-func (s *Server) adminUserToggleAdmin(w http.ResponseWriter, r *http.Request) {
-	u, err := s.DB.GetUser(pathID(r, "id"))
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	if u.IsAdmin {
-		if n, _ := s.DB.CountAdmins(); n <= 1 {
-			s.flash(w, "Impossible de retirer le dernier administrateur : désignez-en un autre d'abord.")
-			http.Redirect(w, r, usersBack(r), http.StatusSeeOther)
-			return
-		}
-	}
-	if err := s.DB.SetAdmin(u.ID, !u.IsAdmin); err != nil {
-		s.serverError(w, r, err)
-		return
-	}
-	if u.IsAdmin {
-		s.flash(w, "Droits d'administration retirés à "+u.DisplayName()+".")
-	} else {
-		s.flash(w, u.DisplayName()+" est maintenant administrateur·rice : accès à tous les événements et à tous les comptes.")
-	}
-	http.Redirect(w, r, usersBack(r), http.StatusSeeOther)
-}
-
 // usersBack keeps the search and the page the administrator was looking at.
 func usersBack(r *http.Request) string {
 	if back := r.FormValue("back"); safePath(back) && strings.HasPrefix(back, "/admin/users") {
