@@ -258,6 +258,9 @@ func (s *Server) cardData(r *http.Request, slot db.Slot, pole db.Pole, ed db.Eve
 		"Slot": slot, "Pole": pole, "Member": member, "Back": back,
 		"Locked":   ed.SignupsLocked(pole.FreezeAt, time.Now()),
 		"ShowPole": back == openSlotsPath || strings.HasPrefix(back, openSlotsPath+"?"),
+		// On the slot's own page the card is only the action: the heading
+		// already gives the time and the place.
+		"Compact": back == fmt.Sprintf("/slots/%d", slot.ID),
 	}
 	// Only a full slot offers the waiting list, so only then is the lookup worth it.
 	if u := currentUser(r); u != nil && member && slot.IsFull() && !slot.Mine {

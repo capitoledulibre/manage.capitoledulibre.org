@@ -1291,6 +1291,7 @@ func TestManagerContact(t *testing.T) {
 	wantNot(t, vol.get("/profile", 200), `name="share_phone"`) // not a manager
 	resp.post("/profile", 303, url.Values{"name": {"Rémi Responsable"}, "phone": {"0611223344"}, "share_phone_shown": {"1"}, "share_phone": {"1"}})
 	want(t, vol.get("/slots/1", 200), `href="tel:0611223344"`)
+	want(t, vol.get("/slots/1", 200), "06 11 22 33 44")
 
 	// A form without the choice (the welcome page) leaves it alone.
 	resp.post("/profile", 303, url.Values{"name": {"Rémi Responsable"}, "phone": {"0611223344"}, "welcome": {"1"}})
@@ -1362,4 +1363,29 @@ func TestSessionSlides(t *testing.T) {
 	if left := time.Until(expiry()); left < sessionTTL-time.Hour {
 		t.Fatalf("session not renewed: %v left", left)
 	}
+}
+
+// TestPolePageForVolunteers: one sentence instead of a row of figures, cards
+// named by what tells them apart, tasks left to the people on the slot.
+func TestPolePageForVolunteers(t *testing.T) {
+	e := newEnv(t)
+	admin, _, _ := setupEvent(t, e, "2")
+	admin.post("/test-2026/buvette/manage/locations", 303, url.Values{"names": {"Bar du hall"}})
+	admin.post("/test-2026/buvette/manage/slots", 303, url.Values{
+		"starts_at": {"2026-11-21T11:00"}, "ends_at": {"2026-11-21T13:00"}, "capacity": {"2"},
+		"location_id": {"1"}, "tasks": {"Ouvrir le bar"}})
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	vol.post("/test-2026/buvette/join", 303, nil)
+	page := vol.get("/test-2026/buvette", 200)
+	want(t, page, "Il manque 4 bénévoles</b> sur 2 créneaux")
+	want(t, page, `class="slot-title">Bar du hall</a>`)
+	wantNot(t, page, "0/1 tâche")
+	wantNot(t, page, "mes créneaux ici")
+
+	vol.post("/slots/2/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	want(t, vol.get("/test-2026/buvette", 200), "0/1 tâche")
+	// The slot page heading carries the time; its card does not repeat it.
+	slot := vol.get("/slots/2", 200)
+	want(t, slot, `class="slot c`)
+	want(t, slot, ` compact"`)
 }

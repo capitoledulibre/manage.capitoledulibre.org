@@ -139,6 +139,8 @@ func (s *Server) parseTemplates() error {
 			return strings.Fields(name)[0]
 		},
 		"initials": userInitials,
+		"phone":    formatPhone,
+		"telHref":  telHref,
 		// named keeps the accounts that have a name. Volunteer pages list pole
 		// managers by name; one who never filled theirs in would otherwise be
 		// shown by e-mail address, to every volunteer and, on the login page
@@ -290,6 +292,27 @@ func dateRange(from, to string, loc *time.Location) string {
 	default:
 		return fmt.Sprintf("du %d %s au %d %s", a.Day(), monthYear(a), b.Day(), monthYear(b))
 	}
+}
+
+// formatPhone groups a French ten-digit number by pairs, "06 11 22 33 44",
+// which is how it is read and dialled; anything else is shown as typed.
+func formatPhone(p string) string {
+	digits := telHref(p)
+	if len(digits) != 10 || digits[0] != '0' {
+		return strings.TrimSpace(p)
+	}
+	return digits[0:2] + " " + digits[2:4] + " " + digits[4:6] + " " + digits[6:8] + " " + digits[8:10]
+}
+
+// telHref keeps the digits and a leading + of a phone number, for tel: links.
+func telHref(p string) string {
+	var b strings.Builder
+	for i, r := range strings.TrimSpace(p) {
+		if (r >= '0' && r <= '9') || (r == '+' && i == 0) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // deadline renders the moment signups close as the end of a sentence

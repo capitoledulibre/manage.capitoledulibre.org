@@ -1,12 +1,12 @@
-{{define "title"}}{{if .Slot.Title}}{{.Slot.Title}}{{else}}{{.Pole.Name}}{{end}} – {{.Org}}{{end}}
+{{define "title"}}{{.Pole.Name}}{{if .Slot.Title}} – {{.Slot.Title}}{{end}} – {{.Org}}{{end}}
 {{define "content"}}
 <p class="breadcrumb"><a href="{{.Pole.URL}}">← {{.Pole.Name}}</a></p>
 <div class="page-header c{{.Pole.Color}}">
   <div class="page-title">
     {{template "pole_icon" (dict "Pole" .Pole)}}
     <div>
-      <h1>{{if .Slot.Title}}{{.Slot.Title}}{{else}}{{.Pole.Name}}{{end}}</h1>
-      <p class="muted"><span class="cap">{{day .Slot.StartsAt}}</span> · {{time .Slot.StartsAt}} – {{time .Slot.EndsAt}}
+      <h1>{{.Pole.Name}}{{if .Slot.Title}} – {{.Slot.Title}}{{end}}</h1>
+      <p class="slot-when"><span class="cap">{{day .Slot.StartsAt}}</span> · <b>{{time .Slot.StartsAt}} – {{time .Slot.EndsAt}}</b>
         {{if .Slot.LocationName}}<span class="badge">{{.Slot.LocationName}}</span>{{end}}</p>
     </div>
   </div>
@@ -15,7 +15,7 @@
 
 {{template "messages" (dict "Messages" .Messages)}}
 
-{{template "slot_card" (dict "Slot" .Slot "Pole" .Pole "Member" .Member "Locked" .Locked "Back" .Path "Waiting" .Waiting)}}
+{{template "slot_card" (dict "Slot" .Slot "Pole" .Pole "Member" .Member "Locked" .Locked "Back" .Path "Waiting" .Waiting "Compact" true)}}
 
 <div class="grid-2 mt-md">
   <section>
@@ -36,8 +36,8 @@
 <section class="mt-md">
   <h2>Une question, un empêchement&nbsp;?</h2>
   <ul class="people">
-    {{range .}}<li>{{template "avatar" (dict "User" . "Class" "sm")}}<span>{{.Name}} <small class="muted">· responsable</small>
-      · <a href="mailto:{{.Email}}">{{.Email}}</a>{{if and .SharePhone .Phone}} · <a href="tel:{{.Phone}}">{{.Phone}}</a>{{end}}</span></li>{{end}}
+    {{range .}}<li class="contact">{{template "avatar" (dict "User" .)}}<span><b>{{.Name}}</b> <small class="muted">responsable du pôle</small><br>
+      <a href="mailto:{{.Email}}">{{.Email}}</a>{{if and .SharePhone .Phone}} · <a href="tel:{{telHref .Phone}}">{{phone .Phone}}</a>{{end}}</span></li>{{end}}
   </ul>
 </section>
 {{end}}

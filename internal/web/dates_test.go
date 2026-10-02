@@ -40,3 +40,19 @@ func TestDeadline(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatPhone(t *testing.T) {
+	for in, want := range map[string]string{
+		"0611223344":        "06 11 22 33 44",
+		"06.11.22.33.44":    "06 11 22 33 44",
+		"+33 6 11 22 33 44": "+33 6 11 22 33 44",
+		"112":               "112",
+	} {
+		if got := formatPhone(in); got != want {
+			t.Errorf("formatPhone(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := telHref("+33 6 11-22 33 44"); got != "+33611223344" {
+		t.Errorf("telHref = %q", got)
+	}
+}

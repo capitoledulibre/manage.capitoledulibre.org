@@ -2,18 +2,29 @@
 {{/* Announce the outcome of an htmx swap: the card is replaced in place, so
      without this nothing is spoken and the flash message never appears. */}}
 {{if .Announce}}<div id="announcer" class="sr-only" role="status" aria-live="polite" hx-swap-oob="true">{{.Announce}}</div>{{end}}
-<article class="slot c{{.Pole.Color}}{{if .Slot.Mine}} mine{{else if .Slot.IsFull}} full{{end}}" id="slot-{{.Slot.ID}}">
+<article class="slot c{{.Pole.Color}}{{if .Slot.Mine}} mine{{else if .Slot.IsFull}} full{{end}}{{if .Compact}} compact{{end}}" id="slot-{{.Slot.ID}}">
   <div class="slot-row">
+    {{/* On the slot's own page the heading already says when and where. */}}
+    {{if not .Compact}}
     <div class="slot-time">{{time .Slot.StartsAt}}<span class="dash">–</span>{{time .Slot.EndsAt}}</div>
     <div class="slot-info">
       {{if .ShowPole}}
       <a href="/slots/{{.Slot.ID}}" class="slot-title">{{template "pole_icon" (dict "Pole" .Pole)}}{{.Pole.Name}}{{if .Slot.Title}} – {{.Slot.Title}}{{end}}</a>
-      {{else}}
-      <a href="/slots/{{.Slot.ID}}" class="slot-title">{{if .Slot.Title}}{{.Slot.Title}}{{else}}{{.Pole.Name}}{{end}}</a>
-      {{end}}
       {{if .Slot.LocationName}}<span class="badge">{{.Slot.LocationName}}</span>{{end}}
-      {{if .Slot.TaskCount}}<span class="slot-meta">{{.Slot.TaskDone}}/{{.Slot.TaskCount}} tâche{{if gt .Slot.TaskCount 1}}s{{end}}</span>{{end}}
+      {{/* On a pole's page every card is that pole's: the title names what
+           tells the slots apart, the title or else the location. */}}
+      {{else if .Slot.Title}}
+      <a href="/slots/{{.Slot.ID}}" class="slot-title">{{.Slot.Title}}</a>
+      {{if .Slot.LocationName}}<span class="badge">{{.Slot.LocationName}}</span>{{end}}
+      {{else if .Slot.LocationName}}
+      <a href="/slots/{{.Slot.ID}}" class="slot-title">{{.Slot.LocationName}}</a>
+      {{else}}
+      <a href="/slots/{{.Slot.ID}}" class="slot-title">{{.Pole.Name}}</a>
+      {{end}}
+      {{/* Tasks are ticked on the day by the people on the slot. */}}
+      {{if and .Slot.TaskCount .Slot.Mine}}<span class="slot-meta">{{.Slot.TaskDone}}/{{.Slot.TaskCount}} tâche{{if gt .Slot.TaskCount 1}}s{{end}}</span>{{end}}
     </div>
+    {{end}}
     <div class="slot-fill">
       {{if le .Slot.Capacity 10}}<span class="dots" aria-hidden="true">{{range seq .Slot.Capacity}}<i class="{{if le . $.Slot.Filled}}on{{end}}"></i>{{end}}</span>
       {{else}}<span class="bar" aria-hidden="true"><i style="width:{{pct .Slot.Filled .Slot.Capacity}}%"></i></span>{{end}}

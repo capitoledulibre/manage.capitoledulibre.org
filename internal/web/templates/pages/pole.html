@@ -28,11 +28,9 @@
   {{end}}
 </article>
 {{else}}
-<div class="stats">
-  <div><b>{{.Mine}}</b><small>mes créneaux ici</small></div>
-  <div><b>{{.Total}}</b><small>créneaux</small></div>
-  <div><b class="{{if .Missing}}txt-warn{{else}}txt-ok{{end}}">{{.Missing}}</b><small>bénévoles manquants</small></div>
-</div>
+{{/* One sentence, not a row of figures: a volunteer wants to know whether
+     help is needed here, and the slots are what they came for. */}}
+{{if .Total}}<p class="pole-summary">{{if .Missing}}<b class="txt-warn">Il manque {{.Missing}} bénévole{{if gt .Missing 1}}s{{end}}</b> sur {{.Total}} créneau{{if gt .Total 1}}x{{end}}{{else}}<b class="txt-ok">Tous les créneaux sont pourvus</b>{{end}}{{if .Mine}} · vous êtes inscrit·e sur {{.Mine}}{{end}}.</p>{{end}}
 {{if .Locked}}<div class="flash error" role="alert">Les inscriptions sont closes : vos créneaux ne peuvent plus être modifiés. Contactez un responsable si besoin.</div>{{end}}
 {{end}}
 {{if and .Deadline (not .Locked)}}<p class="hint">Inscriptions et modifications possibles jusqu'au {{deadline .Deadline}}.</p>{{end}}
