@@ -375,7 +375,7 @@ func TestFullFlow(t *testing.T) {
 	vol.get("/test-2027", 404) // draft event hidden from volunteers
 	want(t, admin.get("/test-2027", 200), "Test 2027")
 	want(t, admin.get("/", 200), `href="/test-2026/buvette/manage"`)
-	want(t, admin.get("/admin/users", 200), "Ajouter au pôle")
+	want(t, admin.get("/admin/users", 200), "ajouter à un pôle…")
 	admin.post("/admin/users/3/join", 303, url.Values{"pole_id": {"3"}, "back": {"/admin/users"}})
 	if !e.db.IsPoleMember(3, 3) {
 		t.Fatal("admin should be able to add a user to a pole from the list")

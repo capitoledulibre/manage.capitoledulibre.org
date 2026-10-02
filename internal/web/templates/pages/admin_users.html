@@ -27,10 +27,11 @@
     <td><small>{{range $i, $p := index $.UserPoles .ID}}{{if $i}}, {{end}}{{$p}}{{end}}</small></td>
     <td>{{if .LastLoginAt}}{{date .LastLoginAt}}{{else}}<span class="muted">jamais</span>{{end}}</td>
     <td><div class="actions">
-      {{if $.Poles}}<form method="post" action="/admin/users/{{.ID}}/join" class="actions"><input type="hidden" name="back" value="{{$back}}">
+      {{if $.Poles}}<details class="inline-menu"><summary>ajouter à un pôle…</summary>
+        <form method="post" action="/admin/users/{{.ID}}/join" class="actions"><input type="hidden" name="back" value="{{$back}}">
         <label for="pole-{{.ID}}" class="sr-only">Pôle à rejoindre pour {{.DisplayName}}</label>
-        <select id="pole-{{.ID}}" name="pole_id" class="select-sm">{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
-        <button class="small secondary outline">Ajouter au pôle</button></form>{{end}}
+        <select id="pole-{{.ID}}" name="pole_id" class="select-sm" required><option value="" disabled selected>Choisir un pôle…</option>{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
+        <button class="small secondary outline">Ajouter</button></form></details>{{end}}
       {{if ne .ID $.User.ID}}
       <form method="post" action="/admin/users/{{.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer le compte {{.Email}} et toutes ses inscriptions, sur tous les événements ?')">
         <input type="hidden" name="back" value="{{$back}}">
