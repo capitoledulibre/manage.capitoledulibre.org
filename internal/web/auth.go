@@ -46,7 +46,11 @@ func (s *Server) loginForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, "login", s.loginContext(r.URL.Query().Get("next")))
+	data := s.loginContext(r.URL.Query().Get("next"))
+	// Coming back from "Ce n'est pas la bonne adresse ?": the address is
+	// there to be corrected, not retyped.
+	data["Email"] = r.URL.Query().Get("email")
+	s.render(w, r, "login", data)
 }
 
 func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {

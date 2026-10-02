@@ -1413,3 +1413,13 @@ func TestDefaultPoleIsEveryones(t *testing.T) {
 		t.Fatal("signing up on a default-pole slot should make the volunteer a member")
 	}
 }
+
+// TestLoginAddressCorrection: a typo in the address can be fixed from the
+// "check your e-mails" page without retyping it.
+func TestLoginAddressCorrection(t *testing.T) {
+	e := newEnv(t)
+	c := e.client()
+	sent := c.post("/login", 200, url.Values{"email": {"vera@exmaple.test"}})
+	want(t, sent, `href="/login?email=vera%40exmaple.test"`)
+	want(t, c.get("/login?email=vera%40exmaple.test", 200), `value="vera@exmaple.test"`)
+}
