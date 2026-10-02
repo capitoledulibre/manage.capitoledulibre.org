@@ -178,8 +178,13 @@ application (`admin`, `me`, `slots`, `manage`, …) are reserved.
 ## Development
 
 ```sh
-DEV_MODE=1 go run . serve
+make dev     # DEV_MODE=1 go run . serve
+make test    # go vet + go test
 ```
+
+`make dev` listens on :8080; set `ADDR=:8081 BASE_URL=http://localhost:8081`
+in front of it to use another port. The database is `./benevoles.db`, created
+on first start: delete it to start over.
 
 Login links are printed on the console. Layout: `internal/db` (SQLite access,
 migrations embedded from `internal/db/migrations`), `internal/web` (handlers,
