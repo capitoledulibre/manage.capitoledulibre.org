@@ -9,10 +9,14 @@
       {{if eq .Event.Status "draft"}}<span class="badge">Brouillon – visible des organisateurs seulement</span>{{end}}
     </p>
   </div>
+  {{/* A big "0" greeted every newcomer: the count only shows once there is
+       something to count. */}}
+  {{if or .MySlots .EventAdmin}}
   <div class="hero-stats">
-    <div><b>{{len .MySlots}}</b><small>mes créneaux</small></div>
+    {{if .MySlots}}<div><b>{{len .MySlots}}</b><small>créneau{{if gt (len .MySlots) 1}}x{{end}} à mon planning</small></div>{{end}}
     {{if .EventAdmin}}<a href="{{.Event.AdminURL}}" role="button" class="small">Tableau de bord</a>{{end}}
   </div>
+  {{end}}
 </section>
 
 {{template "messages" (dict "Messages" .Messages)}}
