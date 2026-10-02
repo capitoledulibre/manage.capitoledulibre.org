@@ -1393,3 +1393,23 @@ func TestPolePageForVolunteers(t *testing.T) {
 	want(t, slot, `class="slot c`)
 	want(t, slot, ` compact"`)
 }
+
+// TestDefaultPoleIsEveryones: the pole of every volunteer never asks to be
+// joined; signing up on one of its slots is enough.
+func TestDefaultPoleIsEveryones(t *testing.T) {
+	e := newEnv(t)
+	admin, _, _ := setupEvent(t, e, "2")
+	admin.post("/test-2026/general/manage/slots", 303, url.Values{
+		"starts_at": {"2026-11-22T18:00"}, "ends_at": {"2026-11-22T20:00"}, "capacity": {"5"}, "title": {"Rangement"}})
+	vol := e.login("new@example.test", "Nina Nouvelle")
+	home := vol.get("/", 200)
+	want(t, home, `href="/test-2026/general" role="button">Voir les créneaux`)
+	wantNot(t, home, `action="/test-2026/general/join"`)
+	page := vol.get("/test-2026/general", 200)
+	wantNot(t, page, "pas encore dans ce pôle")
+	want(t, page, "Je m'inscris")
+	vol.post("/slots/2/signup", 303, url.Values{"back": {"/test-2026/general"}})
+	if def, _ := e.db.GetPoleBySlug("test-2026", "general"); !e.db.IsPoleMember(def.ID, 2) {
+		t.Fatal("signing up on a default-pole slot should make the volunteer a member")
+	}
+}

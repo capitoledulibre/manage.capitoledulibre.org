@@ -82,7 +82,7 @@
              cannot join alone. The footer says whom to ask. */}}
         {{else if or (eq .AccessMode "private") (eq .AccessMode "invitation")}}<span class="badge key">sur invitation</span>
         {{else if eq .AccessMode "restricted"}}<span class="badge danger">restreint</span>{{end}}
-        {{if .Member}}<span class="badge ok">✓ membre</span>{{end}}
+        {{if and .Member (not .IsDefault)}}<span class="badge ok">✓ membre</span>{{end}}
       </div>
     </div>
     {{if .Description}}<p class="grow">{{nl2br .Description}}</p>{{else}}<div class="grow"></div>{{end}}
@@ -94,7 +94,9 @@
     {{else}}<p class="hint">Aucun créneau publié pour le moment.</p>{{end}}
     <footer>
       <div class="actions">
-      {{if .Member}}
+      {{/* The default pole is everyone's: there is nothing to join, a signup
+           on one of its slots is enough. */}}
+      {{if or .Member .IsDefault}}
         <a href="{{.URL}}" role="button">Voir les créneaux</a>
       {{else if .IsOpen}}
         <form method="post" action="{{.URL}}/join"><button>Rejoindre ce pôle</button></form>

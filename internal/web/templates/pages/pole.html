@@ -15,7 +15,7 @@
 
 {{template "messages" (dict "Messages" .Messages)}}
 
-{{if not .Member}}
+{{if and (not .Member) (not .Pole.IsDefault)}}
 <article>
   <h2>Vous n'êtes pas encore dans ce pôle</h2>
   {{if .Pole.IsOpen}}
