@@ -1160,3 +1160,104 @@ func TestLoginMailFailure(t *testing.T) {
 	want(t, page, "n&#39;a pas pu être envoyé")
 	want(t, page, `value="vol@example.test"`) // the address is kept for the retry
 }
+
+// TestSlotChangeNotification: a slot that moves e-mails its volunteers; one
+// whose title alone changes does not.
+func TestSlotChangeNotification(t *testing.T) {
+	e := newEnv(t)
+	admin, _, _ := setupEvent(t, e, "3")
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	vol.post("/test-2026/buvette/join", 303, nil)
+	vol.post("/slots/1/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+
+	e.mailer.reset()
+	admin.post("/manage/slots/1", 303, url.Values{"title": {"Ouverture"}, "capacity": {"3"},
+		"starts_at": {"2026-11-21T09:00"}, "ends_at": {"2026-11-21T11:00"}})
+	e.waitMail()
+	if n := len(e.mailer.to("vol@example.test")); n != 0 {
+		t.Fatalf("a title change sent %d e-mail(s)", n)
+	}
+
+	admin.post("/manage/slots/1", 303, url.Values{"title": {"Ouverture"}, "capacity": {"3"},
+		"starts_at": {"2026-11-21T10:00"}, "ends_at": {"2026-11-21T12:00"}})
+	e.waitMail()
+	mails := e.mailer.to("vol@example.test")
+	if len(mails) != 1 {
+		t.Fatalf("expected 1 change notice, got %d", len(mails))
+	}
+	want(t, mails[0].Subject, "Créneau modifié")
+	want(t, mails[0].Body, "de 09:00 à 11:00")
+	want(t, mails[0].Body, "de 10:00 à 12:00")
+}
+
+// TestLateWithdrawal: a volunteer pulling out of a slot that starts within
+// 48 hours, by hand or by leaving the pole, warns the pole managers.
+func TestLateWithdrawal(t *testing.T) {
+	e := newEnv(t)
+	admin, buvette, _ := setupEvent(t, e, "3") // slot 1, far away
+	soon := time.Now().Add(24 * time.Hour).In(e.srv.Cfg.Timezone)
+	admin.post("/test-2026/buvette/manage/slots", 303, url.Values{
+		"starts_at": {soon.Format("2006-01-02T15:04")}, "ends_at": {soon.Add(2 * time.Hour).Format("2006-01-02T15:04")}, "capacity": {"2"}})
+	admin.post(fmt.Sprintf("/admin/poles/%d/managers", buvette.ID), 303, url.Values{"email": {"resp@example.test"}})
+	e.login("resp@example.test", "Rémi Responsable")
+
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	vol.post("/test-2026/buvette/join", 303, nil)
+	vol.post("/slots/1/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	vol.post("/slots/2/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+
+	e.mailer.reset()
+	vol.post("/slots/1/unsignup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	e.waitMail()
+	if n := len(e.mailer.to("resp@example.test")); n != 0 {
+		t.Fatalf("a withdrawal weeks ahead sent %d e-mail(s) to the manager", n)
+	}
+
+	vol.post("/slots/2/unsignup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	e.waitMail()
+	mails := e.mailer.to("resp@example.test")
+	if len(mails) != 1 {
+		t.Fatalf("expected 1 late-withdrawal notice, got %d", len(mails))
+	}
+	want(t, mails[0].Subject, "Désistement de dernière minute")
+	want(t, mails[0].Body, "Vera Bénévole")
+	want(t, mails[0].Body, "0/2 inscrit·es")
+
+	// Leaving the pole cancels the slot too: same warning.
+	vol.post("/slots/2/signup", 303, url.Values{"back": {"/test-2026/buvette"}})
+	e.mailer.reset()
+	vol.post("/test-2026/buvette/leave", 303, nil)
+	e.waitMail()
+	if n := len(e.mailer.to("resp@example.test")); n != 1 {
+		t.Fatalf("leaving the pole should warn the manager once, got %d", n)
+	}
+}
+
+// TestManagerContact: the people of a pole see whom to reach; the phone only
+// when the manager chose to share it.
+func TestManagerContact(t *testing.T) {
+	e := newEnv(t)
+	admin, buvette, _ := setupEvent(t, e, "3")
+	admin.post(fmt.Sprintf("/admin/poles/%d/managers", buvette.ID), 303, url.Values{"email": {"resp@example.test"}})
+	resp := e.login("resp@example.test", "")
+	resp.post("/profile", 303, url.Values{"name": {"Rémi Responsable"}, "phone": {"0611223344"}})
+
+	outsider := e.login("out@example.test", "Otto Dehors")
+	wantNot(t, outsider.get("/slots/1", 200), "resp@example.test")
+
+	vol := e.login("vol@example.test", "Vera Bénévole")
+	vol.post("/test-2026/buvette/join", 303, nil)
+	page := vol.get("/slots/1", 200)
+	want(t, page, "Rémi Responsable")
+	want(t, page, `href="mailto:resp@example.test"`)
+	wantNot(t, page, "0611223344")
+
+	want(t, resp.get("/profile", 200), `name="share_phone"`)
+	wantNot(t, vol.get("/profile", 200), `name="share_phone"`) // not a manager
+	resp.post("/profile", 303, url.Values{"name": {"Rémi Responsable"}, "phone": {"0611223344"}, "share_phone_shown": {"1"}, "share_phone": {"1"}})
+	want(t, vol.get("/slots/1", 200), `href="tel:0611223344"`)
+
+	// A form without the choice (the welcome page) leaves it alone.
+	resp.post("/profile", 303, url.Values{"name": {"Rémi Responsable"}, "phone": {"0611223344"}, "welcome": {"1"}})
+	want(t, vol.get("/slots/1", 200), `href="tel:0611223344"`)
+}

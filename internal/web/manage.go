@@ -487,6 +487,7 @@ func (s *Server) manageSlotUpdate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	before := slot
 	slot.Title = strings.TrimSpace(r.FormValue("title"))
 	slot.Capacity = formInt(r, "capacity", slot.Capacity)
 	slot.LocationID = formInt64(r, "location_id")
@@ -501,7 +502,24 @@ func (s *Server) manageSlotUpdate(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.flash(w, "Créneau enregistré.")
+	after, err := s.DB.GetSlot(slot.ID, 0) // with the new location's name
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	msg := "Créneau enregistré."
+	if !before.StartsAt.Equal(after.StartsAt) || !before.EndsAt.Equal(after.EndsAt) || before.LocationID != after.LocationID {
+		volunteers, _ := s.DB.ListSlotVolunteers(slot.ID)
+		s.notifySlotChanged(volunteers, pole, before, after)
+		if n := len(volunteers); n > 0 {
+			msg += fmt.Sprintf(" %d bénévole(s) inscrit(s) prévenu(s) du changement par e-mail.", n)
+		}
+	}
+	// More places on a slot that was full: the waiting list wants to know.
+	if before.IsFull() && !after.IsFull() {
+		s.announceFreePlace(pole, slot.ID)
+	}
+	s.flash(w, msg)
 	http.Redirect(w, r, pole.ManageURL(), http.StatusSeeOther)
 }
 

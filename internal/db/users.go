@@ -25,6 +25,10 @@ type User struct {
 	Avatar          string
 	AvatarSource    string
 	AvatarCheckedAt *time.Time
+
+	// SharePhone lets the volunteers of the poles this account manages see
+	// its phone number.
+	SharePhone bool
 }
 
 // Where a profile picture came from. Recorded explicitly so that an uploaded
@@ -62,7 +66,7 @@ func (u User) DisplayName() string {
 }
 
 const userCols = `u.id, u.email, u.name, u.phone, u.is_admin, u.created_at, u.last_login_at,
-	u.avatar, u.avatar_source, u.avatar_checked_at`
+	u.avatar, u.avatar_source, u.avatar_checked_at, u.share_phone`
 
 // scanUser reads the userCols columns, plus any extra column the query
 // selected after them, so that joined queries share this one column list.
@@ -71,7 +75,7 @@ func scanUser(row interface{ Scan(...any) error }, extra ...any) (User, error) {
 	var created string
 	var last, checked sql.NullString
 	dest := []any{&u.ID, &u.Email, &u.Name, &u.Phone, &u.IsAdmin, &created, &last,
-		&u.Avatar, &u.AvatarSource, &checked}
+		&u.Avatar, &u.AvatarSource, &checked, &u.SharePhone}
 	if err := row.Scan(append(dest, extra...)...); err != nil {
 		return u, err
 	}
@@ -112,6 +116,21 @@ func (d *DB) GetOrCreateUser(email string) (User, error) {
 func (d *DB) UpdateProfile(id int64, name, phone string) error {
 	_, err := d.Exec(`UPDATE users SET name = ?, phone = ? WHERE id = ?`, name, phone, id)
 	return err
+}
+
+// SetSharePhone records whether a manager shows their phone number to the
+// volunteers of their poles.
+func (d *DB) SetSharePhone(id int64, share bool) error {
+	_, err := d.Exec(`UPDATE users SET share_phone = ? WHERE id = ?`, share, id)
+	return err
+}
+
+// ManagesAnyPole tells whether the user manages at least one pole, in any
+// event: the phone-sharing choice only concerns them.
+func (d *DB) ManagesAnyPole(userID int64) bool {
+	var n int
+	d.QueryRow(`SELECT COUNT(*) FROM pole_managers WHERE user_id = ?`, userID).Scan(&n)
+	return n > 0
 }
 
 // SetAvatar records a profile picture and returns the file name it replaces,

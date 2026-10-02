@@ -33,9 +33,16 @@ what is still missing.
   told if a place frees up, and everyone waiting is e-mailed the moment one
   does (first come, first served). Managers see how many people wait on each
   shift, which is the signal that it needs more hands.
-- **Nobody loses a shift silently** – deleting a shift, taking someone off one
-  or removing them from a pole e-mails the people concerned. Messages can
-  optionally be pushed by e-mail too, per event, per pole or per shift.
+- **Nobody loses a shift silently** – deleting a shift, moving it to another
+  time or place, taking someone off one or removing them from a pole e-mails
+  the people concerned. A volunteer who pulls out less than 48 hours before a
+  shift, by hand or by leaving the pole, warns its managers (or the event
+  staff when it has none). Messages can optionally be pushed by e-mail too,
+  per event, per pole or per shift.
+- **Whom to call** – the people of a pole see its managers' names and
+  e-mail addresses on each shift page and in the day-before reminder. A
+  manager's phone number is added only if they choose to share it from their
+  profile; otherwise it stays visible to managers only, as the profile says.
 - **Coverage dashboard** per pole and a **global planning** grid (every pole,
   every slot, holes highlighted) for organisers, volunteer list with CSV
   export, daily reminder e-mail with the next day's shifts.

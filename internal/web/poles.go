@@ -173,10 +173,21 @@ func (s *Server) poleLeave(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, pole.URL(), http.StatusSeeOther)
 		return
 	}
+	// Leaving cancels every slot the volunteer had in the pole: each is a
+	// withdrawal, for the waiting list and, close to the day, the managers.
+	mine, _ := s.DB.UserSlotIDsInPole(pole.ID, u.ID)
 	if err := s.DB.LeavePole(pole.ID, u.ID); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
+	var late []db.Slot
+	for _, id := range mine {
+		s.announceFreePlace(pole, id)
+		if slot, err := s.DB.GetSlot(id, 0); err == nil && isLate(slot) {
+			late = append(late, slot)
+		}
+	}
+	s.notifyLateWithdrawal(*u, pole, late)
 	s.flash(w, "Vous avez quitté le pôle « "+pole.Name+" ».")
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -199,14 +210,33 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) {
 	volunteers, _ := s.DB.ListSlotVolunteers(slot.ID)
 	tasks, _ := s.DB.ListTasks(slot.ID)
 	msgs, _ := s.DB.ListSlotMessages(slot.ID)
+	// Whom to call when something comes up: for the people of the pole only.
+	var contacts []db.User
+	if member || manage {
+		contacts = s.poleContacts(pole.ID)
+	}
 	s.render(w, r, "slot", M{
 		"Waiting": s.DB.OnWaitlist(slot.ID, u.ID),
 		"Slot":    slot, "Pole": pole, "Event": ed, "Member": member, "CanManage": manage,
 		"Locked":     ed.SignupsLocked(pole.FreezeAt, time.Now()),
-		"Volunteers": volunteers, "Tasks": tasks, "Messages": msgs,
+		"Volunteers": volunteers, "Tasks": tasks, "Messages": msgs, "Contacts": contacts,
 		"CanTick": slot.Mine || manage,
 		"Error":   r.URL.Query().Get("error"),
 	})
+}
+
+// poleContacts returns the managers a volunteer of the pole can reach: those
+// who gave a name. Their phone number is only shown when they chose to share
+// it (SharePhone); the profile otherwise promises it stays with managers.
+func (s *Server) poleContacts(poleID int64) []db.User {
+	managers, _ := s.DB.ListPoleManagers(poleID)
+	var out []db.User
+	for _, m := range managers {
+		if strings.TrimSpace(m.Name) != "" {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // backTo returns the page to come back to after a slot action, defaulting to
@@ -357,6 +387,9 @@ func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) {
 	}
 	slot, _ = s.DB.GetSlot(slot.ID, u.ID)
 	s.announceFreePlace(pole, slot.ID)
+	if isLate(slot) {
+		s.notifyLateWithdrawal(*u, pole, []db.Slot{slot})
+	}
 	s.respondSlot(w, r, s.cardData(r, slot, pole, ed, member), "",
 		"Désinscription enregistrée : "+s.slotLabel(slot)+". Vous pouvez vous réinscrire sur ce créneau.")
 }

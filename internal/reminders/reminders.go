@@ -58,6 +58,7 @@ func (s *Sender) SendForDay(day time.Time) (int, error) {
 
 func (s *Sender) body(u db.User, day time.Time, slots []db.MySlot) string {
 	var b strings.Builder
+	contacts := map[int64]string{}
 	fmt.Fprintf(&b, "Bonjour %s,\n\n", u.DisplayName())
 	fmt.Fprintf(&b, "Voici vos créneaux de bénévolat pour %s :\n\n", FormatDay(day, s.Loc))
 	for _, sl := range slots {
@@ -69,9 +70,35 @@ func (s *Sender) body(u db.User, day time.Time, slots []db.MySlot) string {
 			fmt.Fprintf(&b, " — %s", sl.Title)
 		}
 		fmt.Fprintf(&b, "\n    %s/slots/%d\n", s.BaseURL, sl.ID)
+		if c := s.contact(sl.PoleID, contacts); c != "" {
+			fmt.Fprintf(&b, "    Contact : %s\n", c)
+		}
 	}
 	fmt.Fprintf(&b, "\nVotre planning complet : %s/me\n\nMerci pour votre aide !\n", s.BaseURL)
 	return b.String()
+}
+
+// contact names whom to reach for a pole on the day: its managers who gave a
+// name, with their e-mail and, when they chose to share it, their phone.
+// cache keeps one lookup per pole for the whole message.
+func (s *Sender) contact(poleID int64, cache map[int64]string) string {
+	if c, ok := cache[poleID]; ok {
+		return c
+	}
+	managers, _ := s.DB.ListPoleManagers(poleID)
+	var parts []string
+	for _, m := range managers {
+		if strings.TrimSpace(m.Name) == "" {
+			continue
+		}
+		p := m.Name + ", " + m.Email
+		if m.SharePhone && m.Phone != "" {
+			p += ", " + m.Phone
+		}
+		parts = append(parts, p)
+	}
+	cache[poleID] = strings.Join(parts, " ; ")
+	return cache[poleID]
 }
 
 // FormatDay renders a date in French, e.g. "samedi 15 novembre".

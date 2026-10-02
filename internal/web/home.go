@@ -303,7 +303,8 @@ func (s *Server) welcome(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) profileForm(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, "profile", M{"Next": r.URL.Query().Get("next"), "Gravatar": s.Cfg.Gravatar})
+	s.render(w, r, "profile", M{"Next": r.URL.Query().Get("next"), "Gravatar": s.Cfg.Gravatar,
+		"IsManager": s.DB.ManagesAnyPole(currentUser(r).ID)})
 }
 
 // profilePhoto stores the picture a volunteer uploaded. It wins over the
@@ -373,7 +374,7 @@ func (s *Server) profileSubmit(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	phone := strings.TrimSpace(r.FormValue("phone"))
 	if name == "" {
-		page, data := "profile", M{"Gravatar": s.Cfg.Gravatar}
+		page, data := "profile", M{"Gravatar": s.Cfg.Gravatar, "IsManager": s.DB.ManagesAnyPole(u.ID)}
 		if r.FormValue("welcome") == "1" {
 			page, data = "welcome", s.loginContext(r.FormValue("next"))
 		}
@@ -385,6 +386,14 @@ func (s *Server) profileSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := s.DB.UpdateProfile(u.ID, name, phone); err != nil {
 		s.serverError(w, r, err)
 		return
+	}
+	// Only the profile page of a manager carries the choice; the welcome form
+	// and the others must leave it as it is.
+	if r.FormValue("share_phone_shown") == "1" {
+		if err := s.DB.SetSharePhone(u.ID, r.FormValue("share_phone") == "1"); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
 	}
 	if r.FormValue("welcome") != "1" {
 		s.flash(w, "Profil enregistré.")

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"benevoles/internal/db"
 	"benevoles/internal/reminders"
@@ -102,6 +103,69 @@ func (s *Server) notifyPoleRemoved(u db.User, pole db.Pole, slotCount int) {
 		}
 		b += "\nVous pouvez toujours rejoindre un autre pôle depuis l'accueil.\n" + s.signature()
 		return b
+	})
+}
+
+// --- changes --------------------------------------------------------------
+
+// notifySlotChanged tells the volunteers of a slot that its time or place
+// moved. The calendar subscription follows on its own, but most volunteers
+// coming once a year never set it up and would turn up at the old time.
+func (s *Server) notifySlotChanged(volunteers []db.User, pole db.Pole, before, after db.Slot) {
+	was, now := s.slotLine(pole, before), s.slotLine(pole, after)
+	url := fmt.Sprintf("%s/slots/%d", s.Cfg.BaseURL, after.ID)
+	s.notify(volunteers, s.subject("Créneau modifié : %s", pole.Name), func(u db.User) string {
+		return s.greeting(u) +
+			"Un créneau sur lequel vous êtes inscrit·e a changé :\n\n" +
+			"  Avant      : " + was + "\n" +
+			"  Désormais  : " + now + "\n\n" +
+			"Vous restez inscrit·e. Si le nouvel horaire ne vous convient plus, vous pouvez vous désinscrire : " + url + "\n" +
+			s.signature()
+	})
+}
+
+// lateWithdrawal is how close to its start a withdrawal is worth telling the
+// managers about: earlier, the waiting list and the other volunteers have time
+// to fill the hole; later, someone has to find a replacement.
+const lateWithdrawal = 48 * time.Hour
+
+// isLate tells whether a slot starts within lateWithdrawal from now.
+func isLate(slot db.Slot) bool {
+	d := time.Until(slot.StartsAt)
+	return d > 0 && d < lateWithdrawal
+}
+
+// notifyLateWithdrawal tells the managers of a pole that a volunteer pulled
+// out of slots starting soon. slots carry their counts after the withdrawal.
+// A pole with no manager falls back on the staff of its event.
+func (s *Server) notifyLateWithdrawal(u db.User, pole db.Pole, slots []db.Slot) {
+	if len(slots) == 0 {
+		return
+	}
+	recipients, _ := s.DB.ListPoleManagers(pole.ID)
+	if len(recipients) == 0 {
+		recipients, _ = s.DB.ListEventStaff(pole.EventID)
+	}
+	var others []db.User
+	for _, r := range recipients {
+		if r.ID != u.ID {
+			others = append(others, r)
+		}
+	}
+	var lines strings.Builder
+	for _, sl := range slots {
+		fmt.Fprintf(&lines, "  %s : %d/%d inscrit·es\n    %s/manage/slots/%d\n", s.slotLine(pole, sl), sl.Filled, sl.Capacity, s.Cfg.BaseURL, sl.ID)
+	}
+	who := u.DisplayName()
+	if u.Phone != "" {
+		who += " (" + u.Phone + ")"
+	}
+	s.notify(others, s.subject("Désistement de dernière minute : %s", pole.Name), func(m db.User) string {
+		return s.greeting(m) +
+			who + " vient de se désinscrire d'un créneau qui commence dans moins de 48 heures :\n\n" +
+			lines.String() + "\n" +
+			"S'il y avait une liste d'attente, elle a été prévenue ; sinon, il faudra peut-être trouver quelqu'un d'autre.\n" +
+			s.signature()
 	})
 }
 
