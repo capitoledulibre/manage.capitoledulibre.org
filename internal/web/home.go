@@ -106,7 +106,7 @@ func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, ev db.Event)
 	prevEvent, returning := s.returningPoles(ev, u, poles)
 	s.render(w, r, "home", M{
 		"Event": ev, "Poles": poles, "Messages": msgs,
-		"MySlots": mySlots, "Upcoming": upcoming, "Joined": len(members) > 0,
+		"MySlots": mySlots, "Upcoming": upcoming, "Joined": len(members) > 0, "Waiting": s.upcomingWaitlist(ev.ID, u.ID),
 		"PrevEvent": prevEvent, "Returning": returning, "EventAdmin": eventAdmin,
 		"Error": r.URL.Query().Get("error"),
 	})
@@ -139,6 +139,19 @@ func (s *Server) returningPoles(ev db.Event, u *db.User, poles []poleView) (db.E
 		}
 	}
 	return prev, out
+}
+
+// upcomingWaitlist returns the slots still to come that the user waits a
+// place on.
+func (s *Server) upcomingWaitlist(eventID, userID int64) []db.MySlot {
+	all, _ := s.DB.ListUserWaitlist(eventID, userID)
+	var out []db.MySlot
+	for _, sl := range all {
+		if sl.StartsAt.After(time.Now()) {
+			out = append(out, sl)
+		}
+	}
+	return out
 }
 
 // dayGroup groups slots by local day for display.
@@ -184,7 +197,7 @@ func (s *Server) myPlanning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, r, "me", M{"Event": ev, "Days": groupMySlots(slots, s.Cfg.Timezone), "Today": today,
-		"Count": len(slots), "CalendarURL": fmt.Sprintf("%s/calendar/%s.ics", s.Cfg.BaseURL, token)})
+		"Waiting": s.upcomingWaitlist(ev.ID, u.ID), "Count": len(slots), "CalendarURL": fmt.Sprintf("%s/calendar/%s.ics", s.Cfg.BaseURL, token)})
 }
 
 // calendarFor renders one volunteer's slots for an event as an iCalendar

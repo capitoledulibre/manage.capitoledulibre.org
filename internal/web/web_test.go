@@ -894,7 +894,11 @@ func TestWaitlist(t *testing.T) {
 	want(t, page, "Me prévenir si une place se libère")
 
 	second.post("/slots/1/waitlist", 303, url.Values{"back": {"/test-2026/buvette"}})
-	want(t, second.get("/test-2026/buvette", 200), "Sur liste d'attente")
+	want(t, second.get("/test-2026/buvette", 200), "En liste d'attente")
+	want(t, second.get("/test-2026/buvette", 200), "Ne plus attendre")
+	// What the volunteer waits for shows where they look for their slots.
+	want(t, second.get("/", 200), "En liste d'attente")
+	want(t, second.get("/me", 200), "En liste d'attente")
 	if !e.db.OnWaitlist(1, 3) {
 		t.Fatal("the waiting list did not record the request")
 	}

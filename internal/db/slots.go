@@ -148,6 +148,20 @@ func (d *DB) ListSlotVolunteers(slotID int64) ([]User, error) {
 	return d.queryUsers(`SELECT `+userCols+` FROM users u JOIN signups sg ON sg.user_id = u.id WHERE sg.slot_id = ? ORDER BY sg.created_at`, slotID)
 }
 
+// ListUserWaitlist returns the slots of an event the user waits a place on,
+// in chronological order.
+func (d *DB) ListUserWaitlist(eventID, userID int64) ([]MySlot, error) {
+	rows, err := d.Query(`SELECT `+slotCols+`, p.name, p.event_id
+		FROM slots s JOIN poles p ON p.id = s.pole_id LEFT JOIN locations l ON l.id = s.location_id
+		JOIN waitlist w ON w.slot_id = s.id AND w.user_id = ?
+		WHERE p.event_id = ? ORDER BY s.starts_at`, userID, userID, eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanMySlots(rows)
+}
+
 // MySlot is a slot enriched with its pole, for the personal planning views.
 type MySlot struct {
 	Slot

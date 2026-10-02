@@ -48,7 +48,9 @@
       {{else if and (not .Member) (not .Pole.IsOpen)}}<small class="muted">Sur invitation</small>
       {{else if and (not .Member) .Slot.IsFull}}<span class="badge">Complet</span>
       {{else if .Slot.IsFull}}
-        <span class="badge">Complet</span>
+        {{/* State and action apart, as for a signup: the badge says where the
+             volunteer stands, the button what they can do about it. */}}
+        {{if .Waiting}}<span class="badge wait">En liste d'attente</span>{{else}}<span class="badge">Complet</span>{{end}}
         {{/* A full slot used to be a dead end. Registering interest turns the
              moment someone is motivated into a filled hole later. */}}
         {{if .Waiting}}
@@ -56,7 +58,7 @@
               hx-post="/slots/{{.Slot.ID}}/waitlist/delete" hx-target="#slot-{{.Slot.ID}}" hx-swap="outerHTML"
               hx-indicator="#slot-{{.Slot.ID}}" hx-disabled-elt="find button">
           <input type="hidden" name="back" value="{{.Back}}">
-          <button class="secondary outline" data-autofocus title="Vous serez prévenu·e par e-mail si une place se libère">Sur liste d'attente · annuler<span class="spinner" aria-hidden="true"></span></button>
+          <button class="secondary outline" data-autofocus title="Vous ne serez plus prévenu·e si une place se libère">Ne plus attendre<span class="spinner" aria-hidden="true"></span></button>
         </form>
         {{else}}
         <form method="post" action="/slots/{{.Slot.ID}}/waitlist"
