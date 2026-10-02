@@ -39,9 +39,9 @@
 <div class="grid-2 mt-lg">
   <section id="volunteers">
     <h2>Bénévoles inscrits ({{.Slot.Filled}}/{{.Slot.Capacity}})</h2>
-    <ul>
-      {{range .Volunteers}}<li>{{.DisplayName}} <small class="muted">{{.Email}}{{if .Phone}} · {{.Phone}}{{end}}</small>
-        <form method="post" action="/manage/slots/{{$.Slot.ID}}/volunteers/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} de ce créneau ? La personne sera prévenue par e-mail et reste dans le pôle.')"><button class="link danger">retirer</button></form></li>
+    <ul class="people">
+      {{range .Volunteers}}<li>{{template "avatar" (dict "User" . "Class" "sm")}}<span>{{.DisplayName}} <small class="muted">{{.Email}}{{if .Phone}} · {{phone .Phone}}{{end}}</small>
+        <form method="post" action="/manage/slots/{{$.Slot.ID}}/volunteers/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} de ce créneau ? La personne sera prévenue par e-mail et reste dans le pôle.')"><button class="link danger">retirer</button></form></span></li>
       {{else}}<li class="muted">Personne pour l'instant.</li>{{end}}
     </ul>
 
@@ -50,10 +50,13 @@
     {{if .Available}}
     <form method="post" action="/manage/slots/{{.Slot.ID}}/volunteers" class="actions">
       <label for="add-member" class="sr-only">Bénévole du pôle à inscrire</label>
+      {{/* No one preselected: one click on the button used to sign up
+           whoever came first in the list. */}}
       <select id="add-member" name="user_id" class="select-sm" required>
+        <option value="" disabled selected>Choisir un bénévole du pôle…</option>
         {{range .Available}}<option value="{{.User.ID}}">{{.User.DisplayName}}{{if eq .SlotCount 0}} — aucun créneau{{end}}</option>{{end}}
       </select>
-      <button class="small secondary">Inscrire sur ce créneau</button>
+      <button class="small secondary outline">Inscrire sur ce créneau</button>
     </form>
     <p class="hint">La personne est inscrite même si le créneau est complet.</p>
     {{else}}
@@ -73,7 +76,7 @@
           <div><label for="inv-name">Nom et prénom <small class="muted">(optionnel)</small></label><input id="inv-name" type="text" name="name" autocomplete="off"></div>
           <div><label for="inv-email">E-mail</label><input id="inv-email" type="email" name="email" required autocomplete="off" placeholder="alice@exemple.org"></div>
         </div>
-        <button class="small secondary">Créer le compte et inscrire</button>
+        <button class="small secondary outline">Créer le compte et inscrire</button>
       </form>
       <p class="hint">Un compte est créé avec cette adresse et la personne rejoint le pôle. Vérifiez l'adresse : elle servira à se connecter.</p>
     </details>
@@ -88,7 +91,7 @@
     <form method="post" action="/manage/slots/{{.Slot.ID}}/tasks">
       <label for="new-tasks" class="sr-only">Tâches à ajouter, une par ligne</label>
       <textarea id="new-tasks" name="labels" rows="2" placeholder="Une tâche par ligne" required></textarea>
-      <button class="small secondary">Ajouter</button>
+      <button class="small secondary outline">Ajouter</button>
     </form>
   </section>
 </div>
@@ -99,7 +102,7 @@
     <label for="slot-msg" class="sr-only">Message du créneau</label>
     <textarea id="slot-msg" name="body" rows="2" placeholder="Consigne visible sur la page du créneau" required></textarea>
     <label><input type="checkbox" name="notify" value="1"> Prévenir aussi les bénévoles inscrits par e-mail</label>
-    <button class="small secondary">Publier</button>
+    <button class="small secondary outline">Publier</button>
   </form>
   {{template "messages" (dict "Messages" .Messages "CanDelete" true "Back" (print "/manage/slots/" .Slot.ID))}}
 </section>

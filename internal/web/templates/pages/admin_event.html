@@ -47,7 +47,7 @@
         <form method="post" action="/admin/poles/{{.Pole.ID}}/copy" class="actions">
           <label for="copy-{{.Pole.ID}}" class="sr-only">Événement de destination pour la copie de {{.Pole.Name}}</label>
           <select id="copy-{{.Pole.ID}}" name="event_id" class="select-sm">{{range $.Events}}<option value="{{.ID}}" {{if eq .ID $.Event.ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
-          <button class="small secondary">Copier</button>
+          <button class="small secondary outline">Copier</button>
         </form>
       </details>
       {{if not .Pole.IsDefault}}<form method="post" action="/admin/poles/{{.Pole.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer le pôle {{.Pole.Name}}, ses {{.Slots}} créneaux et toutes les inscriptions correspondantes ?')"><button class="link danger">supprimer</button></form>{{end}}</div></td>
@@ -112,7 +112,7 @@
     <form method="post" action="{{.Event.AdminURL}}/image" enctype="multipart/form-data" class="actions">
       <label for="ev-image" class="sr-only">Fichier image du logo de l'événement</label>
       <input id="ev-image" type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required class="m-0">
-      <button class="small secondary">Envoyer</button>
+      <button class="small secondary outline">Envoyer</button>
     </form>
     {{if .Event.Image}}<form method="post" action="{{.Event.AdminURL}}/image/delete" onsubmit="return confirm('Retirer le logo de l’événement ?')"><button class="link danger">retirer le logo</button></form>{{end}}
   </div>
@@ -130,7 +130,7 @@
     <label for="new-coordinator" class="sr-only">E-mail de la personne à ajouter à la coordination</label>
     <input id="new-coordinator" type="email" name="email" list="coordinator-users" placeholder="e-mail" required class="field-md" autocomplete="off">
     {{template "user_datalist" (dict "ID" "coordinator-users" "Users" .AllUsers)}}
-    <button class="small secondary">Ajouter à la coordination</button>
+    <button class="small secondary outline">Ajouter à la coordination</button>
   </form>
   {{end}}
 </div>
@@ -145,7 +145,7 @@
       <div><label for="dup-start">Premier jour</label><input id="dup-start" type="date" name="starts_on" required></div>
       <div><label for="dup-end">Dernier jour</label><input id="dup-end" type="date" name="ends_on" required></div>
     </div>
-    <button type="submit" class="primary-action secondary">Dupliquer l'événement</button>
+    <button type="submit" class="primary-action secondary outline">Dupliquer l'événement</button>
   </form>
 </div>
 <div class="danger-zone">

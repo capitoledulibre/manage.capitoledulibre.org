@@ -11,7 +11,7 @@
 <form method="get" action="/admin/users" class="actions" role="search">
   <label for="users-q" class="sr-only">Rechercher un compte par nom ou e-mail</label>
   <input id="users-q" type="search" name="q" value="{{.Q}}" placeholder="Rechercher un nom ou un e-mail…" class="m-0">
-  <button class="small secondary">Rechercher</button>
+  <button class="small secondary outline">Rechercher</button>
   {{if .Q}}<a href="/admin/users">Effacer</a>{{end}}
 </form>
 
@@ -30,7 +30,7 @@
       {{if $.Poles}}<form method="post" action="/admin/users/{{.ID}}/join" class="actions"><input type="hidden" name="back" value="{{$back}}">
         <label for="pole-{{.ID}}" class="sr-only">Pôle à rejoindre pour {{.DisplayName}}</label>
         <select id="pole-{{.ID}}" name="pole_id" class="select-sm">{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
-        <button class="small secondary">Ajouter au pôle</button></form>{{end}}
+        <button class="small secondary outline">Ajouter au pôle</button></form>{{end}}
       {{if ne .ID $.User.ID}}
       <form method="post" action="/admin/users/{{.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer le compte {{.Email}} et toutes ses inscriptions, sur tous les événements ?')">
         <input type="hidden" name="back" value="{{$back}}">

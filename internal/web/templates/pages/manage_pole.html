@@ -71,7 +71,7 @@
         <form method="post" action="{{.Pole.ManageURL}}/members">
           <label for="member-emails" class="sr-only">Adresses e-mail à inviter, une par ligne</label>
           <textarea id="member-emails" name="emails" rows="3" placeholder="Alice Martin &lt;alice@exemple.org&gt;&#10;bob@exemple.org" required></textarea>
-          <button type="submit" class="primary-action secondary">Créer les comptes et ajouter au pôle</button>
+          <button type="submit" class="primary-action secondary outline">Créer les comptes et ajouter au pôle</button>
         </form>
       </details>
       {{else}}
@@ -127,7 +127,7 @@
     <label for="new-manager" class="sr-only">E-mail du nouveau responsable</label>
     <input id="new-manager" type="email" name="email" list="all-users" placeholder="e-mail du nouveau responsable" required class="field-md" autocomplete="off">
     {{template "user_datalist" (dict "ID" "all-users" "Users" .AllUsers)}}
-    <button class="small secondary">Ajouter un responsable</button>
+    <button class="small secondary outline">Ajouter un responsable</button>
   </form>
   {{end}}
 
@@ -183,7 +183,7 @@
         <form method="post" action="{{.Pole.ManageURL}}/image" enctype="multipart/form-data" class="actions">
           <label for="p-image" class="sr-only">Fichier image du pôle</label>
           <input id="p-image" type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required class="m-0">
-          <button class="small secondary">Envoyer</button>
+          <button class="small secondary outline">Envoyer</button>
         </form>
         {{if .Pole.Image}}<form method="post" action="{{.Pole.ManageURL}}/image/delete" onsubmit="return confirm('Retirer l’image ? Le pôle reprendra son emoji ou ses initiales.')"><button class="link danger">retirer l'image</button></form>{{end}}
       </div>
@@ -198,7 +198,7 @@
       <form method="post" action="{{.Pole.ManageURL}}/locations">
         <label for="p-locations" class="sr-only">Emplacements à ajouter, un par ligne</label>
         <textarea id="p-locations" name="names" rows="3" placeholder="Un emplacement par ligne&#10;Salle A&#10;Salle B" required></textarea>
-        <button class="small secondary">Ajouter</button>
+        <button class="small secondary outline">Ajouter</button>
       </form>
     </div>
     </div>

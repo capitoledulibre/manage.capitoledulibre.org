@@ -22,7 +22,7 @@
     <td><form method="post" action="/admin/users/{{.User.ID}}/join" class="actions"><input type="hidden" name="back" value="{{$.Event.AdminURL}}/volunteers">
       <label for="vpole-{{.User.ID}}" class="sr-only">Pôle à rejoindre pour {{.User.DisplayName}}</label>
       <select id="vpole-{{.User.ID}}" name="pole_id" class="select-sm">{{range $.Poles}}{{if not .IsDefault}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select>
-      <button class="small secondary">Ajouter au pôle</button></form></td></tr>
+      <button class="small secondary outline">Ajouter au pôle</button></form></td></tr>
   {{end}}
   </tbody>
 </table>
