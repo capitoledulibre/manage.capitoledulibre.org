@@ -1440,3 +1440,22 @@ func TestAccountMenu(t *testing.T) {
 	wantNot(t, vol, "Gérer :")
 	wantNot(t, vol, "Tableau de bord de l'événement")
 }
+
+// TestFirstVisitOfTheStaff: with no event yet, the administration and the
+// home page say to create one first, not to come back later.
+func TestFirstVisitOfTheStaff(t *testing.T) {
+	e := newEnv(t)
+	staff := e.login("staff@example.test", "Sam Staff")
+	staff.becomeAdmin()
+	admin := staff.get("/admin", 200)
+	want(t, admin, "Préparez votre premier événement")
+	want(t, admin, `href="/admin/events/new" role="button">Créer le premier événement`)
+	wantNot(t, admin, "<h2>Événements</h2>")
+	want(t, staff.get("/", 200), "Aucun événement pour l'instant")
+	want(t, e.login("vol@example.test", "Vera").get("/", 200), "Revenez un peu plus tard")
+
+	staff.post("/admin/events", 303, url.Values{"name": {"Test 2026"}, "starts_on": {"2026-11-21"}, "ends_on": {"2026-11-22"}})
+	admin = staff.get("/admin", 200)
+	want(t, admin, "<h2>Événements</h2>")
+	wantNot(t, admin, "Préparez votre premier événement")
+}

@@ -612,6 +612,8 @@ fieldset legend { font-weight: 600; font-size: var(--t-sm); }
 .tabs a.active { color: var(--pico-primary); border-bottom-color: var(--pico-primary); background: none; }
 
 .pole-summary { margin: .25rem 0 1rem; }
+.first-steps { border-top: 3px solid var(--pico-primary-background); }
+.first-steps ol { margin-bottom: 1.25rem; }
 .eyebrow { margin: 0 0 .2rem; font-size: var(--t-sm); font-weight: 600; color: var(--pico-primary); letter-spacing: .01em; }
 .badge.wait { background: var(--warn-bg); color: var(--warn-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 30%, transparent); }
 .slot-when { margin: .1rem 0 0; color: var(--dim); }

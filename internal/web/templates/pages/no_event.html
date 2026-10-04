@@ -1,8 +1,15 @@
 {{define "title"}}Aucun événement en cours – {{.Org}}{{end}}
 {{define "content"}}
 <article class="login-box">
+  {{if .User.IsAdmin}}
+  {{/* "Come back later" was written for volunteers; the staff are the ones
+       who make the event exist. */}}
+  <h1>Aucun événement pour l'instant</h1>
+  <p>Créez l'événement&nbsp;: il reste en brouillon, invisible des bénévoles, le temps d'y ajouter les pôles et les créneaux.</p>
+  <a href="/admin/events/new" role="button">Créer le premier événement</a>
+  {{else}}
   <h1>Aucun événement en cours</h1>
   <p>Les inscriptions ne sont pas encore ouvertes. Revenez un peu plus tard&nbsp;!</p>
-  {{if .User.IsAdmin}}<a href="/admin/events/new" role="button">Créer un événement</a>{{end}}
+  {{end}}
 </article>
 {{end}}

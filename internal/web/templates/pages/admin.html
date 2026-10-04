@@ -2,9 +2,23 @@
 {{define "content"}}
 <div class="page-header">
   <h1>Administration</h1>
-  <div class="actions"><a href="/admin/users" role="button" class="secondary outline small">Comptes ({{.UserCount}})</a><a href="/admin/events/new" role="button" class="small">+ Nouvel événement</a></div>
+  <div class="actions"><a href="/admin/users" role="button" class="secondary outline small">Comptes ({{.UserCount}})</a>{{if .Events}}<a href="/admin/events/new" role="button" class="small">+ Nouvel événement</a>{{end}}</div>
 </div>
 
+{{/* On a fresh install the page opened on an empty table and a settings
+     form whose first field looked like an event name: the first visit now
+     says what to do first. */}}
+{{if not .Events}}
+<article class="first-steps">
+  <h2>Bienvenue&nbsp;! Préparez votre premier événement</h2>
+  <ol>
+    <li><strong>Créez l'événement</strong>&nbsp;: son nom et ses dates. Il reste en brouillon, invisible des bénévoles, le temps de le préparer.</li>
+    <li><strong>Ajoutez les pôles</strong> et leurs responsables, qui créent ensuite leurs créneaux.</li>
+    <li><strong>Ouvrez les inscriptions</strong> depuis le tableau de bord de l'événement.</li>
+  </ol>
+  <a href="/admin/events/new" role="button">Créer le premier événement</a>
+</article>
+{{else}}
 <h2>Événements</h2>
 <div class="scroll-x" tabindex="0" role="region" aria-label="Liste des événements">
 <table class="compact stack">
@@ -18,12 +32,14 @@
     <td>{{if .FreezeAt}}{{datetime .FreezeAt}}{{else}}<span class="muted">—</span>{{end}}</td>
     <td><a href="{{.AdminURL}}">Tableau de bord</a></td>
   </tr>
-  {{else}}<tr><td colspan="5"><span class="muted">Aucun événement pour l'instant.</span> <a href="/admin/events/new" role="button" class="small">Créer le premier événement</a></td></tr>{{end}}
+  {{end}}
   </tbody>
 </table>
 </div>
+{{end}}
 
-<h2 class="mt-lg">Paramètres</h2>
+<h2 class="mt-lg">Organisation</h2>
+<p class="hint">Réglages communs à toutes les éditions. Ils peuvent attendre&nbsp;: rien ici ne crée d'événement.</p>
 <form method="post" action="/admin/settings" class="panel narrow">
   {{/* "Organisation / événement" read as the place to create an event: saving
        an edition's name here created nothing. */}}
@@ -33,7 +49,7 @@
   <input id="default-pole" type="text" name="default_pole_name" value="{{.DefaultPoleName}}" required>
   <label for="source-url">Lien vers le code source <small class="muted">(affiché en pied de page, optionnel)</small></label>
   <input id="source-url" type="url" name="source_url" value="{{.SourceURL}}" placeholder="https://…">
-  <button type="submit" class="primary-action">Enregistrer les paramètres</button>
+  <button type="submit" class="primary-action secondary outline">Enregistrer les paramètres</button>
 </form>
 
 <div class="panel narrow mt-md">
