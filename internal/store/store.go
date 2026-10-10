@@ -26,6 +26,9 @@ var ErrNotFound = errors.New("not found")
 // ErrDuplicate is returned when a unique constraint would be violated.
 var ErrDuplicate = errors.New("duplicate")
 
+// ErrBadInput is returned when a value is not one the store accepts.
+var ErrBadInput = errors.New("bad input")
+
 type Store struct {
 	db *sql.DB
 }

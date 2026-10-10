@@ -28,6 +28,36 @@ type Event struct {
 	// PaymentMention is a legal mention, e.g. the VAT exemption article.
 	PaymentMention string
 	CreatedAt      time.Time
+
+	// The volunteer side of the edition. They are written by
+	// SaveVolunteerSettings and SetEventLogo only, never by SaveEvent, so
+	// the partner forms cannot overwrite them.
+	VolunteerStatus   string
+	VolunteerFreezeAt *time.Time
+	LogoFile          string
+}
+
+// Volunteer statuses of an edition.
+const (
+	VolunteersDraft    = "draft"    // prepared by the staff, hidden from volunteers
+	VolunteersOpen     = "open"     // volunteers see it and sign up
+	VolunteersFrozen   = "frozen"   // visible, signups closed
+	VolunteersArchived = "archived" // hidden
+)
+
+// ValidVolunteerStatus tells whether s is one of the volunteer statuses.
+func ValidVolunteerStatus(s string) bool {
+	switch s {
+	case VolunteersDraft, VolunteersOpen, VolunteersFrozen, VolunteersArchived:
+		return true
+	}
+
+	return false
+}
+
+// VisibleToVolunteers tells whether volunteers may browse the edition.
+func (e *Event) VisibleToVolunteers() bool {
+	return e.VolunteerStatus == VolunteersOpen || e.VolunteerStatus == VolunteersFrozen
 }
 
 // AttendeesLocked reports whether partners can no longer edit attendees.
@@ -36,21 +66,24 @@ func (e *Event) AttendeesLocked() bool {
 }
 
 const eventCols = `id, slug, name, year, starts_on, ends_on, is_current, logo_deadline, attendees_deadline,
-	brochure_fr_file, brochure_en_file, guide_fr_file, guide_en_file, payment_info, payment_mention, created_at`
+	brochure_fr_file, brochure_en_file, guide_fr_file, guide_en_file, payment_info, payment_mention, created_at,
+	volunteer_status, volunteer_freeze_at, logo_file`
 
 func scanEvent(row interface{ Scan(...any) error }) (*Event, error) {
 	var (
-		e                                Event
-		starts, ends, logoDL, attendeeDL sql.NullTime
+		e                                        Event
+		starts, ends, logoDL, attendeeDL, freeze sql.NullTime
 	)
 
 	err := row.Scan(&e.ID, &e.Slug, &e.Name, &e.Year, &starts, &ends, &e.IsCurrent, &logoDL, &attendeeDL,
-		&e.BrochureFRFile, &e.BrochureENFile, &e.GuideFRFile, &e.GuideENFile, &e.PaymentInfo, &e.PaymentMention, &e.CreatedAt)
+		&e.BrochureFRFile, &e.BrochureENFile, &e.GuideFRFile, &e.GuideENFile, &e.PaymentInfo, &e.PaymentMention, &e.CreatedAt,
+		&e.VolunteerStatus, &freeze, &e.LogoFile)
 	if err != nil {
 		return nil, notFound(err)
 	}
 
 	e.StartsOn, e.EndsOn = timePtr(starts), timePtr(ends)
+	e.VolunteerFreezeAt = timePtr(freeze)
 	e.LogoDeadline, e.AttendeesDeadline = timePtr(logoDL), timePtr(attendeeDL)
 
 	return &e, nil
@@ -125,6 +158,27 @@ func (s *Store) SaveEvent(ctx context.Context, e *Event) error {
 
 		return err
 	})
+}
+
+// SaveVolunteerSettings saves the volunteer status and freeze date of an
+// edition.
+func (s *Store) SaveVolunteerSettings(ctx context.Context, e *Event) error {
+	if !ValidVolunteerStatus(e.VolunteerStatus) {
+		return ErrBadInput
+	}
+
+	_, err := s.db.ExecContext(ctx, `UPDATE events SET volunteer_status = ?, volunteer_freeze_at = ? WHERE id = ?`,
+		e.VolunteerStatus, nullTime(e.VolunteerFreezeAt), e.ID)
+
+	return err
+}
+
+// SetEventLogo sets or clears the logo of an edition. The caller owns the
+// file in the files store.
+func (s *Store) SetEventLogo(ctx context.Context, eventID int64, file string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE events SET logo_file = ? WHERE id = ?`, file, eventID)
+
+	return err
 }
 
 type Level struct {

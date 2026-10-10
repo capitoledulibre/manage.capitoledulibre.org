@@ -213,3 +213,53 @@ func TestPublicIDs(t *testing.T) {
 		t.Errorf("level found through another edition: %v", err)
 	}
 }
+
+// TestVolunteerSettings: the volunteer side of an edition has its own
+// writes, which the partner form (SaveEvent) cannot overwrite.
+func TestVolunteerSettings(t *testing.T) {
+	ctx := context.Background()
+
+	s, err := Open(ctx, filepath.Join(t.TempDir(), "db.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	e := &Event{Slug: "ec-2026", Name: "EC 2026", Year: 2026}
+	if err := s.SaveEvent(ctx, e); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := s.GetEvent(ctx, e.ID)
+	if got.VolunteerStatus != VolunteersDraft || got.VisibleToVolunteers() {
+		t.Fatalf("a new edition should be a hidden draft: %q", got.VolunteerStatus)
+	}
+
+	freeze := time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)
+	got.VolunteerStatus, got.VolunteerFreezeAt = VolunteersOpen, &freeze
+
+	if err := s.SaveVolunteerSettings(ctx, got); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.SetEventLogo(ctx, e.ID, "logo.svg"); err != nil {
+		t.Fatal(err)
+	}
+
+	// The partner form saves a struct that never loaded the volunteer side.
+	e.Name = "Example Conf 2026"
+	if err := s.SaveEvent(ctx, e); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ = s.GetEvent(ctx, e.ID)
+	if got.Name != "Example Conf 2026" || got.VolunteerStatus != VolunteersOpen || !got.VisibleToVolunteers() ||
+		got.VolunteerFreezeAt == nil || !got.VolunteerFreezeAt.Equal(freeze) || got.LogoFile != "logo.svg" {
+		t.Fatalf("the volunteer side was lost: %+v", got)
+	}
+
+	got.VolunteerStatus = "published"
+	if err := s.SaveVolunteerSettings(ctx, got); err != ErrBadInput {
+		t.Fatalf("an unknown status should be refused, got %v", err)
+	}
+}
