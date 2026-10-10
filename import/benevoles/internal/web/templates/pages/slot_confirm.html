@@ -1,0 +1,14 @@
+{{define "title"}}Chevauchement de créneaux – {{.Org}}{{end}}
+{{define "content"}}
+<article class="login-box">
+  <h1>Ce créneau en chevauche un autre</h1>
+  <p>Le créneau <b>{{time .Slot.StartsAt}} – {{time .Slot.EndsAt}}</b> se superpose à&nbsp;:</p>
+  <ul>{{range .Overlaps}}<li>{{.PoleName}}{{if .Title}} – {{.Title}}{{end}} ({{time .StartsAt}} – {{time .EndsAt}})</li>{{end}}</ul>
+  <p class="hint">Vous pouvez tout de même vous inscrire si vous savez que vous serez présent·e sur les deux.</p>
+  <form method="post" action="/slots/{{.Slot.ID}}/signup" class="actions">
+    <input type="hidden" name="force" value="1"><input type="hidden" name="back" value="{{.Back}}">
+    <button>M'inscrire quand même</button>
+    <a href="{{if .Back}}{{.Back}}{{else}}/slots/{{.Slot.ID}}{{end}}" role="button" class="secondary outline">Annuler</a>
+  </form>
+</article>
+{{end}}

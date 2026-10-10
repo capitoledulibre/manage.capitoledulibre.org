@@ -1,0 +1,65 @@
+{{define "title"}}{{.Pole.Name}} – {{.Org}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="/">← Tous les pôles</a></p>
+<div class="page-header c{{.Pole.Color}}">
+  <div class="page-title">
+    {{template "pole_icon" (dict "Pole" .Pole "Big" true)}}
+    <div>
+      <h1>{{.Pole.Name}}</h1>
+      {{with named .Managers}}<p class="muted">Responsable{{if gt (len .) 1}}s{{end}}&nbsp;: {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+    </div>
+  </div>
+  {{if .CanManage}}<a href="{{.Pole.ManageURL}}" role="button" class="secondary outline small">Gérer ce pôle</a>{{end}}
+</div>
+{{if .Pole.Description}}<p>{{nl2br .Pole.Description}}</p>{{end}}
+
+{{template "messages" (dict "Messages" .Messages)}}
+
+{{if and (not .Member) (not .Pole.IsDefault)}}
+<article>
+  <h2>Vous n'êtes pas encore dans ce pôle</h2>
+  {{if .Pole.IsOpen}}
+  <p>Inscrivez-vous directement sur un créneau ci-dessous&nbsp;: vous rejoindrez le pôle au passage. Vous pouvez aussi le rejoindre d'abord pour suivre ses messages, et le quitter à tout moment.</p>
+  <form method="post" action="{{.Pole.URL}}/join"><button>Rejoindre ce pôle</button></form>
+  {{else if .Pole.IsPrivate}}
+  <p>Ce pôle se rejoint via un lien d'invitation&nbsp;: demandez-le au responsable.</p>
+  {{else}}
+  <p>Ce pôle est sur invitation&nbsp;: le responsable vous ajoutera sur demande.</p>
+  {{end}}
+</article>
+{{else}}
+{{/* One sentence, not a row of figures: a volunteer wants to know whether
+     help is needed here, and the slots are what they came for. */}}
+{{if .Total}}<p class="pole-summary">{{if .Missing}}<b class="txt-warn">Il manque {{.Missing}} bénévole{{if gt .Missing 1}}s{{end}}</b> sur {{.Total}} créneau{{if gt .Total 1}}x{{end}}{{else}}<b class="txt-ok">Tous les créneaux sont pourvus</b>{{end}}{{if .Mine}} · vous êtes inscrit·e sur {{.Mine}}{{end}}.</p>{{end}}
+{{if .Locked}}<div class="flash error" role="alert">Les inscriptions sont closes&nbsp;: vos créneaux ne peuvent plus être modifiés. Contactez un responsable si besoin.</div>{{end}}
+{{end}}
+{{if and .Deadline (not .Locked)}}<p class="hint">Inscriptions et modifications possibles jusqu'au {{deadline .Deadline}}.</p>{{end}}
+
+{{if or .Locations (gt .Total 0)}}
+<nav class="filters" aria-label="Filtrer les créneaux">
+  {{if .Locations}}
+  <a href="{{.Pole.URL}}{{if .OnlyOpen}}?open=1{{end}}" class="{{if not .Filter}}active{{end}}"{{if not .Filter}} aria-current="true"{{end}}>Tous les emplacements</a>
+  {{range .Locations}}<a href="{{$.Pole.URL}}?location={{.ID}}{{if $.OnlyOpen}}&open=1{{end}}" class="{{if eq .ID $.Filter}}active{{end}}"{{if eq .ID $.Filter}} aria-current="true"{{end}}>{{.Name}}</a>{{end}}
+  <span class="muted" aria-hidden="true">·</span>
+  {{end}}
+  <a href="{{.Pole.URL}}?{{if .Filter}}location={{.Filter}}&{{end}}{{if not .OnlyOpen}}open=1{{end}}" class="{{if .OnlyOpen}}active{{end}}"{{if .OnlyOpen}} aria-current="true"{{end}}>À pourvoir seulement</a>
+</nav>
+{{end}}
+
+{{range .Days}}
+<section class="day">
+  <h2><span class="pill">{{parseDay .Day}}</span></h2>
+  {{range .Slots}}{{template "slot_card" (dict "Slot" . "Pole" $.Pole "Member" $.Member "Locked" $.Locked "Back" $.Path "Waiting" (index $.OnWaitlist .ID))}}{{end}}
+</section>
+{{else}}
+<p class="empty">{{if .OnlyOpen}}Tous les créneaux sont pourvus, merci&nbsp;!{{else}}Aucun créneau n'a encore été publié dans ce pôle.{{end}}</p>
+{{end}}
+
+{{if and .Member (not .Pole.IsDefault) (not .Locked)}}
+<details class="mt-lg">
+  <summary class="muted">Quitter ce pôle</summary>
+  <p class="hint">Vous serez désinscrit·e de tous les créneaux de ce pôle{{if .Mine}} ({{.Mine}} pour l'instant){{end}}.</p>
+  <form method="post" action="{{.Pole.URL}}/leave" onsubmit="return confirm('Quitter ce pôle et annuler vos créneaux ?')"><button class="secondary outline">Quitter le pôle</button></form>
+</details>
+{{end}}
+{{end}}

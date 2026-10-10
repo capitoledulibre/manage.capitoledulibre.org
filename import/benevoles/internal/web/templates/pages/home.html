@@ -1,0 +1,118 @@
+{{define "title"}}Les pôles – {{.Org}}{{end}}
+{{define "content"}}
+<section class="hero">
+  {{if .Event.LogoURL}}<img class="event-logo lg" src="{{.Event.LogoURL}}" alt="">{{end}}
+  <div>
+    <h1>Bonjour {{firstName .User}}</h1>
+    <p>{{.Event.Name}} · {{dateRange .Event.StartsOn .Event.EndsOn}}
+      {{if eq .Event.Status "frozen"}}<span class="badge">Inscriptions closes</span>{{end}}
+      {{if eq .Event.Status "draft"}}<span class="badge">Brouillon – visible des organisateurs seulement</span>{{end}}
+    </p>
+  </div>
+  {{/* A big "0" greeted every newcomer: the count only shows once there is
+       something to count. */}}
+  {{if or .MySlots .EventAdmin}}
+  <div class="hero-stats">
+    {{if .MySlots}}<div><b>{{len .MySlots}}</b><small>créneau{{if gt (len .MySlots) 1}}x{{end}} à mon planning</small></div>{{end}}
+    {{if .EventAdmin}}<a href="{{.Event.AdminURL}}" role="button" class="small">Tableau de bord</a>{{end}}
+  </div>
+  {{end}}
+</section>
+
+{{template "messages" (dict "Messages" .Messages)}}
+
+{{if .Returning}}
+<article class="returning">
+  <h2>Content de vous revoir&nbsp;!</h2>
+  <p>Pour {{.PrevEvent.Name}}, vous étiez dans {{if gt (len .Returning) 1}}ces pôles{{else}}ce pôle{{end}}. On repart ensemble&nbsp;?</p>
+  <ul class="returning-list">
+    {{range .Returning}}
+    <li class="c{{.Color}}">
+      {{template "pole_icon" (dict "Pole" .Pole)}}
+      <strong>{{.Name}}</strong>
+      {{if .IsOpen}}
+      <form method="post" action="{{.URL}}/join"><button class="small">Rejoindre à nouveau</button></form>
+      {{else}}
+      <small class="muted">Sur invitation&nbsp;: {{with named .Coverage.Managers}}demandez à {{range $i, $m := .}}{{if $i}} ou {{end}}{{$m.Name}}{{end}}{{else}}demandez au responsable{{end}}.</small>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+  <p class="hint">Envie de changer&nbsp;? Tous les pôles sont ci-dessous, et vous pouvez voir <a href="/slots">les créneaux à pourvoir</a> tous pôles confondus.</p>
+</article>
+{{else if not .Joined}}
+<article>
+  <h2>Bienvenue&nbsp;! Deux étapes et c'est fait</h2>
+  <ol>
+    <li><strong>Choisissez un pôle</strong> ci-dessous, selon ce que vous aimez faire. Pas de préférence&nbsp;? Voyez directement <a href="/slots">où on a besoin de vous</a>.</li>
+    <li><strong>Inscrivez-vous sur les créneaux</strong> qui vous arrangent, autant que vous voulez. Certains pôles sont sur invitation&nbsp;: le responsable vous ajoute ou vous transmet un lien.</li>
+  </ol>
+  <p class="hint">Vous pourrez revenir modifier vos créneaux à tout moment{{with .Event.FreezeAt}} jusqu'au {{deadline .}}{{else}}, tant que les inscriptions sont ouvertes{{end}}.</p>
+</article>
+{{end}}
+{{if .Joined}}
+<section>
+  <div class="page-header">
+    <h2>Mes prochains créneaux</h2>
+    <a href="/me">Tout mon planning →</a>
+  </div>
+  {{if .Upcoming}}
+  {{range .Upcoming}}
+  <article class="slot mine">
+    <div class="slot-row">
+      <div class="slot-time">{{time .StartsAt}}<span class="dash">–</span>{{time .EndsAt}}</div>
+      <div class="slot-info"><a class="slot-title" href="/slots/{{.ID}}">{{.PoleName}}{{if .Title}} – {{.Title}}{{end}}</a>{{if .LocationName}}<span class="badge">{{.LocationName}}</span>{{end}}<span class="slot-meta cap">{{day .StartsAt}}</span></div>
+    </div>
+  </article>
+  {{end}}
+  {{else}}<p class="empty">Vous n'êtes inscrit·e sur aucun créneau à venir. Choisissez un pôle ci-dessous, ou voyez <a href="/slots">où on a besoin de vous</a>.</p>{{end}}
+</section>
+{{template "waiting_list" .Waiting}}
+{{end}}
+
+<div class="page-header mt-lg">
+  <h2>Les pôles</h2>
+  {{if eq .Event.Status "open"}}<a href="/slots">Tous les créneaux à pourvoir →</a>{{end}}
+</div>
+<div class="poles">
+  {{range .Poles}}
+  <article class="pole-card c{{.Color}}" id="pole-{{.ID}}">
+    <div class="pole-head">
+      {{template "pole_icon" (dict "Pole" .Pole)}}
+      <div><h3>{{.Name}}</h3>
+        {{if .IsDefault}}<span class="badge">tous les bénévoles</span>
+        {{/* Private and invitation poles differ for managers (a link versus
+             adding people by hand), not for the volunteer: in both cases they
+             cannot join alone. The footer says whom to ask. */}}
+        {{else if or (eq .AccessMode "private") (eq .AccessMode "invitation")}}<span class="badge key">sur invitation</span>
+        {{else if eq .AccessMode "restricted"}}<span class="badge danger">restreint</span>{{end}}
+        {{if and .Member (not .IsDefault)}}<span class="badge ok">✓ membre</span>{{end}}
+      </div>
+    </div>
+    {{if .Description}}<p class="grow">{{nl2br .Description}}</p>{{else}}<div class="grow"></div>{{end}}
+    {{with named .Coverage.Managers}}<p class="hint">Responsable{{if gt (len .) 1}}s{{end}}&nbsp;: {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+    {{if .Slots}}
+    <p class="hint">{{.Slots}} créneau{{if gt .Slots 1}}x{{end}}
+      {{if gt .Missing 0}}· <span class="txt-warn">il manque {{.Missing}} bénévole{{if gt .Missing 1}}s{{end}}</span>{{else}}· <span class="txt-ok">complet</span>{{end}}</p>
+    <span class="bar{{if gt .Missing 0}} short{{end}}" aria-hidden="true"><i style="width:{{.Coverage.Percent}}%"></i></span>
+    {{else}}<p class="hint">Aucun créneau publié pour le moment.</p>{{end}}
+    <footer>
+      <div class="actions">
+      {{/* The default pole is everyone's: there is nothing to join, a signup
+           on one of its slots is enough. */}}
+      {{if or .Member .IsDefault}}
+        <a href="{{.URL}}" role="button">Voir les créneaux</a>
+      {{else if .IsOpen}}
+        <form method="post" action="{{.URL}}/join"><button>Rejoindre ce pôle</button></form>
+      {{else if eq .AccessMode "private"}}
+        <small class="muted">Demandez le lien d'invitation au responsable.</small>
+      {{else}}
+        <small class="muted">Le responsable vous ajoute sur demande.</small>
+      {{end}}
+      {{if .Manager}}<a href="{{.ManageURL}}" role="button" class="secondary outline">Gérer</a>{{end}}
+      </div>
+    </footer>
+  </article>
+  {{end}}
+</div>
+{{end}}

@@ -1,0 +1,11 @@
+{{define "messages"}}
+{{range .Messages}}
+<div class="message">
+  <div>{{nl2br .Body}}</div>
+  <footer>
+    <small class="muted">{{.Author}} · {{datetime .CreatedAt}}</small>
+    {{if $.CanDelete}}<form method="post" action="/manage/messages/{{.ID}}/delete" onsubmit="return confirm('Supprimer ce message ?')"><input type="hidden" name="back" value="{{$.Back}}"><button class="link danger">Supprimer</button></form>{{end}}
+  </footer>
+</div>
+{{end}}
+{{end}}

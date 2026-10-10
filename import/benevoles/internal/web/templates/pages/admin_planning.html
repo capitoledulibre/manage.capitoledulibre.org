@@ -1,0 +1,34 @@
+{{define "title"}}Planning global – {{.Event.Name}} – {{.Org}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="{{.Event.AdminURL}}">← {{.Event.Name}}</a></p>
+<div class="page-header">
+  <div><h1>Planning global</h1><p class="muted">Tous les pôles, tous les créneaux. Chaque case indique les inscrits sur la capacité.</p></div>
+  <nav class="filters m-0" aria-label="Filtrer le planning">
+    <a href="?" class="{{if not .OnlyShort}}active{{end}}"{{if not .OnlyShort}} aria-current="true"{{end}}>Tout</a>
+    <a href="?short=1" class="{{if .OnlyShort}}active{{end}}"{{if .OnlyShort}} aria-current="true"{{end}}>Incomplets seulement</a>
+  </nav>
+</div>
+<p class="legend"><span class="chip ok">complet</span> <span class="chip short">incomplet</span> <span class="chip empty">personne</span></p>
+{{range .Days}}
+<section class="day">
+  <h2><span class="pill">{{parseDay .Day}}</span> <small class="muted">{{.Filled}}/{{.Capacity}} places pourvues</small></h2>
+  <div class="scroll-x" tabindex="0" role="region" aria-label="Créneaux du {{parseDay .Day}}">
+  <table class="compact planning">
+    <caption class="sr-only">Créneaux par pôle pour le {{parseDay .Day}}</caption>
+    <tbody>
+    {{range .Rows}}
+    <tr class="c{{.Pole.Color}}">
+      <th scope="row"><a href="{{.Pole.ManageURL}}">{{.Pole.Name}}</a>{{if .Location}}<small class="muted"> · {{.Location}}</small>{{end}}<br><small class="muted">{{.Filled}}/{{.Capacity}}</small></th>
+      <td>
+        {{range .Slots}}<a href="/manage/slots/{{.ID}}" class="chip {{if .IsFull}}ok{{else if eq .Filled 0}}empty{{else}}short{{end}}" title="{{if .Title}}{{.Title}} · {{end}}{{.Filled}} inscrit·es sur {{.Capacity}}">{{time .StartsAt}}–{{time .EndsAt}} <b>{{.Filled}}/{{.Capacity}}</b></a>{{end}}
+      </td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</section>
+{{else}}
+<p class="empty">{{if .OnlyShort}}Tous les créneaux sont pourvus.{{else}}Aucun créneau dans cet événement.{{end}}</p>
+{{end}}
+{{end}}

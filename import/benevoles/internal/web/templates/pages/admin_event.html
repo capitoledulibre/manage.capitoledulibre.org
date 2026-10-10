@@ -1,0 +1,159 @@
+{{define "title"}}{{.Event.Name}} – {{.Org}}{{end}}
+{{define "content"}}
+<p class="breadcrumb">{{if .User.IsAdmin}}<a href="/admin">← Administration</a> · {{end}}<a href="{{.Event.URL}}">Page publique</a></p>
+<div class="page-header">
+  <div class="page-title">{{if .Event.LogoURL}}<img class="event-logo lg" src="{{.Event.LogoURL}}" alt="">{{end}}<div><h1>{{.Event.Name}}</h1><p class="muted">{{dateRange .Event.StartsOn .Event.EndsOn}} · <span class="badge {{if eq .Event.Status "open"}}ok{{else if eq .Event.Status "frozen"}}warn{{end}}">{{status .Event.Status}}</span></p></div></div>
+  <div class="actions"><a href="{{.Event.AdminURL}}/planning" role="button" class="small">Planning global</a><a href="{{.Event.AdminURL}}/volunteers" role="button" class="secondary outline small">Liste des bénévoles</a></div>
+</div>
+
+<div class="stats">
+  <div><b>{{.Stats.Volunteers}}</b><small>bénévoles</small></div>
+  <div><b>{{len .Coverage}}</b><small>pôles</small></div>
+  <div><b>{{.Stats.Slots}}</b><small>créneaux</small></div>
+  <div><b>{{.Stats.Filled}}<span class="sub">/{{.Stats.Capacity}}</span></b><small>places pourvues ({{pct .Stats.Filled .Stats.Capacity}} %)</small></div>
+</div>
+
+<nav class="tabs" aria-label="Sections de l'événement">
+  <a href="?tab=poles" class="{{if or (not .Tab) (eq .Tab "poles")}}active{{end}}"{{if or (not .Tab) (eq .Tab "poles")}} aria-current="true"{{end}}>Pôles et couverture</a>
+  <a href="?tab=messages" class="{{if eq .Tab "messages"}}active{{end}}"{{if eq .Tab "messages"}} aria-current="true"{{end}}>Messages globaux</a>
+  <a href="?tab=settings" class="{{if eq .Tab "settings"}}active{{end}}"{{if eq .Tab "settings"}} aria-current="true"{{end}}>Réglages</a>
+</nav>
+
+{{if or (not .Tab) (eq .Tab "poles")}}
+<div class="scroll-x" tabindex="0" role="region" aria-label="Couverture par pôle">
+<table class="compact stack">
+  <thead><tr><th>Pôle</th><th>Responsables</th><th>Bénévoles</th><th>Créneaux</th><th>Couverture</th><th>Incomplets</th><th>Actions</th></tr></thead>
+  <tbody>
+  {{range .Coverage}}
+  <tr>
+    <td><span class="c{{.Pole.Color}} pole-cell">{{template "pole_icon" (dict "Pole" .Pole)}}<a href="{{.Pole.ManageURL}}"><b>{{.Pole.Name}}</b></a></span>
+      {{if .Pole.IsDefault}}<span class="badge">défaut</span>{{else if not .Pole.IsOpen}}<span class="badge key">{{mode .Pole.AccessMode}}</span>{{end}}</td>
+    <td><small>{{range $i, $m := .Managers}}{{if $i}}, {{end}}{{$m.DisplayName}}{{end}}{{if not .Managers}}<span class="muted">aucun</span>{{end}}</small></td>
+    <td>{{.Members}}</td>
+    <td>{{.Slots}}</td>
+    {{/* A pole with no slot has nothing to cover: a full green bar and a
+         "0 incomplete" badge read as "all done". */}}
+    {{if .Slots}}
+    <td class="nowrap"><span class="bar{{if .ShortSlot}} short{{end}}{{if and .Capacity (eq .Filled 0)}} empty{{end}}" aria-hidden="true"><i style="width:{{.Percent}}%"></i></span> {{.Filled}}/{{.Capacity}}</td>
+    <td>{{if .ShortSlot}}<span class="badge warn">{{.ShortSlot}}</span>{{else}}<span class="badge ok">0</span>{{end}}</td>
+    {{else}}
+    <td><small class="muted">aucun créneau</small></td>
+    <td><span class="muted">—</span></td>
+    {{end}}
+    {{/* The flex row lives in a div: a table cell turned into a flex box
+         leaves the table grid and misaligns its row. */}}
+    <td><div class="actions"><a href="{{.Pole.ManageURL}}">Gérer</a>
+      <details class="inline-menu"><summary>copier vers…</summary>
+        <form method="post" action="/admin/poles/{{.Pole.ID}}/copy" class="actions">
+          <label for="copy-{{.Pole.ID}}" class="sr-only">Événement de destination pour la copie de {{.Pole.Name}}</label>
+          <select id="copy-{{.Pole.ID}}" name="event_id" class="select-sm">{{range $.Events}}<option value="{{.ID}}" {{if eq .ID $.Event.ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+          <button class="small secondary outline">Copier</button>
+        </form>
+      </details>
+      {{if not .Pole.IsDefault}}<form method="post" action="/admin/poles/{{.Pole.ID}}/delete" class="inline" onsubmit="return confirm('Supprimer le pôle {{.Pole.Name}}, ses {{.Slots}} créneaux et toutes les inscriptions correspondantes ?')"><button class="link danger">supprimer</button></form>{{end}}</div></td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+
+<h2 class="mt-md">Ajouter un pôle</h2>
+<form method="post" action="{{.Event.AdminURL}}/poles" class="panel">
+  <div class="grid-2 icon-name">
+    <div><label for="np-icon">Icône</label><input id="np-icon" type="text" name="icon" placeholder="🍻" maxlength="4" class="center"></div>
+    <div><label for="np-name">Nom</label><input id="np-name" type="text" name="name" required placeholder="Buvette, Accueil, Salles…"></div>
+  </div>
+  <div class="grid-2">
+    <div>
+      <label for="np-mode">Accès</label>
+      <select id="np-mode" name="access_mode">{{range .Modes}}<option value="{{.}}">{{mode .}}</option>{{end}}</select>
+      <small class="hint">Public&nbsp;: chacun se joint. Sur lien d'invitation&nbsp;: un lien est généré. Sur invitation&nbsp;: les responsables ajoutent. Restreint&nbsp;: seuls les administrateurs et la coordination ajoutent, pôle masqué.</small>
+    </div>
+    <div>
+      <label for="np-manager">E-mail du responsable <small class="muted">(optionnel)</small></label>
+      <input id="np-manager" type="email" name="manager_email">
+    </div>
+  </div>
+  <button type="submit" class="primary-action">Créer le pôle</button>
+</form>
+
+{{else if eq .Tab "messages"}}
+<p class="hint">Les messages globaux s'affichent en haut de la page d'accueil pour tous les bénévoles de l'événement.</p>
+<form method="post" action="{{.Event.AdminURL}}/messages" class="narrow">
+  <label for="ev-msg" class="sr-only">Message global</label>
+  <textarea id="ev-msg" name="body" rows="3" required placeholder="Ex : le briefing bénévoles a lieu vendredi à 18h dans l'amphi A."></textarea>
+  <label><input type="checkbox" name="notify" value="1"> Prévenir aussi les bénévoles par e-mail <small class="muted">(à réserver aux informations importantes)</small></label>
+  <button type="submit" class="primary-action">Publier</button>
+</form>
+{{template "messages" (dict "Messages" .Messages "CanDelete" true "Back" (print .Event.AdminURL "?tab=messages"))}}
+
+{{else if eq .Tab "settings"}}
+<form method="post" action="{{.Event.AdminURL}}" class="narrow">
+  <label for="ev-name">Nom</label>
+  <input id="ev-name" type="text" name="name" value="{{.Event.Name}}" required>
+  <label for="ev-slug">Adresse <small class="muted">(lettres, chiffres et tirets&nbsp;; l'événement est accessible sur {{.BaseURL}}/…)</small></label>
+  <input id="ev-slug" type="text" name="slug" value="{{.Event.Slug}}" pattern="[a-z0-9-]+" required>
+  <div class="grid-2">
+    <div><label for="ev-start">Premier jour</label><input id="ev-start" type="date" name="starts_on" value="{{.Event.StartsOn}}" required></div>
+    <div><label for="ev-end">Dernier jour</label><input id="ev-end" type="date" name="ends_on" value="{{.Event.EndsOn}}" required></div>
+  </div>
+  <label for="ev-status">Statut</label>
+  <select id="ev-status" name="status">{{range .Statuses}}<option value="{{.}}" {{if eq . $.Event.Status}}selected{{end}}>{{status .}}</option>{{end}}</select>
+  <p class="hint"><b>Brouillon</b>&nbsp;: visible des administrateurs, de la coordination et des responsables seulement. <b>Inscriptions ouvertes</b>&nbsp;: les bénévoles voient l'événement et s'inscrivent. <b>Gelé</b>&nbsp;: visible, mais plus aucune modification par les bénévoles. <b>Archivé</b>&nbsp;: masqué.</p>
+  <label for="ev-freeze">Gel automatique des inscriptions <small class="muted">(optionnel&nbsp;; chaque pôle peut définir sa propre date)</small></label>
+  <input id="ev-freeze" type="datetime-local" name="freeze_at" value="{{inputDT .Event.FreezeAt}}">
+  <button type="submit" class="primary-action">Enregistrer</button>
+</form>
+<div class="panel narrow mt-md">
+  <h2>Logo de l'événement</h2>
+  <p class="hint">Affiché à côté du nom de l'événement, sur la page d'accueil des bénévoles et sur la page de connexion. PNG, JPEG, GIF ou WebP, 2 Mo maximum. Il est repris tel quel lors d'une duplication.</p>
+  <div class="actions">
+    {{if .Event.LogoURL}}<img class="event-logo lg" src="{{.Event.LogoURL}}" alt="">{{end}}
+    <form method="post" action="{{.Event.AdminURL}}/image" enctype="multipart/form-data" class="actions">
+      <label for="ev-image" class="sr-only">Fichier image du logo de l'événement</label>
+      <input id="ev-image" type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required class="m-0">
+      <button class="small secondary outline">Envoyer</button>
+    </form>
+    {{if .Event.Image}}<form method="post" action="{{.Event.AdminURL}}/image/delete" onsubmit="return confirm('Retirer le logo de l’événement ?')"><button class="link danger">retirer le logo</button></form>{{end}}
+  </div>
+</div>
+<div class="panel narrow mt-md">
+  <h2>Coordination de l'événement</h2>
+  <p class="hint">La coordination gère tout l'événement&nbsp;: tous les pôles, leurs responsables, le planning global, les messages et la liste des bénévoles, le statut et les réglages. Elle ne peut ni supprimer l'événement, ni en créer un autre, ni gérer les comptes.</p>
+  <ul>
+    {{range .Coordinators}}<li>{{.DisplayName}} <small class="muted">{{.Email}}</small>
+      {{if $.User.IsAdmin}}<form method="post" action="{{$.Event.AdminURL}}/coordinators/{{.ID}}/delete" class="inline" onsubmit="return confirm('Retirer {{.DisplayName}} de la coordination ? La personne reste bénévole.')"><button class="link danger">retirer</button></form>{{end}}</li>
+    {{else}}<li class="muted">Personne pour l'instant.</li>{{end}}
+  </ul>
+  {{if .User.IsAdmin}}
+  <form method="post" action="{{.Event.AdminURL}}/coordinators" class="actions">
+    <label for="new-coordinator" class="sr-only">E-mail de la personne à ajouter à la coordination</label>
+    <input id="new-coordinator" type="email" name="email" list="coordinator-users" placeholder="e-mail" required class="field-md" autocomplete="off">
+    {{template "user_datalist" (dict "ID" "coordinator-users" "Users" .AllUsers)}}
+    <button class="small secondary outline">Ajouter à la coordination</button>
+  </form>
+  {{end}}
+</div>
+{{if .User.IsAdmin}}
+<div class="panel narrow mt-md">
+  <h2>Préparer l'événement suivant</h2>
+  <p class="hint">Crée un nouvel événement en brouillon avec les mêmes pôles&nbsp;: réglages, icônes, modes d'accès, listes de tâches par défaut, emplacements, responsables et coordination. Les créneaux et les inscriptions ne sont pas repris.</p>
+  <form method="post" action="{{.Event.AdminURL}}/duplicate">
+    <label for="dup-name">Nom</label>
+    <input id="dup-name" type="text" name="name" required value="{{.NextName}}">
+    <div class="grid-2">
+      <div><label for="dup-start">Premier jour</label><input id="dup-start" type="date" name="starts_on" required></div>
+      <div><label for="dup-end">Dernier jour</label><input id="dup-end" type="date" name="ends_on" required></div>
+    </div>
+    <button type="submit" class="primary-action secondary outline">Dupliquer l'événement</button>
+  </form>
+</div>
+<div class="danger-zone">
+  <form method="post" action="{{.Event.AdminURL}}/delete" onsubmit="return confirm('Supprimer définitivement cet événement, ses {{len .Coverage}} pôles, ses {{.Stats.Slots}} créneaux et toutes les inscriptions ? Les comptes bénévoles sont conservés.')" class="actions">
+    <span>Supprimer l'événement et toutes ses données (les comptes bénévoles sont conservés).</span>
+    <button class="small">Supprimer l'événement</button>
+  </form>
+</div>
+{{end}}
+{{end}}
+{{end}}

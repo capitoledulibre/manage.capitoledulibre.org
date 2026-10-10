@@ -1,0 +1,44 @@
+{{define "title"}}{{.Pole.Name}}{{if .Slot.Title}} – {{.Slot.Title}}{{end}} – {{.Org}}{{end}}
+{{define "content"}}
+<p class="breadcrumb"><a href="{{.Pole.URL}}">← {{.Pole.Name}}</a></p>
+<div class="page-header c{{.Pole.Color}}">
+  <div class="page-title">
+    {{template "pole_icon" (dict "Pole" .Pole)}}
+    <div>
+      <h1>{{.Pole.Name}}{{if .Slot.Title}} – {{.Slot.Title}}{{end}}</h1>
+      <p class="slot-when"><span class="cap">{{day .Slot.StartsAt}}</span> · <b>{{time .Slot.StartsAt}} – {{time .Slot.EndsAt}}</b>
+        {{if .Slot.LocationName}}<span class="badge">{{.Slot.LocationName}}</span>{{end}}</p>
+    </div>
+  </div>
+  {{if .CanManage}}<a href="/manage/slots/{{.Slot.ID}}" role="button" class="secondary outline small">Modifier</a>{{end}}
+</div>
+
+{{template "messages" (dict "Messages" .Messages)}}
+
+{{template "slot_card" (dict "Slot" .Slot "Pole" .Pole "Member" .Member "Locked" .Locked "Back" .Path "Waiting" .Waiting "Compact" true)}}
+
+<div class="grid-2 mt-md">
+  <section>
+    <h2>Bénévoles ({{.Slot.Filled}}/{{.Slot.Capacity}})</h2>
+    {{if .Volunteers}}
+    <ul class="people">{{range .Volunteers}}<li>{{template "avatar" (dict "User" . "Class" "sm")}}<span>{{.DisplayName}}{{if and $.CanManage .Phone}} <small class="muted">· {{.Phone}}</small>{{end}}</span></li>{{end}}</ul>
+    {{else}}<p class="muted">Personne pour l'instant.</p>{{end}}
+    {{if gt .Slot.Missing 0}}<p class="hint">Encore {{.Slot.Missing}} place{{if gt .Slot.Missing 1}}s{{end}}.</p>{{end}}
+  </section>
+  <section>
+    <h2>Tâches</h2>
+    {{template "task_list" (dict "Tasks" .Tasks "CanTick" .CanTick "Slot" .Slot)}}
+    {{if and .Tasks (not .CanTick)}}<p class="hint">Inscrivez-vous sur le créneau pour pouvoir cocher les tâches.</p>{{end}}
+  </section>
+</div>
+
+{{with .Contacts}}
+<section class="mt-md">
+  <h2>Une question, un empêchement&nbsp;?</h2>
+  <ul class="people">
+    {{range .}}<li class="contact">{{template "avatar" (dict "User" .)}}<span><b>{{.Name}}</b> <small class="muted">responsable du pôle</small><br>
+      <a href="mailto:{{.Email}}">{{.Email}}</a>{{if and .SharePhone .Phone}} · <a href="tel:{{telHref .Phone}}">{{phone .Phone}}</a>{{end}}</span></li>{{end}}
+  </ul>
+</section>
+{{end}}
+{{end}}
