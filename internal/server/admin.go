@@ -1217,7 +1217,7 @@ func (s *Server) adminViewAs(w http.ResponseWriter, r *http.Request) error {
 
 	s.setCookie(w, returnCookie, safeRedirect(r.FormValue("return"), orgURL(org)), adminSessionTTL)
 
-	target := "/p/"
+	target := "/partners/"
 	if slug := r.FormValue("event"); slug != "" {
 		target += "?event=" + url.QueryEscape(slug)
 	}

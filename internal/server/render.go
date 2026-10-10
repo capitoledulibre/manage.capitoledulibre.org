@@ -59,7 +59,7 @@ func (s *Server) page(r *http.Request, title string) *Page {
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/admin"):
 		area = "admin"
-	case strings.HasPrefix(r.URL.Path, "/p/") && c.Org != nil:
+	case strings.HasPrefix(r.URL.Path, "/partners/") && c.Org != nil:
 		area = "partner"
 	}
 

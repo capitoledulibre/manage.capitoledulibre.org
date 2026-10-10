@@ -64,7 +64,7 @@ func TestLanguageLinkDoesNotChangeEmailLanguage(t *testing.T) {
 	f := e.fixture(nil)
 	alice := e.loginAs("alice@acme.test")
 
-	_, body := e.get(alice, "/lang/en?next=/p/")
+	_, body := e.get(alice, "/lang/en?next=/partners/")
 	mustContain(t, body, "Dashboard")
 
 	m, _ := e.st.GetManager(ctx, f.alice.ID)
@@ -73,7 +73,7 @@ func TestLanguageLinkDoesNotChangeEmailLanguage(t *testing.T) {
 	}
 
 	// The profile form (POST) does change it.
-	e.post(alice, "/p/profile", url.Values{"name": {"Alice"}, "lang": {"en"}})
+	e.post(alice, "/partners/profile", url.Values{"name": {"Alice"}, "lang": {"en"}})
 
 	if m, _ = e.st.GetManager(ctx, f.alice.ID); m.Lang != "en" {
 		t.Errorf("profile did not change the email language: %q", m.Lang)
@@ -103,11 +103,11 @@ func TestLogoHistoryIsBounded(t *testing.T) {
 	alice := e.loginAs("alice@acme.test")
 
 	for i := 0; i < maxLogoVersions+3; i++ {
-		e.upload(alice, "/p/logo", map[string]string{"variant": "default"}, "logo", "logo.png", pngBytes())
+		e.upload(alice, "/partners/logo", map[string]string{"variant": "default"}, "logo", "logo.png", pngBytes())
 	}
 
 	// A dark variant is pruned separately and never touched here.
-	e.upload(alice, "/p/logo", map[string]string{"variant": "dark"}, "logo", "dark.png", pngBytes())
+	e.upload(alice, "/partners/logo", map[string]string{"variant": "dark"}, "logo", "dark.png", pngBytes())
 
 	org, _ := e.st.GetOrganizationBySlug(ctx, "acme")
 	logos, _ := e.st.ListLogos(ctx, org.ID)

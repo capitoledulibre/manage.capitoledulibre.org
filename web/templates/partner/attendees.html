@@ -30,7 +30,7 @@
             <td>{{.Dietary}}</td>
             <td class="text-right">
               {{if not $.D.Locked}}
-              <form method="post" action="/p/attendees/{{.UID}}/delete{{$.D.Query}}" data-confirm="{{t $l "action.confirm_delete"}}">
+              <form method="post" action="/partners/attendees/{{.UID}}/delete{{$.D.Query}}" data-confirm="{{t $l "action.confirm_delete"}}">
                 <button class="btn-danger btn-sm">{{t $l "action.delete"}}</button>
               </form>
               {{end}}
@@ -52,7 +52,7 @@
     {{else}}
     {{with .D.Form}}{{with .Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $l .}}</div>{{end}}{{end}}
     {{$a := ""}}{{with .D.Form}}{{$a = .A}}{{end}}
-    <form method="post" action="/p/attendees" class="space-y-3">
+    <form method="post" action="/partners/attendees" class="space-y-3">
       <input type="hidden" name="event" value="{{$pc.Event.Slug}}">
       <div>
         <label class="label" for="first_name">{{t $l "attendees.first_name"}} *</label>

@@ -24,29 +24,29 @@ const (
 func (s *Server) partnerRoutes(mux *http.ServeMux) {
 	h := func(pattern string, fn handlerFunc) { mux.Handle(pattern, s.wrap(s.requireOrg(fn))) }
 
-	h("GET /p/{$}", s.partnerDashboard)
-	h("POST /p/notes", s.partnerNotes)
-	h("GET /p/choose", s.partnerChoose)
-	h("POST /p/choose", s.partnerChooseSubmit)
-	h("GET /p/documents/{event}/{kind}", s.partnerDocument)
-	h("GET /p/event-documents/{event}/{kind}", s.partnerEventDocument)
-	h("GET /p/organization", s.partnerOrganization)
-	h("POST /p/organization", s.partnerOrganizationSubmit)
-	h("GET /p/logo", s.partnerLogo)
-	h("POST /p/logo", s.partnerLogoSubmit)
-	h("GET /p/attendees", s.partnerAttendees)
-	h("POST /p/attendees", s.partnerAttendeeAdd)
-	h("POST /p/attendees/{attendee}/delete", s.partnerAttendeeDelete)
-	h("GET /p/jobs", s.partnerJobs)
-	h("GET /p/jobs/new", s.partnerJobForm)
-	h("POST /p/jobs/new", s.partnerJobSubmit)
-	h("GET /p/jobs/{job}", s.partnerJobForm)
-	h("POST /p/jobs/{job}", s.partnerJobSubmit)
-	h("POST /p/jobs/{job}/delete", s.partnerJobDelete)
-	h("GET /p/managers", s.partnerManagers)
-	h("POST /p/managers", s.partnerManagerInvite)
-	h("POST /p/managers/{manager}/delete", s.partnerManagerDelete)
-	h("POST /p/profile", s.partnerProfile)
+	h("GET /partners/{$}", s.partnerDashboard)
+	h("POST /partners/notes", s.partnerNotes)
+	h("GET /partners/choose", s.partnerChoose)
+	h("POST /partners/choose", s.partnerChooseSubmit)
+	h("GET /partners/documents/{event}/{kind}", s.partnerDocument)
+	h("GET /partners/event-documents/{event}/{kind}", s.partnerEventDocument)
+	h("GET /partners/organization", s.partnerOrganization)
+	h("POST /partners/organization", s.partnerOrganizationSubmit)
+	h("GET /partners/logo", s.partnerLogo)
+	h("POST /partners/logo", s.partnerLogoSubmit)
+	h("GET /partners/attendees", s.partnerAttendees)
+	h("POST /partners/attendees", s.partnerAttendeeAdd)
+	h("POST /partners/attendees/{attendee}/delete", s.partnerAttendeeDelete)
+	h("GET /partners/jobs", s.partnerJobs)
+	h("GET /partners/jobs/new", s.partnerJobForm)
+	h("POST /partners/jobs/new", s.partnerJobSubmit)
+	h("GET /partners/jobs/{job}", s.partnerJobForm)
+	h("POST /partners/jobs/{job}", s.partnerJobSubmit)
+	h("POST /partners/jobs/{job}/delete", s.partnerJobDelete)
+	h("GET /partners/managers", s.partnerManagers)
+	h("POST /partners/managers", s.partnerManagerInvite)
+	h("POST /partners/managers/{manager}/delete", s.partnerManagerDelete)
+	h("POST /partners/profile", s.partnerProfile)
 }
 
 func (s *Server) requireOrg(next handlerFunc) handlerFunc {
@@ -215,7 +215,7 @@ func eventDocs(e *store.Event, lang string) []eventDoc {
 
 	for _, kind := range []string{"brochure", "guide"} {
 		if eventDocFile(e, kind, lang) != "" {
-			out = append(out, eventDoc{Kind: kind, Link: "/p/event-documents/" + e.Slug + "/" + kind})
+			out = append(out, eventDoc{Kind: kind, Link: "/partners/event-documents/" + e.Slug + "/" + kind})
 		}
 	}
 
@@ -261,7 +261,7 @@ func (s *Server) partnerNotes(w http.ResponseWriter, r *http.Request) error {
 
 	s.record(r, rc(r).Org, &p.ID, "partnership.notes", fmt.Sprintf("PO: %s\n%s", p.PONumber, p.PartnerNotes))
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/p/"+eventQuery(pc), http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/"+eventQuery(pc), http.StatusSeeOther)
 
 	return nil
 }
@@ -269,7 +269,7 @@ func (s *Server) partnerNotes(w http.ResponseWriter, r *http.Request) error {
 func (s *Server) partnerChoose(w http.ResponseWriter, r *http.Request) error {
 	c := rc(r)
 	if c.Manager == nil {
-		http.Redirect(w, r, "/p/", http.StatusSeeOther)
+		http.Redirect(w, r, "/partners/", http.StatusSeeOther)
 
 		return nil
 	}
@@ -321,7 +321,7 @@ func (s *Server) partnerChooseSubmit(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	http.Redirect(w, r, "/p/", http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/", http.StatusSeeOther)
 
 	return nil
 }
@@ -419,7 +419,7 @@ func (s *Server) partnerOrganizationSubmit(w http.ResponseWriter, r *http.Reques
 
 	s.record(r, &org, nil, "organization.updated", "")
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/p/organization", http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/organization", http.StatusSeeOther)
 
 	return nil
 }
@@ -474,7 +474,7 @@ func (s *Server) partnerLogoSubmit(w http.ResponseWriter, r *http.Request) error
 		var ue uploadError
 		if errors.As(err, &ue) {
 			s.flash(w, string(ue))
-			http.Redirect(w, r, "/p/logo", http.StatusSeeOther)
+			http.Redirect(w, r, "/partners/logo", http.StatusSeeOther)
 
 			return nil
 		}
@@ -483,7 +483,7 @@ func (s *Server) partnerLogoSubmit(w http.ResponseWriter, r *http.Request) error
 	}
 
 	s.flash(w, "flash.logo_saved")
-	http.Redirect(w, r, "/p/logo", http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/logo", http.StatusSeeOther)
 
 	return nil
 }
@@ -646,7 +646,7 @@ func (s *Server) partnerAttendeeAdd(w http.ResponseWriter, r *http.Request) erro
 
 	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.added", a.FirstName+" "+a.LastName)
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/p/attendees"+eventQuery(pc), http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/attendees"+eventQuery(pc), http.StatusSeeOther)
 
 	return nil
 }
@@ -671,7 +671,7 @@ func (s *Server) partnerAttendeeDelete(w http.ResponseWriter, r *http.Request) e
 
 	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.deleted", "")
 	s.flash(w, "flash.deleted")
-	http.Redirect(w, r, "/p/attendees"+eventQuery(pc), http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/attendees"+eventQuery(pc), http.StatusSeeOther)
 
 	return nil
 }
@@ -745,7 +745,7 @@ func (s *Server) partnerJobSubmit(w http.ResponseWriter, r *http.Request) error 
 
 	s.record(r, org, nil, "job.saved", j.Title)
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/p/jobs", http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/jobs", http.StatusSeeOther)
 
 	return nil
 }
@@ -757,7 +757,7 @@ func (s *Server) partnerJobDelete(w http.ResponseWriter, r *http.Request) error 
 
 	s.record(r, rc(r).Org, nil, "job.deleted", "")
 	s.flash(w, "flash.deleted")
-	http.Redirect(w, r, "/p/jobs", http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/jobs", http.StatusSeeOther)
 
 	return nil
 }
@@ -817,7 +817,7 @@ func (s *Server) partnerManagerInvite(w http.ResponseWriter, r *http.Request) er
 
 	s.record(r, c.Org, nil, "manager.invited", m.Email)
 	s.flash(w, "flash.invited")
-	http.Redirect(w, r, "/p/managers", http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
 
 	return nil
 }
@@ -848,7 +848,7 @@ func (s *Server) partnerManagerDelete(w http.ResponseWriter, r *http.Request) er
 	// Keep at least one manager, otherwise nobody could log in any more.
 	if len(managers) <= 1 {
 		s.flash(w, "flash.last_manager")
-		http.Redirect(w, r, "/p/managers", http.StatusSeeOther)
+		http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
 
 		return nil
 	}
@@ -871,7 +871,7 @@ func (s *Server) partnerManagerDelete(w http.ResponseWriter, r *http.Request) er
 	}
 
 	s.flash(w, "flash.deleted")
-	http.Redirect(w, r, "/p/managers", http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
 
 	return nil
 }
@@ -897,7 +897,7 @@ func (s *Server) partnerProfile(w http.ResponseWriter, r *http.Request) error {
 
 	s.record(r, c.Org, nil, "profile.updated", m.Email)
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/p/managers", http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
 
 	return nil
 }

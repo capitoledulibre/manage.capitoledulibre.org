@@ -38,7 +38,7 @@ func (s *Server) publicRoutes(mux *http.ServeMux) {
 
 func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) error {
 	if rc(r).Manager != nil {
-		http.Redirect(w, r, "/p/", http.StatusSeeOther)
+		http.Redirect(w, r, "/partners/", http.StatusSeeOther)
 
 		return nil
 	}
@@ -177,12 +177,12 @@ func (s *Server) magicConsume(w http.ResponseWriter, r *http.Request) error {
 	s.setCookie(w, managerCookie, token, managerSessionTTL)
 
 	if len(managers) > 1 {
-		http.Redirect(w, r, "/p/choose", http.StatusSeeOther)
+		http.Redirect(w, r, "/partners/choose", http.StatusSeeOther)
 
 		return nil
 	}
 
-	http.Redirect(w, r, "/p/", http.StatusSeeOther)
+	http.Redirect(w, r, "/partners/", http.StatusSeeOther)
 
 	return nil
 }

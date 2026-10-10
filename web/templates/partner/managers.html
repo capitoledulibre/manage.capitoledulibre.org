@@ -12,7 +12,7 @@
           <td><span class="inline-flex items-center gap-2 font-medium text-gray-900">{{or .Name .Email}} {{template "flag" .Lang}}</span>{{if .Name}}<br><span class="text-xs text-gray-500">{{.Email}}</span>{{end}}</td>
           <td class="text-gray-500">{{with .LastLoginAt}}{{datetime $l .}}{{else}}{{t $l "managers.never"}}{{end}}</td>
           <td class="text-right">
-            <form method="post" action="/p/managers/{{.UID}}/delete" data-confirm="{{t $l "action.confirm_delete"}}">
+            <form method="post" action="/partners/managers/{{.UID}}/delete" data-confirm="{{t $l "action.confirm_delete"}}">
               <button class="btn-danger btn-sm">{{t $l "managers.remove"}}</button>
             </form>
           </td>
@@ -25,7 +25,7 @@
   {{if and .Manager (not .Impersonating)}}
   <section class="card scroll-mt-24" id="profile">
     <h2 class="card-title">{{t $l "profile.title"}}</h2>
-    <form method="post" action="/p/profile" class="space-y-3">
+    <form method="post" action="/partners/profile" class="space-y-3">
       <p class="text-sm text-gray-600">{{.Manager.Email}}</p>
       <div>
         <label class="label" for="profile_name">{{t $l "managers.name"}}</label>
@@ -39,7 +39,7 @@
   <section class="card">
     <h2 class="card-title">{{t $l "managers.invite"}}</h2>
     {{with .D.Form}}{{with .Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $l .}}</div>{{end}}{{end}}
-    <form method="post" action="/p/managers" class="space-y-3">
+    <form method="post" action="/partners/managers" class="space-y-3">
       <div>
         <label class="label" for="email">{{t $l "login.email"}} *</label>
         <input class="input" id="email" name="email" type="email" required>

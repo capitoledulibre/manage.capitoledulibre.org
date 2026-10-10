@@ -1,11 +1,11 @@
 {{define "partner_nav"}}
   {{$p := .Path}}
-  <a class="nav-link {{if eq $p "/p/"}}nav-link-active{{end}}" href="/p/{{.EventQuery}}">{{t .Lang "nav.dashboard"}}</a>
-  <a class="nav-link {{if eq $p "/p/organization"}}nav-link-active{{end}}" href="/p/organization">{{t .Lang "nav.organization"}}</a>
-  <a class="nav-link {{if eq $p "/p/logo"}}nav-link-active{{end}}" href="/p/logo">{{t .Lang "nav.logo"}}</a>
-  <a class="nav-link {{if eq $p "/p/attendees"}}nav-link-active{{end}}" href="/p/attendees{{.EventQuery}}">{{t .Lang "nav.attendees"}}</a>
-  <a class="nav-link {{if eq $p "/p/jobs"}}nav-link-active{{end}}" href="/p/jobs">{{t .Lang "nav.jobs"}}</a>
-  <a class="nav-link {{if eq $p "/p/managers"}}nav-link-active{{end}}" href="/p/managers">{{t .Lang "nav.managers"}}</a>
+  <a class="nav-link {{if eq $p "/partners/"}}nav-link-active{{end}}" href="/partners/{{.EventQuery}}">{{t .Lang "nav.dashboard"}}</a>
+  <a class="nav-link {{if eq $p "/partners/organization"}}nav-link-active{{end}}" href="/partners/organization">{{t .Lang "nav.organization"}}</a>
+  <a class="nav-link {{if eq $p "/partners/logo"}}nav-link-active{{end}}" href="/partners/logo">{{t .Lang "nav.logo"}}</a>
+  <a class="nav-link {{if eq $p "/partners/attendees"}}nav-link-active{{end}}" href="/partners/attendees{{.EventQuery}}">{{t .Lang "nav.attendees"}}</a>
+  <a class="nav-link {{if eq $p "/partners/jobs"}}nav-link-active{{end}}" href="/partners/jobs">{{t .Lang "nav.jobs"}}</a>
+  <a class="nav-link {{if eq $p "/partners/managers"}}nav-link-active{{end}}" href="/partners/managers">{{t .Lang "nav.managers"}}</a>
 {{end}}
 
 {{define "admin_nav"}}

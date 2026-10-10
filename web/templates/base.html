@@ -41,7 +41,7 @@
             "ProfileURL" "/admin/profile" "LogoutAction" "/admin/logout")}}
         {{else if and (eq .Area "partner") .Manager (not .Impersonating)}}
           {{template "user_menu" (dict "Page" . "Name" .Manager.Label "Email" .Manager.Email "Initials" .Manager.Initials
-            "ProfileURL" "/p/managers#profile" "LogoutAction" "/logout")}}
+            "ProfileURL" "/partners/managers#profile" "LogoutAction" "/logout")}}
         {{else}}
           {{template "theme_switch" .}}
         {{end}}

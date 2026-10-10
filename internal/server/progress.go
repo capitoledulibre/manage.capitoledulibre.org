@@ -57,15 +57,15 @@ func computeProgress(p *store.Partnership, org *store.Organization, e *store.Eve
 	pr.Ready = pr.Done == len(pr.Steps)
 
 	if !org.BillingComplete() {
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.billing", Link: "/p/organization"})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.billing", Link: "/partners/organization"})
 	}
 
 	if !org.CommunicationComplete() {
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.communication", Link: "/p/organization"})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.communication", Link: "/partners/organization"})
 	}
 
 	if org.LogoFile == "" {
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.logo", Link: "/p/logo", Deadline: e.LogoDeadline})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.logo", Link: "/partners/logo", Deadline: e.LogoDeadline})
 	}
 
 	if quoteSent && p.QuoteSignedAt == nil {
@@ -77,7 +77,7 @@ func computeProgress(p *store.Partnership, org *store.Organization, e *store.Eve
 	}
 
 	if attendees == 0 {
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.attendees", Link: "/p/attendees" + query, Deadline: e.AttendeesDeadline})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.attendees", Link: "/partners/attendees" + query, Deadline: e.AttendeesDeadline})
 	}
 
 	return pr
@@ -89,5 +89,5 @@ func documentLink(e *store.Event, p *store.Partnership, kind string) string {
 		return ""
 	}
 
-	return "/p/documents/" + e.Slug + "/" + kind
+	return "/partners/documents/" + e.Slug + "/" + kind
 }

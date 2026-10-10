@@ -5,7 +5,7 @@
     <h1 class="mb-2 text-2xl font-bold tracking-tight">{{t $l "jobs.manage_title"}}</h1>
     <p class="text-sm text-gray-600">{{t $l "jobs.manage_intro"}} <a class="link" href="/jobs">/jobs</a></p>
   </div>
-  <a class="btn" href="/p/jobs/new">{{t $l "jobs.new"}}</a>
+  <a class="btn" href="/partners/jobs/new">{{t $l "jobs.new"}}</a>
 </div>
 {{if not .D.Jobs}}
   <p class="card text-center text-sm text-gray-500">{{t $l "jobs.manage_none"}}</p>
@@ -25,8 +25,8 @@
           {{else}}<span class="badge bg-green-100 text-green-800">{{t $l "jobs.published"}}</span>{{end}}
         </td>
         <td class="whitespace-nowrap text-right">
-          <a class="btn-secondary btn-sm" href="/p/jobs/{{.UID}}">{{t $l "action.edit"}}</a>
-          <form method="post" action="/p/jobs/{{.UID}}/delete" class="inline" data-confirm="{{t $l "action.confirm_delete"}}">
+          <a class="btn-secondary btn-sm" href="/partners/jobs/{{.UID}}">{{t $l "action.edit"}}</a>
+          <form method="post" action="/partners/jobs/{{.UID}}/delete" class="inline" data-confirm="{{t $l "action.confirm_delete"}}">
             <button class="btn-danger btn-sm">{{t $l "action.delete"}}</button>
           </form>
         </td>

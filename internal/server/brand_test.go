@@ -97,11 +97,11 @@ func TestLanguageFlags(t *testing.T) {
 	f := e.fixture(nil)
 
 	alice := e.loginAs("alice@acme.test")
-	e.post(alice, "/p/profile", url.Values{"name": {"Alice"}, "lang": {"en"}})
+	e.post(alice, "/partners/profile", url.Values{"name": {"Alice"}, "lang": {"en"}})
 
 	// The profile picker has the manager's language checked, and the header
 	// offers the other language with its flag.
-	_, body := e.get(alice, "/p/managers")
+	_, body := e.get(alice, "/partners/managers")
 	mustContain(t, body, `name="lang" value="en" class="sr-only" checked`, `aria-label="English"`, `aria-label="Français"`, `hreflang="fr"`)
 
 	// The staff sees each manager's email language as a flag.
@@ -160,8 +160,8 @@ func TestUserMenu(t *testing.T) {
 
 	// Partner manager: initials, profile on the managers page.
 	alice := e.loginAs("alice@acme.test")
-	_, body = e.get(alice, "/p/")
-	mustContain(t, body, "data-menu", `href="/p/managers#profile"`, `action="/logout"`, "alice@acme.test")
+	_, body = e.get(alice, "/partners/")
+	mustContain(t, body, "data-menu", `href="/partners/managers#profile"`, `action="/logout"`, "alice@acme.test")
 
 	// Public pages and the staff view of a partner: no user menu.
 	_, body = e.get(e.client(), "/")
@@ -170,7 +170,7 @@ func TestUserMenu(t *testing.T) {
 	}
 
 	e.post(admin, "/admin/organizations/"+f.acme.Slug+"/view-as", nil)
-	_, body = e.get(admin, "/p/")
+	_, body = e.get(admin, "/partners/")
 	if strings.Contains(body, "data-menu") {
 		t.Error("the staff view of a partner must not show the partner's user menu")
 	}

@@ -107,11 +107,11 @@ func TestAccessControl(t *testing.T) {
 	admin := e.adminClient()
 
 	t.Run("attendees locked after the deadline for partners only", func(t *testing.T) {
-		if code, _ := e.post(alice, "/p/attendees", url.Values{"first_name": {"A"}, "last_name": {"B"}}); code != 403 {
+		if code, _ := e.post(alice, "/partners/attendees", url.Values{"first_name": {"A"}, "last_name": {"B"}}); code != 403 {
 			t.Errorf("partner add after deadline: %d", code)
 		}
 
-		_, body := e.get(alice, "/p/attendees")
+		_, body := e.get(alice, "/partners/attendees")
 		mustContain(t, body, "La date limite est passée")
 
 		e.post(admin, partnershipURL(f.acme, f.event)+"/attendees", url.Values{"first_name": {"A"}, "last_name": {"B"}})
@@ -125,16 +125,16 @@ func TestAccessControl(t *testing.T) {
 		f.prosP.QuoteFile = "0123456789abcdef0123456789abcdef.pdf"
 		mustOK(t, e.st.UpdatePartnership(ctx, f.prosP))
 
-		_, body := e.get(bob, "/p/")
+		_, body := e.get(bob, "/partners/")
 		mustContain(t, body, "Aucun partenariat en cours")
 
-		if code, _ := e.get(bob, "/p/documents/"+f.event.Slug+"/quote"); code != 404 {
+		if code, _ := e.get(bob, "/partners/documents/"+f.event.Slug+"/quote"); code != 404 {
 			t.Errorf("prospect quote: %d", code)
 		}
 	})
 
 	t.Run("cannot switch to another person's account", func(t *testing.T) {
-		if code, _ := e.post(bob, "/p/choose", url.Values{"manager": {f.alice.UID}}); code != 403 {
+		if code, _ := e.post(bob, "/partners/choose", url.Values{"manager": {f.alice.UID}}); code != 403 {
 			t.Errorf("choose foreign manager: %d", code)
 		}
 	})
@@ -166,14 +166,14 @@ func TestAccessControl(t *testing.T) {
 		mustOK(t, err)
 
 		carolClient := e.loginAs("carol@acme.test")
-		e.post(alice, "/p/managers/"+carol.UID+"/delete", nil)
+		e.post(alice, "/partners/managers/"+carol.UID+"/delete", nil)
 
-		_, body := e.get(carolClient, "/p/")
+		_, body := e.get(carolClient, "/partners/")
 		mustContain(t, body, "Recevoir un lien")
 	})
 
 	t.Run("the last manager cannot be removed", func(t *testing.T) {
-		_, body := e.post(bob, "/p/managers/"+f.bob.UID+"/delete", nil)
+		_, body := e.post(bob, "/partners/managers/"+f.bob.UID+"/delete", nil)
 		mustContain(t, body, "dernier manager")
 	})
 
@@ -204,11 +204,11 @@ func TestAccessControl(t *testing.T) {
 
 	t.Run("stop impersonation", func(t *testing.T) {
 		e.post(admin, "/admin/organizations/"+f.acme.Slug+"/view-as", nil)
-		_, body := e.get(admin, "/p/")
+		_, body := e.get(admin, "/partners/")
 		mustContain(t, body, "en tant que staff")
 
 		e.post(admin, "/admin/stop-impersonate", nil)
-		_, body = e.get(admin, "/p/")
+		_, body = e.get(admin, "/partners/")
 		mustContain(t, body, "Recevoir un lien")
 	})
 
@@ -240,10 +240,10 @@ func TestEditionIsKeptInLinks(t *testing.T) {
 
 	alice := e.loginAs("alice@acme.test")
 
-	_, body := e.get(alice, "/p/?event=ec-2025")
-	mustContain(t, body, "Avancement · EC 2025", `href="/p/attendees?event=ec-2025"`, "event%3dec-2025")
+	_, body := e.get(alice, "/partners/?event=ec-2025")
+	mustContain(t, body, "Avancement · EC 2025", `href="/partners/attendees?event=ec-2025"`, "event%3dec-2025")
 
-	_, body = e.get(alice, "/p/")
+	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, "Avancement · EC 2026")
 }
 
@@ -258,7 +258,7 @@ func TestSocialPosts(t *testing.T) {
 
 	e.post(admin, base, url.Values{"network": {"linkedin"}, "planned_at": {"2026-10-12"}, "note": {"Annonce Or"}})
 
-	_, body := e.get(alice, "/p/")
+	_, body := e.get(alice, "/partners/")
 	mustContain(t, body, "Annonces sur les réseaux sociaux", "LinkedIn", "Prévu le 12/10/2026", "À venir")
 
 	posts, _ := e.st.ListSocialPosts(ctx, f.acmeP.ID)
@@ -273,7 +273,7 @@ func TestSocialPosts(t *testing.T) {
 
 	waitFor(t, func() bool { return e.mailer.count("alice@acme.test") == before+1 })
 
-	_, body = e.get(alice, "/p/")
+	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, `href="https://www.linkedin.com/posts/ec-123"`, "Voir le post")
 
 	// Saving again does not notify twice.
@@ -296,7 +296,7 @@ func TestSocialPosts(t *testing.T) {
 	// Prospects do not see anything, even if posts exist.
 	mustOK(t, e.st.SaveSocialPost(ctx, &store.SocialPost{PartnershipID: f.prosP.ID, Network: "x"}))
 
-	_, body = e.get(e.loginAs("bob@prospect.test"), "/p/")
+	_, body = e.get(e.loginAs("bob@prospect.test"), "/partners/")
 	if strings.Contains(body, "Annonces sur les réseaux") {
 		t.Error("prospect sees social posts")
 	}
@@ -352,7 +352,7 @@ func TestPricingAndTax(t *testing.T) {
 	alice := e.loginAs("alice@acme.test")
 
 	// Level price, excluding VAT by default.
-	_, body := e.get(alice, "/p/")
+	_, body := e.get(alice, "/partners/")
 	mustContain(t, body, "2 000 € HT")
 
 	// The level switches to "VAT not applicable".
@@ -360,7 +360,7 @@ func TestPricingAndTax(t *testing.T) {
 		"level": {f.level.UID}, "name": {"Or"}, "position": {"2"}, "price": {"2000"}, "tax_mode": {"none"},
 	})
 
-	_, body = e.get(alice, "/p/")
+	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, "2 000 € TVA non applicable")
 
 	// A negotiated price replaces the level price everywhere.
@@ -372,7 +372,7 @@ func TestPricingAndTax(t *testing.T) {
 		t.Fatalf("override not saved: %v", p.PriceOverride)
 	}
 
-	_, body = e.get(alice, "/p/")
+	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, "1 500 € TVA non applicable")
 
 	_, body = e.get(admin, "/admin/events/"+f.event.Slug)
@@ -394,7 +394,7 @@ func TestPricingAndTax(t *testing.T) {
 	e.post(admin, pid, url.Values{"status": {"confirmed"}, "level": {f.level.UID},
 		"quote_sent_at": {"2026-09-10"}, "quote_signed_at": {"2026-09-15"}})
 
-	_, body = e.get(alice, "/p/")
+	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, "Signé · 15/09/2026", "Envoyée · en attente")
 }
 
@@ -428,7 +428,7 @@ func TestAdminManagers(t *testing.T) {
 		t.Errorf("not updated: %+v", m)
 	}
 
-	_, body := e.get(alice, "/p/")
+	_, body := e.get(alice, "/partners/")
 	mustContain(t, body, "Dashboard")
 
 	// A duplicate email within the organization is refused.
@@ -443,7 +443,7 @@ func TestAdminManagers(t *testing.T) {
 		t.Errorf("email not changed: %s", m.Email)
 	}
 
-	_, body = e.get(alice, "/p/")
+	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, "Recevoir un lien")
 
 	// A manager of another organization cannot be edited through this one.
@@ -524,7 +524,7 @@ func TestRenewOwnerAndPayment(t *testing.T) {
 	f.acmeP.PONumber = "PO-42"
 	mustOK(t, e.st.UpdatePartnership(ctx, f.acmeP))
 
-	_, body = e.get(e.loginAs("alice@acme.test"), "/p/?event=ec-2026")
+	_, body = e.get(e.loginAs("alice@acme.test"), "/partners/?event=ec-2026")
 	mustContain(t, body, "Règlement", "IBAN : FR76 1234", "art. 293 B", "Bon de commande : PO-42")
 }
 
@@ -535,21 +535,21 @@ func TestProfileAndTheme(t *testing.T) {
 	f := e.fixture(nil)
 	alice := e.loginAs("alice@acme.test")
 
-	e.post(alice, "/p/profile", url.Values{"name": {"Alice M."}, "lang": {"en"}})
+	e.post(alice, "/partners/profile", url.Values{"name": {"Alice M."}, "lang": {"en"}})
 
 	m, _ := e.st.GetManager(ctx, f.alice.ID)
 	if m.Name != "Alice M." || m.Lang != "en" {
 		t.Errorf("profile not saved: %+v", m)
 	}
 
-	_, body := e.get(alice, "/p/managers")
+	_, body := e.get(alice, "/partners/managers")
 	mustContain(t, body, "My profile", "Alice M.")
 
 	// Staff impersonating a partner cannot edit a manager's profile.
 	admin := e.adminClient()
 	e.post(admin, "/admin/organizations/"+f.acme.Slug+"/view-as", nil)
 
-	if code, _ := e.post(admin, "/p/profile", url.Values{"name": {"Hacked"}}); code != 403 {
+	if code, _ := e.post(admin, "/partners/profile", url.Values{"name": {"Hacked"}}); code != 403 {
 		t.Errorf("impersonated profile edit: %d", code)
 	}
 
@@ -706,7 +706,7 @@ func TestMedalsBadgesAndContact(t *testing.T) {
 
 	alice := e.loginAs("alice@acme.test")
 
-	_, body = e.get(alice, "/p/")
+	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, "Partenaire Platine 2025", "Votre contact", "Lionel Porcheron", "mailto:staff@conf.test", "/avatars/"+me.AvatarFile)
 
 	// Access is granted (the file does not exist on disk, hence the file
@@ -907,10 +907,10 @@ func TestNoNumericIDsInPages(t *testing.T) {
 
 	alice := e.loginAs("alice@acme.test")
 
-	for _, path := range []string{"/p/", "/p/organization", "/p/logo", "/p/attendees", "/p/jobs", "/p/managers", "/jobs"} {
+	for _, path := range []string{"/partners/", "/partners/organization", "/partners/logo", "/partners/attendees", "/partners/jobs", "/partners/managers", "/jobs"} {
 		check(alice, path)
 	}
 
 	jobs, _ := e.st.ListJobOffers(ctx, f.acme.ID)
-	check(alice, "/p/jobs/"+jobs[0].UID)
+	check(alice, "/partners/jobs/"+jobs[0].UID)
 }

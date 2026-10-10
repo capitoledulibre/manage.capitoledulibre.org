@@ -289,11 +289,11 @@ func TestFullFlow(t *testing.T) {
 		t.Errorf("reused link should be rejected")
 	}
 
-	_, body = e.get(alice, "/p/")
+	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, "Acme Corp", "Or", "Logo sur le site", "Devis reçu", "Envoyer votre logo")
 
 	// Organization details.
-	code, _ = e.post(alice, "/p/organization", url.Values{
+	code, _ = e.post(alice, "/partners/organization", url.Values{
 		"name": {"Acme"}, "legal_name": {"Acme SAS"}, "address_line1": {"1 rue du Libre"}, "zip_code": {"31000"},
 		"city": {"Toulouse"}, "website": {"acme.test"}, "description_fr": {"Nous aimons le libre."},
 	})
@@ -307,10 +307,10 @@ func TestFullFlow(t *testing.T) {
 	}
 
 	// Logo upload: a text file is refused, a PNG accepted.
-	_, body = e.upload(alice, "/p/logo", map[string]string{"variant": "default"}, "logo", "logo.png", []byte("not an image"))
+	_, body = e.upload(alice, "/partners/logo", map[string]string{"variant": "default"}, "logo", "logo.png", []byte("not an image"))
 	mustContain(t, body, "Format non accepté")
 
-	_, body = e.upload(alice, "/p/logo", map[string]string{"variant": "default"}, "logo", "logo.png", pngBytes())
+	_, body = e.upload(alice, "/partners/logo", map[string]string{"variant": "default"}, "logo", "logo.png", pngBytes())
 	mustContain(t, body, "Logo enregistré")
 
 	org, _ = e.st.GetOrganization(ctx, p.OrgID)
@@ -323,8 +323,8 @@ func TestFullFlow(t *testing.T) {
 	}
 
 	// Attendees, with the level limit of one.
-	e.post(alice, "/p/attendees", url.Values{"first_name": {"Bob"}, "last_name": {"Martin"}, "role": {"booth"}})
-	_, body = e.post(alice, "/p/attendees", url.Values{"first_name": {"Carol"}, "last_name": {"Durand"}})
+	e.post(alice, "/partners/attendees", url.Values{"first_name": {"Bob"}, "last_name": {"Martin"}, "role": {"booth"}})
+	_, body = e.post(alice, "/partners/attendees", url.Values{"first_name": {"Carol"}, "last_name": {"Durand"}})
 	mustContain(t, body, "Bob", "nombre de participants")
 
 	if n, _ := e.st.CountAttendees(ctx, p.ID); n != 1 {
@@ -332,12 +332,12 @@ func TestFullFlow(t *testing.T) {
 	}
 
 	// Job offers appear on the public page.
-	e.post(alice, "/p/jobs/new", url.Values{"title": {"Développeuse Go"}, "url": {"https://acme.test/jobs/go"}, "contract": {"CDI"}})
+	e.post(alice, "/partners/jobs/new", url.Values{"title": {"Développeuse Go"}, "url": {"https://acme.test/jobs/go"}, "contract": {"CDI"}})
 	_, body = e.get(e.client(), "/jobs")
 	mustContain(t, body, "Développeuse Go", "Acme")
 
 	// Invite a colleague, who can then request a login link.
-	e.post(alice, "/p/managers", url.Values{"email": {"dave@acme.test"}, "lang": {"en"}})
+	e.post(alice, "/partners/managers", url.Values{"email": {"dave@acme.test"}, "lang": {"en"}})
 	dave := e.client()
 	e.post(dave, "/login", url.Values{"email": {"dave@acme.test"}})
 	link := e.mailer.lastLink(t, "dave@acme.test")
@@ -359,7 +359,7 @@ func TestFullFlow(t *testing.T) {
 	pdf := []byte("%PDF-1.4\n%fake\n")
 	e.upload(admin, pURL+"/documents", map[string]string{"kind": "quote", "notify": "on"}, "file", "devis.pdf", pdf)
 
-	if code, _ := e.get(alice, "/p/documents/"+ev.Slug+"/quote"); code != 200 {
+	if code, _ := e.get(alice, "/partners/documents/"+ev.Slug+"/quote"); code != 200 {
 		t.Errorf("partner quote: %d", code)
 	}
 
@@ -368,7 +368,7 @@ func TestFullFlow(t *testing.T) {
 	eve := e.client()
 	e.loginManager(eve, "eve@other.test")
 
-	if code, _ := e.get(eve, "/p/documents/"+ev.Slug+"/quote"); code != 404 {
+	if code, _ := e.get(eve, "/partners/documents/"+ev.Slug+"/quote"); code != 404 {
 		t.Errorf("other org must not access the quote: %d", code)
 	}
 
@@ -378,7 +378,7 @@ func TestFullFlow(t *testing.T) {
 	}
 
 	// Anonymous users are sent to the login page.
-	_, body = e.get(e.client(), "/p/")
+	_, body = e.get(e.client(), "/partners/")
 	mustContain(t, body, "Recevoir un lien")
 
 	// Export.
@@ -413,7 +413,7 @@ func TestFullFlow(t *testing.T) {
 
 	// Impersonation.
 	e.post(admin, "/admin/organizations/"+org.Slug+"/view-as", nil)
-	_, body = e.get(admin, "/p/")
+	_, body = e.get(admin, "/partners/")
 	mustContain(t, body, "en tant que staff", "Acme")
 }
 
