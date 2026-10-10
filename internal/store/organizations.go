@@ -246,10 +246,14 @@ func (s *Store) ListLogos(ctx context.Context, orgID int64) ([]*Logo, error) {
 	return out, rows.Err()
 }
 
+// Manager is a person in charge of an organization. The identity fields
+// come from the person (see people.go); a person can manage several
+// organizations, one Manager each.
 type Manager struct {
 	ID          int64
 	UID         string
 	OrgID       int64
+	PersonID    int64
 	Email       string
 	Name        string
 	Lang        string
@@ -270,7 +274,9 @@ func (m *Manager) Label() string {
 // Initials are shown in place of an avatar.
 func (m *Manager) Initials() string { return initials(m.Label()) }
 
-const managerCols = `id, uid, organization_id, email, name, lang, invited_by, created_at, last_login_at`
+const managerCols = `m.id, m.uid, m.organization_id, m.person_id, p.email, p.name, p.lang, m.invited_by, m.created_at, p.last_login_at`
+
+const managerFrom = ` FROM managers m JOIN people p ON p.id = m.person_id`
 
 func scanManager(row interface{ Scan(...any) error }) (*Manager, error) {
 	var (
@@ -278,7 +284,7 @@ func scanManager(row interface{ Scan(...any) error }) (*Manager, error) {
 		lastLogin sql.NullTime
 	)
 
-	if err := row.Scan(&m.ID, &m.UID, &m.OrgID, &m.Email, &m.Name, &m.Lang, &m.InvitedBy, &m.CreatedAt, &lastLogin); err != nil {
+	if err := row.Scan(&m.ID, &m.UID, &m.OrgID, &m.PersonID, &m.Email, &m.Name, &m.Lang, &m.InvitedBy, &m.CreatedAt, &lastLogin); err != nil {
 		return nil, notFound(err)
 	}
 
@@ -309,12 +315,12 @@ func (s *Store) queryManagers(ctx context.Context, query string, args ...any) ([
 }
 
 func (s *Store) GetManager(ctx context.Context, id int64) (*Manager, error) {
-	return scanManager(s.db.QueryRowContext(ctx, `SELECT `+managerCols+` FROM managers WHERE id = ?`, id))
+	return scanManager(s.db.QueryRowContext(ctx, `SELECT `+managerCols+managerFrom+` WHERE m.id = ?`, id))
 }
 
 // GetManagerByUID finds a manager by its public identifier.
 func (s *Store) GetManagerByUID(ctx context.Context, uid string) (*Manager, error) {
-	return scanManager(s.db.QueryRowContext(ctx, `SELECT `+managerCols+` FROM managers WHERE uid = ?`, uid))
+	return scanManager(s.db.QueryRowContext(ctx, `SELECT `+managerCols+managerFrom+` WHERE m.uid = ?`, uid))
 }
 
 // GetOrganizationBySlug finds an organization by its public identifier.
@@ -323,63 +329,89 @@ func (s *Store) GetOrganizationBySlug(ctx context.Context, slug string) (*Organi
 }
 
 func (s *Store) ListManagers(ctx context.Context, orgID int64) ([]*Manager, error) {
-	return s.queryManagers(ctx, `SELECT `+managerCols+` FROM managers WHERE organization_id = ? ORDER BY email`, orgID)
+	return s.queryManagers(ctx, `SELECT `+managerCols+managerFrom+` WHERE m.organization_id = ? ORDER BY p.email`, orgID)
 }
 
 // ManagersByEmail returns every manager account (one per organization) that
 // uses this email.
 func (s *Store) ManagersByEmail(ctx context.Context, email string) ([]*Manager, error) {
-	return s.queryManagers(ctx, `SELECT `+managerCols+` FROM managers WHERE email = ? ORDER BY id`, NormalizeEmail(email))
+	return s.queryManagers(ctx, `SELECT `+managerCols+managerFrom+` WHERE p.email = ? ORDER BY m.id`, NormalizeEmail(email))
 }
 
 // AddManager creates a manager, or returns the existing one when the email
-// is already a manager of the organization.
+// is already a manager of the organization. The person behind the address is
+// found or created: an invitation does not overwrite a name they chose.
 func (s *Store) AddManager(ctx context.Context, m *Manager) (created bool, err error) {
-	m.Email = NormalizeEmail(m.Email)
-	if m.Lang == "" {
-		m.Lang = "fr"
-	}
+	var id int64
 
-	m.CreatedAt = now()
+	err = s.tx(ctx, func(tx *sql.Tx) error {
+		personID, err := ensurePerson(ctx, tx, m.Email, m.Name, m.Lang)
+		if err != nil {
+			return err
+		}
 
-	m.UID = NewUUID()
+		res, err := tx.ExecContext(ctx, `INSERT INTO managers (uid, organization_id, person_id, invited_by, created_at)
+			VALUES (?, ?, ?, ?, ?) ON CONFLICT (organization_id, person_id) DO NOTHING`,
+			NewUUID(), m.OrgID, personID, m.InvitedBy, now())
+		if err != nil {
+			return err
+		}
 
-	res, err := s.db.ExecContext(ctx, `INSERT INTO managers (uid, organization_id, email, name, lang, invited_by, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (organization_id, email) DO NOTHING`,
-		m.UID, m.OrgID, m.Email, m.Name, m.Lang, m.InvitedBy, m.CreatedAt)
+		if n, _ := res.RowsAffected(); n == 1 {
+			created = true
+			id, err = res.LastInsertId()
+
+			return err
+		}
+
+		return tx.QueryRowContext(ctx, `SELECT id FROM managers WHERE organization_id = ? AND person_id = ?`, m.OrgID, personID).Scan(&id)
+	})
 	if err != nil {
 		return false, err
 	}
 
-	if n, _ := res.RowsAffected(); n == 0 {
-		existing, err := scanManager(s.db.QueryRowContext(ctx, `SELECT `+managerCols+` FROM managers WHERE organization_id = ? AND email = ?`, m.OrgID, m.Email))
-		if err != nil {
-			return false, err
-		}
-
-		*m = *existing
-
-		return false, nil
+	stored, err := s.GetManager(ctx, id)
+	if err != nil {
+		return false, err
 	}
 
-	m.ID, err = res.LastInsertId()
+	*m = *stored
 
-	return true, err
+	return created, nil
 }
 
+// UpdateManager saves the name and language, which belong to the person.
 func (s *Store) UpdateManager(ctx context.Context, m *Manager) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE managers SET name = ?, lang = ? WHERE id = ?`, m.Name, m.Lang, m.ID)
+	_, err := s.db.ExecContext(ctx, `UPDATE people SET name = ?, lang = ? WHERE id = (SELECT person_id FROM managers WHERE id = ?)`,
+		m.Name, m.Lang, m.ID)
 
 	return err
 }
 
-// UpdateManagerIdentity changes a manager's email, name and language. It
-// returns ErrDuplicate when the email is already a manager of the same
-// organization.
+// UpdateManagerIdentity changes a manager's email, name and language. A new
+// address means another person: the manager is attached to the person who
+// owns it (found or created), rather than renaming an address the same
+// person may use elsewhere. It returns ErrDuplicate when that person already
+// manages the organization.
 func (s *Store) UpdateManagerIdentity(ctx context.Context, m *Manager) error {
 	m.Email = NormalizeEmail(m.Email)
 
-	_, err := s.db.ExecContext(ctx, `UPDATE managers SET email = ?, name = ?, lang = ? WHERE id = ?`, m.Email, m.Name, m.Lang, m.ID)
+	err := s.tx(ctx, func(tx *sql.Tx) error {
+		personID, err := ensurePerson(ctx, tx, m.Email, m.Name, m.Lang)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `UPDATE managers SET person_id = ? WHERE id = ?`, personID, m.ID)
+		if err != nil {
+			return err
+		}
+
+		m.PersonID = personID
+		_, err = tx.ExecContext(ctx, `UPDATE people SET name = ?, lang = ? WHERE id = ?`, m.Name, m.Lang, personID)
+
+		return err
+	})
 	if err != nil && strings.Contains(err.Error(), "UNIQUE") {
 		return ErrDuplicate
 	}
@@ -388,7 +420,7 @@ func (s *Store) UpdateManagerIdentity(ctx context.Context, m *Manager) error {
 }
 
 func (s *Store) TouchManagerLogin(ctx context.Context, id int64) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE managers SET last_login_at = ? WHERE id = ?`, now(), id)
+	_, err := s.db.ExecContext(ctx, `UPDATE people SET last_login_at = ? WHERE id = (SELECT person_id FROM managers WHERE id = ?)`, now(), id)
 
 	return err
 }

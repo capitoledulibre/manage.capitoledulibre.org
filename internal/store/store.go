@@ -33,6 +33,22 @@ type Store struct {
 // Open opens (and creates if needed) the SQLite database at path and applies
 // pending migrations.
 func Open(ctx context.Context, path string) (*Store, error) {
+	s, err := openDB(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.migrate(ctx); err != nil {
+		s.db.Close()
+
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
+
+	return s, nil
+}
+
+// openDB opens the database without migrating it.
+func openDB(path string) (*Store, error) {
 	dsn := "file:" + path + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)&_time_format=sqlite"
 
 	db, err := sql.Open("sqlite", dsn)
@@ -44,19 +60,24 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	// SQLITE_BUSY errors and keeps memory usage low.
 	db.SetMaxOpenConns(1)
 
-	s := &Store{db: db}
-	if err := s.migrate(ctx); err != nil {
-		db.Close()
-
-		return nil, fmt.Errorf("migrate: %w", err)
-	}
-
-	return s, nil
+	return &Store{db: db}, nil
 }
 
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) migrate(ctx context.Context) error {
+func (s *Store) migrate(ctx context.Context) error { return s.migrateTo(ctx, 0) }
+
+// foreignKeysOff marks a migration that rebuilds a table other tables
+// reference. With foreign keys enforced, dropping that table would run the
+// ON DELETE actions of its children (deleting sessions, clearing the staff
+// owner of every partnership), so such a migration runs with them off and is
+// checked with foreign_key_check before it commits, as SQLite documents for
+// schema changes.
+const foreignKeysOff = "-- manage:foreign-keys-off"
+
+// migrateTo applies the pending migrations up to version limit, or all of
+// them when limit is 0. Tests use the limit to build an older database.
+func (s *Store) migrateTo(ctx context.Context, limit int) error {
 	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at DATETIME NOT NULL)`); err != nil {
 		return err
 	}
@@ -81,7 +102,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			return fmt.Errorf("bad migration name %q", name)
 		}
 
-		if version <= current {
+		if version <= current || (limit > 0 && version > limit) {
 			continue
 		}
 
@@ -90,21 +111,49 @@ func (s *Store) migrate(ctx context.Context) error {
 			return err
 		}
 
-		err = s.tx(ctx, func(tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, string(body)); err != nil {
-				return fmt.Errorf("%s: %w", name, err)
-			}
-
-			_, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`, version, now())
-
-			return err
-		})
-		if err != nil {
+		if err := s.applyMigration(ctx, name, version, string(body)); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (s *Store) applyMigration(ctx context.Context, name string, version int, body string) error {
+	keysOff := strings.HasPrefix(body, foreignKeysOff)
+
+	// The pragma has no effect inside a transaction, so it is set around it;
+	// the single connection keeps it for the transaction.
+	if keysOff {
+		if _, err := s.db.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
+			return err
+		}
+
+		defer func() { _, _ = s.db.ExecContext(ctx, `PRAGMA foreign_keys = ON`) }()
+	}
+
+	return s.tx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, body); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+
+		if keysOff {
+			var table string
+
+			err := tx.QueryRowContext(ctx, `SELECT "table" FROM pragma_foreign_key_check`).Scan(&table)
+			if err == nil {
+				return fmt.Errorf("%s: broken foreign key in %s", name, table)
+			}
+
+			if !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("%s: foreign key check: %w", name, err)
+			}
+		}
+
+		_, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`, version, now())
+
+		return err
+	})
 }
 
 func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error) error {

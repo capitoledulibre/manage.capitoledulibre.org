@@ -141,9 +141,12 @@ func (s *Store) Cleanup(ctx context.Context) error {
 	return err
 }
 
+// Admin is a person who logs in as staff. The identity fields come from the
+// person (see people.go).
 type Admin struct {
 	ID          int64
 	UID         string
+	PersonID    int64
 	Email       string
 	Name        string
 	AvatarFile  string
@@ -151,7 +154,9 @@ type Admin struct {
 	LastLoginAt *time.Time
 }
 
-const adminCols = `id, uid, email, name, avatar_file, created_at, last_login_at`
+const adminCols = `a.id, a.uid, a.person_id, p.email, p.name, p.avatar_file, a.created_at, p.last_login_at`
+
+const adminFrom = ` FROM admins a JOIN people p ON p.id = a.person_id`
 
 func scanAdmin(row interface{ Scan(...any) error }) (*Admin, error) {
 	var (
@@ -159,7 +164,7 @@ func scanAdmin(row interface{ Scan(...any) error }) (*Admin, error) {
 		lastLogin sql.NullTime
 	)
 
-	if err := row.Scan(&a.ID, &a.UID, &a.Email, &a.Name, &a.AvatarFile, &a.CreatedAt, &lastLogin); err != nil {
+	if err := row.Scan(&a.ID, &a.UID, &a.PersonID, &a.Email, &a.Name, &a.AvatarFile, &a.CreatedAt, &lastLogin); err != nil {
 		return nil, notFound(err)
 	}
 
@@ -200,20 +205,31 @@ func initials(label string) string {
 // login time. The name from the identity provider only fills an empty name,
 // so a name set on the staff profile is kept.
 func (s *Store) UpsertAdmin(ctx context.Context, email, name string) (*Admin, error) {
-	a := Admin{Email: NormalizeEmail(email), Name: name}
+	var id int64
 
-	err := s.db.QueryRowContext(ctx, `INSERT INTO admins (uid, email, name, created_at, last_login_at) VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT (email) DO UPDATE SET name = CASE WHEN admins.name = '' THEN excluded.name ELSE admins.name END, last_login_at = excluded.last_login_at
-		RETURNING id, uid, name, avatar_file, created_at`, NewUUID(), a.Email, a.Name, now(), now()).Scan(&a.ID, &a.UID, &a.Name, &a.AvatarFile, &a.CreatedAt)
+	err := s.tx(ctx, func(tx *sql.Tx) error {
+		personID, err := ensurePerson(ctx, tx, email, name, "")
+		if err != nil {
+			return err
+		}
+
+		if err := touchPersonLogin(ctx, tx, personID); err != nil {
+			return err
+		}
+
+		return tx.QueryRowContext(ctx, `INSERT INTO admins (uid, person_id, created_at) VALUES (?, ?, ?)
+			ON CONFLICT (person_id) DO UPDATE SET person_id = excluded.person_id
+			RETURNING id`, NewUUID(), personID, now()).Scan(&id)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &a, nil
+	return s.GetAdmin(ctx, id)
 }
 
 func (s *Store) ListAdmins(ctx context.Context) ([]*Admin, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT `+adminCols+` FROM admins ORDER BY name COLLATE NOCASE, email`)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+adminCols+adminFrom+` ORDER BY p.name COLLATE NOCASE, p.email`)
 	if err != nil {
 		return nil, err
 	}
@@ -235,14 +251,15 @@ func (s *Store) ListAdmins(ctx context.Context) ([]*Admin, error) {
 
 // UpdateAdminProfile saves the name and avatar of an admin.
 func (s *Store) UpdateAdminProfile(ctx context.Context, a *Admin) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE admins SET name = ?, avatar_file = ? WHERE id = ?`, a.Name, a.AvatarFile, a.ID)
+	_, err := s.db.ExecContext(ctx, `UPDATE people SET name = ?, avatar_file = ? WHERE id = (SELECT person_id FROM admins WHERE id = ?)`,
+		a.Name, a.AvatarFile, a.ID)
 
 	return err
 }
 
 // AdminByAvatarFile finds the admin using an avatar file.
 func (s *Store) AdminByAvatarFile(ctx context.Context, file string) (*Admin, error) {
-	return scanAdmin(s.db.QueryRowContext(ctx, `SELECT `+adminCols+` FROM admins WHERE avatar_file = ? AND avatar_file != ''`, file))
+	return scanAdmin(s.db.QueryRowContext(ctx, `SELECT `+adminCols+adminFrom+` WHERE p.avatar_file = ? AND p.avatar_file != ''`, file))
 }
 
 // Label is the name to display for an admin.
@@ -256,11 +273,11 @@ func (a *Admin) Label() string {
 
 // GetAdminByUID finds an admin by its public identifier.
 func (s *Store) GetAdminByUID(ctx context.Context, uid string) (*Admin, error) {
-	return scanAdmin(s.db.QueryRowContext(ctx, `SELECT `+adminCols+` FROM admins WHERE uid = ?`, uid))
+	return scanAdmin(s.db.QueryRowContext(ctx, `SELECT `+adminCols+adminFrom+` WHERE a.uid = ?`, uid))
 }
 
 func (s *Store) GetAdmin(ctx context.Context, id int64) (*Admin, error) {
-	return scanAdmin(s.db.QueryRowContext(ctx, `SELECT `+adminCols+` FROM admins WHERE id = ?`, id))
+	return scanAdmin(s.db.QueryRowContext(ctx, `SELECT `+adminCols+adminFrom+` WHERE a.id = ?`, id))
 }
 
 // NewUUID returns a random (version 4) UUID, used as the public identifier
