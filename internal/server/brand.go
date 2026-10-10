@@ -9,8 +9,8 @@ import (
 	"strings"
 	"unicode"
 
-	"partners/internal/config"
-	"partners/internal/files"
+	"manage/internal/config"
+	"manage/internal/files"
 )
 
 // Site is the event identity shown on every page: name, website, contact
@@ -33,7 +33,7 @@ type brandLogo struct {
 }
 
 // loadBrandLogo reads and validates the logo file configured with
-// PARTNERS_SITE_LOGO.
+// MANAGE_SITE_LOGO.
 func loadBrandLogo(path string) (*brandLogo, error) {
 	if path == "" {
 		return nil, nil
@@ -41,12 +41,12 @@ func loadBrandLogo(path string) (*brandLogo, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("PARTNERS_SITE_LOGO: %w", err)
+		return nil, fmt.Errorf("MANAGE_SITE_LOGO: %w", err)
 	}
 
 	ext, err := files.Detect(data, path, files.KindLogo)
 	if err != nil {
-		return nil, fmt.Errorf("PARTNERS_SITE_LOGO: %s must be an SVG, PNG, JPEG or WebP image", path)
+		return nil, fmt.Errorf("MANAGE_SITE_LOGO: %s must be an SVG, PNG, JPEG or WebP image", path)
 	}
 
 	sum := sha256.Sum256(data)

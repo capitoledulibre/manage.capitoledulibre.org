@@ -41,7 +41,7 @@ func TestValidateServe(t *testing.T) {
 }
 
 func TestSiteDefaults(t *testing.T) {
-	for _, k := range []string{"PARTNERS_SITE_NAME", "PARTNERS_SITE_URL", "PARTNERS_CONTACT_EMAIL", "PARTNERS_MAIL_FROM"} {
+	for _, k := range []string{"MANAGE_SITE_NAME", "MANAGE_SITE_URL", "MANAGE_CONTACT_EMAIL", "MANAGE_MAIL_FROM"} {
 		t.Setenv(k, "")
 	}
 
@@ -54,9 +54,9 @@ func TestSiteDefaults(t *testing.T) {
 		t.Errorf("defaults: %q %q %q", c.SiteName, c.SiteURL, c.MailFrom)
 	}
 
-	t.Setenv("PARTNERS_SITE_NAME", "PyConFR")
-	t.Setenv("PARTNERS_CONTACT_EMAIL", "sponsors@pycon.fr")
-	t.Setenv("PARTNERS_SITE_URL", "https://www.pycon.fr/")
+	t.Setenv("MANAGE_SITE_NAME", "PyConFR")
+	t.Setenv("MANAGE_CONTACT_EMAIL", "sponsors@pycon.fr")
+	t.Setenv("MANAGE_SITE_URL", "https://www.pycon.fr/")
 
 	c, err = Load()
 	if err != nil {

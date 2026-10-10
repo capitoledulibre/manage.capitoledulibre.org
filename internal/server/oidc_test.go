@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"partners/internal/config"
-	"partners/internal/files"
-	"partners/internal/store"
+	"manage/internal/config"
+	"manage/internal/files"
+	"manage/internal/store"
 )
 
 // fakeIdP is a minimal OpenID Connect provider issuing RS256 ID tokens with

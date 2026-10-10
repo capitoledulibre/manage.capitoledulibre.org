@@ -1,5 +1,5 @@
 // Package importer imports data from the previous Django application
-// (partners.example.org.old): editions, levels, perks, organizations
+// (manage.example.org.old): editions, levels, perks, organizations
 // and partnerships. It is idempotent: existing rows are matched and reused,
 // so running it twice creates nothing new.
 package importer
@@ -12,7 +12,7 @@ import (
 	"io"
 	"strings"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 // placeholderCities are default values of the old application, not real

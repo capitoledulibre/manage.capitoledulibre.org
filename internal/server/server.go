@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"partners/internal/config"
-	"partners/internal/files"
-	"partners/internal/i18n"
-	"partners/internal/mail"
-	"partners/internal/store"
-	"partners/web"
+	"manage/internal/config"
+	"manage/internal/files"
+	"manage/internal/i18n"
+	"manage/internal/mail"
+	"manage/internal/store"
+	"manage/web"
 )
 
 type Server struct {

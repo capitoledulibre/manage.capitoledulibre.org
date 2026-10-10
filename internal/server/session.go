@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 const (

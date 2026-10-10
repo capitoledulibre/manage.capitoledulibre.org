@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden file")

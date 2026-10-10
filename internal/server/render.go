@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"partners/internal/i18n"
-	"partners/internal/store"
-	"partners/web"
+	"manage/internal/i18n"
+	"manage/internal/store"
+	"manage/web"
 )
 
 // Page is the data passed to every template.

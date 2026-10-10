@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"partners/internal/i18n"
-	"partners/internal/mail"
-	"partners/internal/store"
+	"manage/internal/i18n"
+	"manage/internal/mail"
+	"manage/internal/store"
 )
 
 // reminderWindows are the number of days before a deadline at which a

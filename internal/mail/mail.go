@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"partners/internal/config"
+	"manage/internal/config"
 )
 
 type Message struct {
@@ -54,7 +54,7 @@ type smtpSender struct {
 func (s *smtpSender) Send(msg Message) error {
 	from, err := mail.ParseAddress(s.cfg.MailFrom)
 	if err != nil {
-		return fmt.Errorf("invalid PARTNERS_MAIL_FROM: %w", err)
+		return fmt.Errorf("invalid MANAGE_MAIL_FROM: %w", err)
 	}
 
 	addr := net.JoinHostPort(s.cfg.SMTPHost, strconv.Itoa(s.cfg.SMTPPort))

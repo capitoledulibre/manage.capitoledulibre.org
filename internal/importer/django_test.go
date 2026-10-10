@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 // djangoFixture builds a minimal database with the old Django schema.

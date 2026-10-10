@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 func TestValidEmail(t *testing.T) {

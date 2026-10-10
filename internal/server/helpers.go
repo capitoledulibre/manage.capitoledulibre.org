@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"partners/internal/i18n"
-	"partners/internal/mail"
-	"partners/internal/store"
+	"manage/internal/i18n"
+	"manage/internal/mail"
+	"manage/internal/store"
 )
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }

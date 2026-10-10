@@ -3,7 +3,7 @@ package server
 import (
 	"time"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 // Step is one milestone of the partnership progress bar.

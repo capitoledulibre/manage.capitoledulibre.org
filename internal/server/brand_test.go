@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"partners/internal/config"
-	"partners/internal/store"
-	"partners/web"
+	"manage/internal/config"
+	"manage/internal/store"
+	"manage/web"
 )
 
 func TestSiteIdentity(t *testing.T) {

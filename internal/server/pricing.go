@@ -1,6 +1,6 @@
 package server
 
-import "partners/internal/store"
+import "manage/internal/store"
 
 // Pricing is the amount due for a partnership, as displayed.
 type Pricing struct {

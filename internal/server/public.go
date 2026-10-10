@@ -10,9 +10,9 @@ import (
 	"time"
 	"unicode"
 
-	"partners/internal/i18n"
-	pmail "partners/internal/mail"
-	"partners/internal/store"
+	"manage/internal/i18n"
+	pmail "manage/internal/mail"
+	"manage/internal/store"
 )
 
 const (

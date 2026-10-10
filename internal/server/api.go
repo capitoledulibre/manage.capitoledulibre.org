@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"partners/internal/export"
-	"partners/internal/store"
+	"manage/internal/export"
+	"manage/internal/store"
 )
 
 // exportJSON serves the partner list used by the website build. It requires

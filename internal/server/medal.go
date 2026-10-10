@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 // Medal holds the colors and size used to draw a level medal (see the

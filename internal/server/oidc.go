@@ -13,8 +13,8 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
-	"partners/internal/config"
-	"partners/internal/store"
+	"manage/internal/config"
+	"manage/internal/store"
 )
 
 const oidcStateCookie = "manage_oidc"
@@ -149,7 +149,7 @@ func (s *Server) adminAllowed(email string, groups []string) bool {
 	return s.cfg.AdminGroup != "" && slices.Contains(groups, s.cfg.AdminGroup)
 }
 
-// adminDevLogin logs in any email listed in PARTNERS_ADMIN_EMAILS (or any
+// adminDevLogin logs in any email listed in MANAGE_ADMIN_EMAILS (or any
 // email when the list is empty). See config.DevAdminLogin for when it is
 // available.
 func (s *Server) adminDevLogin(w http.ResponseWriter, r *http.Request) error {

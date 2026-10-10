@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 type Document struct {

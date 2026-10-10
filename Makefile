@@ -22,10 +22,10 @@ css-watch: $(TAILWIND)
 	$(TAILWIND) -i web/static/css/input.css -o web/static/css/app.css --watch
 
 build: css
-	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/partners ./cmd/partners
+	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/manage ./cmd/manage
 
 dev: css
-	PARTNERS_DEV=1 go run ./cmd/partners
+	MANAGE_DEV=1 go run ./cmd/manage
 
 test:
 	go test ./...
@@ -35,7 +35,7 @@ lint:
 	gofmt -l .
 
 clean:
-	rm -rf bin/partners web/static/css/app.css
+	rm -rf bin/manage web/static/css/app.css
 
 # pdf.js renders the first page of PDFs chosen in upload dialogs. The files
 # are committed under $(PDFJS_DIR); this target refreshes them, checking the

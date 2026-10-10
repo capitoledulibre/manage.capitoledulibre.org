@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 
-	"partners/web"
+	"manage/web"
 )
 
 // assetVersions maps each static file path ("/static/css/app.css") to a short

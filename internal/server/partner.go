@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"partners/internal/files"
-	"partners/internal/store"
+	"manage/internal/files"
+	"manage/internal/store"
 )
 
 const (

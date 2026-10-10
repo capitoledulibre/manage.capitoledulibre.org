@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 // fixture is a small data set built directly in the store.

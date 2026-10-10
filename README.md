@@ -1,9 +1,17 @@
-# Example Conf — partner dashboard
+# Example Conf — manage
 
-A lightweight web application that lets Example Conf sponsors follow
-their partnership, and lets the organizers manage the sponsor pipeline. The
-event name, website, contact address and logo are configurable, so it can be
-used for another event.
+The application the organizers run Example Conf with: one place for the
+whole event instead of data copied from one platform to another. It brings
+together what used to be two applications:
+
+- **partners**: sponsors follow their partnership and the organizers manage
+  the sponsor pipeline (described below);
+- **volunteers**: volunteers join poles and sign up on shifts, pole managers
+  and the event coordination run the planning. Being merged in from
+  benevoles.example.org, whose history this repository keeps.
+
+The event name, website, contact address and logo are configurable, so it
+can be used for another event.
 
 It is a single Go binary (templates, CSS and migrations are embedded) backed
 by SQLite, with Tailwind CSS compiled at build time. No Node.js, no CGO.
@@ -85,13 +93,13 @@ The test suite covers the full partner and staff flows, access control,
 the OIDC callback (against a fake provider), upload validation, reminders,
 migrations, the export format and French/English catalog parity.
 
-In dev mode (`PARTNERS_DEV=1`):
+In dev mode (`MANAGE_DEV=1`):
 
 - emails are printed to the log instead of being sent (unless SMTP is set),
   so magic links can be copied from the terminal;
 - without OIDC, `/admin/login` offers a password-less form (restricted to
-  `PARTNERS_ADMIN_EMAILS` when set). It is only enabled when
-  `PARTNERS_BASE_URL` is a loopback address, so a forgotten `PARTNERS_DEV`
+  `MANAGE_ADMIN_EMAILS` when set). It is only enabled when
+  `MANAGE_BASE_URL` is a loopback address, so a forgotten `MANAGE_DEV`
   cannot open the admin area on a public server.
 
 Typical first steps: log in at `/admin/login`, create an edition with its
@@ -113,22 +121,22 @@ Everything is configured with environment variables; see
 
 | Variable | Description |
 | --- | --- |
-| `PARTNERS_BASE_URL` | Public URL, used in emails and logo URLs |
-| `PARTNERS_SITE_NAME` | Event name in pages and emails (default: Example Conf) |
-| `PARTNERS_SITE_URL` | Event website, linked in the footer |
-| `PARTNERS_CONTACT_EMAIL` | Contact address shown to partners, default sender |
-| `PARTNERS_SITE_LOGO` | Optional path to the event logo (SVG, PNG, JPEG, WebP), header and favicon; initials of the name otherwise |
-| `PARTNERS_DATA_DIR` | Directory for `partners.db` and uploaded files |
-| `PARTNERS_SMTP_*`, `PARTNERS_MAIL_FROM` | Outgoing email |
-| `PARTNERS_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
-| `PARTNERS_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$PARTNERS_BASE_URL/admin/callback` |
-| `PARTNERS_ADMIN_EMAILS`, `PARTNERS_ADMIN_GROUP` | Who may log in as staff |
-| `PARTNERS_EXPORT_TOKEN` | Token for the JSON export, at least 32 characters (`openssl rand -hex 32`); empty disables token access |
+| `MANAGE_BASE_URL` | Public URL, used in emails and logo URLs |
+| `MANAGE_SITE_NAME` | Event name in pages and emails (default: Example Conf) |
+| `MANAGE_SITE_URL` | Event website, linked in the footer |
+| `MANAGE_CONTACT_EMAIL` | Contact address shown to partners, default sender |
+| `MANAGE_SITE_LOGO` | Optional path to the event logo (SVG, PNG, JPEG, WebP), header and favicon; initials of the name otherwise |
+| `MANAGE_DATA_DIR` | Directory for `partners.db` and uploaded files |
+| `MANAGE_SMTP_*`, `MANAGE_MAIL_FROM` | Outgoing email |
+| `MANAGE_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
+| `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |
+| `MANAGE_ADMIN_EMAILS`, `MANAGE_ADMIN_GROUP` | Who may log in as staff |
+| `MANAGE_EXPORT_TOKEN` | Token for the JSON export, at least 32 characters (`openssl rand -hex 32`); empty disables token access |
 
 ## JSON export for the website
 
 ```sh
-curl -H "Authorization: Bearer $PARTNERS_EXPORT_TOKEN" \
+curl -H "Authorization: Bearer $MANAGE_EXPORT_TOKEN" \
   "https://partners.example.org/api/partners.json?event=example-conf-2026"
 # or, on the server:
 partners export -event example-conf-2026 -o partners.json
@@ -190,27 +198,27 @@ dropped. Running it again creates nothing.
 ## Deployment
 
 ```sh
-docker build -t partners .
-docker run -d --name partners -p 8080:8080 -v partners-data:/data --env-file .env partners
+docker build -t manage .
+docker run -d --name manage -p 8080:8080 -v manage-data:/data --env-file .env manage
 ```
 
 To use a logo, mount it read-only and point to it:
 
 ```sh
-docker run … -v ./logo.svg:/brand/logo.svg:ro -e PARTNERS_SITE_LOGO=/brand/logo.svg partners
+docker run … -v ./logo.svg:/brand/logo.svg:ro -e MANAGE_SITE_LOGO=/brand/logo.svg manage
 ```
 
 The logo is read at startup; restart the container after changing it. Staff
 avatars are set by each staff member on their profile page (`/admin/profile`).
 
 Put it behind a TLS reverse proxy. Cookies get the `Secure` flag when
-`PARTNERS_BASE_URL` starts with `https://`. Back up the `/data` volume
+`MANAGE_BASE_URL` starts with `https://`. Back up the `/data` volume
 (SQLite database in WAL mode plus the `files/` directory).
 
 ## Layout
 
 ```
-cmd/partners/        entry point: serve, export
+cmd/manage/          entry point: serve, export
 internal/config/     environment configuration
 internal/store/      SQLite schema (migrations/), models and queries
 internal/server/     HTTP handlers: public, partner, admin, OIDC, reminders

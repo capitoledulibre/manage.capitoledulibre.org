@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// DefaultSiteName is the event name used when PARTNERS_SITE_NAME is unset.
+// DefaultSiteName is the event name used when MANAGE_SITE_NAME is unset.
 const DefaultSiteName = "Example Conf"
 
 type Config struct {
@@ -67,62 +67,62 @@ type Config struct {
 
 func Load() (*Config, error) {
 	c := &Config{
-		Listen:            env("PARTNERS_LISTEN", ":8080"),
-		BaseURL:           strings.TrimRight(env("PARTNERS_BASE_URL", "http://localhost:8080"), "/"),
-		DataDir:           env("PARTNERS_DATA_DIR", "./data"),
-		Dev:               envBool("PARTNERS_DEV"),
-		SMTPHost:          env("PARTNERS_SMTP_HOST", ""),
-		SMTPUser:          env("PARTNERS_SMTP_USER", ""),
-		SMTPPassword:      env("PARTNERS_SMTP_PASSWORD", ""),
-		SMTPTLS:           env("PARTNERS_SMTP_TLS", "starttls"),
-		SiteName:          env("PARTNERS_SITE_NAME", DefaultSiteName),
-		SiteURL:           strings.TrimRight(env("PARTNERS_SITE_URL", "https://conf.example.org"), "/"),
-		ContactEmail:      env("PARTNERS_CONTACT_EMAIL", "partners@example.org"),
-		SiteLogo:          env("PARTNERS_SITE_LOGO", ""),
-		StaffNotifyEmails: envList("PARTNERS_STAFF_NOTIFY_EMAILS"),
-		OIDCIssuer:        env("PARTNERS_OIDC_ISSUER", ""),
-		OIDCClientID:      env("PARTNERS_OIDC_CLIENT_ID", ""),
-		OIDCClientSecret:  env("PARTNERS_OIDC_CLIENT_SECRET", ""),
-		AdminEmails:       envList("PARTNERS_ADMIN_EMAILS"),
-		AdminGroup:        env("PARTNERS_ADMIN_GROUP", ""),
-		ExportToken:       env("PARTNERS_EXPORT_TOKEN", ""),
+		Listen:            env("MANAGE_LISTEN", ":8080"),
+		BaseURL:           strings.TrimRight(env("MANAGE_BASE_URL", "http://localhost:8080"), "/"),
+		DataDir:           env("MANAGE_DATA_DIR", "./data"),
+		Dev:               envBool("MANAGE_DEV"),
+		SMTPHost:          env("MANAGE_SMTP_HOST", ""),
+		SMTPUser:          env("MANAGE_SMTP_USER", ""),
+		SMTPPassword:      env("MANAGE_SMTP_PASSWORD", ""),
+		SMTPTLS:           env("MANAGE_SMTP_TLS", "starttls"),
+		SiteName:          env("MANAGE_SITE_NAME", DefaultSiteName),
+		SiteURL:           strings.TrimRight(env("MANAGE_SITE_URL", "https://conf.example.org"), "/"),
+		ContactEmail:      env("MANAGE_CONTACT_EMAIL", "partners@example.org"),
+		SiteLogo:          env("MANAGE_SITE_LOGO", ""),
+		StaffNotifyEmails: envList("MANAGE_STAFF_NOTIFY_EMAILS"),
+		OIDCIssuer:        env("MANAGE_OIDC_ISSUER", ""),
+		OIDCClientID:      env("MANAGE_OIDC_CLIENT_ID", ""),
+		OIDCClientSecret:  env("MANAGE_OIDC_CLIENT_SECRET", ""),
+		AdminEmails:       envList("MANAGE_ADMIN_EMAILS"),
+		AdminGroup:        env("MANAGE_ADMIN_GROUP", ""),
+		ExportToken:       env("MANAGE_EXPORT_TOKEN", ""),
 	}
 
 	// The sender defaults to the event name and contact address.
-	c.MailFrom = env("PARTNERS_MAIL_FROM", (&mail.Address{Name: c.SiteName, Address: c.ContactEmail}).String())
+	c.MailFrom = env("MANAGE_MAIL_FROM", (&mail.Address{Name: c.SiteName, Address: c.ContactEmail}).String())
 
-	port, err := strconv.Atoi(env("PARTNERS_SMTP_PORT", "587"))
+	port, err := strconv.Atoi(env("MANAGE_SMTP_PORT", "587"))
 	if err != nil {
-		return nil, fmt.Errorf("PARTNERS_SMTP_PORT: %w", err)
+		return nil, fmt.Errorf("MANAGE_SMTP_PORT: %w", err)
 	}
 	c.SMTPPort = port
 
-	c.ReminderInterval, err = time.ParseDuration(env("PARTNERS_REMINDER_INTERVAL", "6h"))
+	c.ReminderInterval, err = time.ParseDuration(env("MANAGE_REMINDER_INTERVAL", "6h"))
 	if err != nil {
-		return nil, fmt.Errorf("PARTNERS_REMINDER_INTERVAL: %w", err)
+		return nil, fmt.Errorf("MANAGE_REMINDER_INTERVAL: %w", err)
 	}
 
 	switch c.SMTPTLS {
 	case "starttls", "tls", "none":
 	default:
-		return nil, fmt.Errorf("PARTNERS_SMTP_TLS must be starttls, tls or none")
+		return nil, fmt.Errorf("MANAGE_SMTP_TLS must be starttls, tls or none")
 	}
 
 	return c, nil
 }
 
-// MinExportTokenLength is the minimum length of PARTNERS_EXPORT_TOKEN, so it
+// MinExportTokenLength is the minimum length of MANAGE_EXPORT_TOKEN, so it
 // cannot be guessed.
 const MinExportTokenLength = 32
 
 // ValidateServe checks the settings only required by the web server.
 func (c *Config) ValidateServe() error {
 	if !c.Dev && !c.OIDCEnabled() {
-		return fmt.Errorf("OIDC is not configured (PARTNERS_OIDC_ISSUER, PARTNERS_OIDC_CLIENT_ID, PARTNERS_OIDC_CLIENT_SECRET); set PARTNERS_DEV=1 for local development")
+		return fmt.Errorf("OIDC is not configured (MANAGE_OIDC_ISSUER, MANAGE_OIDC_CLIENT_ID, MANAGE_OIDC_CLIENT_SECRET); set MANAGE_DEV=1 for local development")
 	}
 
 	if c.ExportToken != "" && len(c.ExportToken) < MinExportTokenLength {
-		return fmt.Errorf("PARTNERS_EXPORT_TOKEN must be at least %d characters (e.g. openssl rand -hex 32)", MinExportTokenLength)
+		return fmt.Errorf("MANAGE_EXPORT_TOKEN must be at least %d characters (e.g. openssl rand -hex 32)", MinExportTokenLength)
 	}
 
 	return nil
@@ -130,7 +130,7 @@ func (c *Config) ValidateServe() error {
 
 // DevAdminLogin reports whether the password-less staff login is available:
 // only in development mode, without OIDC, and when the application is served
-// on a loopback address, so a forgotten PARTNERS_DEV cannot open the admin
+// on a loopback address, so a forgotten MANAGE_DEV cannot open the admin
 // area on a public server.
 func (c *Config) DevAdminLogin() bool {
 	if !c.Dev || c.OIDCEnabled() {

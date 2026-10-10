@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"partners/internal/store"
+	"manage/internal/store"
 )
 
 // The partner file ("fiche") gathers the organization page and its

@@ -17,13 +17,13 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"partners/internal/config"
-	"partners/internal/export"
-	"partners/internal/files"
-	"partners/internal/importer"
-	"partners/internal/mail"
-	"partners/internal/server"
-	"partners/internal/store"
+	"manage/internal/config"
+	"manage/internal/export"
+	"manage/internal/files"
+	"manage/internal/importer"
+	"manage/internal/mail"
+	"manage/internal/server"
+	"manage/internal/store"
 )
 
 func main() {
@@ -61,7 +61,7 @@ func usage() {
   partners import-django [-dry-run] db  import editions, levels, perks and
                                         partners from the old Django database
 
-Configuration is read from PARTNERS_* environment variables (see README).`)
+Configuration is read from MANAGE_* environment variables (see README).`)
 }
 
 func open(ctx context.Context, cfg *config.Config) (*store.Store, error) {
@@ -87,7 +87,7 @@ func serve() error {
 	}
 
 	if cfg.Dev && !cfg.OIDCEnabled() && !cfg.DevAdminLogin() {
-		slog.Warn("password-less staff login disabled: PARTNERS_BASE_URL is not a loopback address")
+		slog.Warn("password-less staff login disabled: MANAGE_BASE_URL is not a loopback address")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
