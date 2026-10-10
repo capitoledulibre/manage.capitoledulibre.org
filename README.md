@@ -126,7 +126,7 @@ Everything is configured with environment variables; see
 | `MANAGE_SITE_URL` | Event website, linked in the footer |
 | `MANAGE_CONTACT_EMAIL` | Contact address shown to partners, default sender |
 | `MANAGE_SITE_LOGO` | Optional path to the event logo (SVG, PNG, JPEG, WebP), header and favicon; initials of the name otherwise |
-| `MANAGE_DATA_DIR` | Directory for `partners.db` and uploaded files |
+| `MANAGE_DATA_DIR` | Directory for `manage.db` (a `partners.db` left by the partner dashboard is renamed on start) and uploaded files |
 | `MANAGE_SMTP_*`, `MANAGE_MAIL_FROM` | Outgoing email |
 | `MANAGE_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
 | `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |

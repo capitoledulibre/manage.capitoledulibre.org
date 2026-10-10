@@ -56,9 +56,9 @@ func main() {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage:
-  partners [serve]                      run the web server
-  partners export [-event slug] [-o f]  write the partners JSON export
-  partners import-django [-dry-run] db  import editions, levels, perks and
+  manage [serve]                        run the web server
+  manage export [-event slug] [-o f]    write the partners JSON export
+  manage import-django [-dry-run] db    import editions, levels, perks and
                                         partners from the old Django database
 
 Configuration is read from MANAGE_* environment variables (see README).`)
@@ -69,7 +69,39 @@ func open(ctx context.Context, cfg *config.Config) (*store.Store, error) {
 		return nil, err
 	}
 
-	return store.Open(ctx, filepath.Join(cfg.DataDir, "partners.db"))
+	path, err := databasePath(cfg.DataDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return store.Open(ctx, path)
+}
+
+// databasePath returns the database file of a data directory. The partner
+// dashboard called it partners.db; a directory that still has that name, and
+// no manage.db yet, gets it renamed, with the WAL files that belong to it.
+func databasePath(dir string) (string, error) {
+	path := filepath.Join(dir, "manage.db")
+
+	legacy := filepath.Join(dir, "partners.db")
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		return path, err
+	}
+
+	if _, err := os.Stat(legacy); errors.Is(err, os.ErrNotExist) {
+		return path, nil
+	}
+
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		err := os.Rename(legacy+suffix, path+suffix)
+		if err != nil && !(suffix != "" && errors.Is(err, os.ErrNotExist)) {
+			return "", fmt.Errorf("rename %s: %w", legacy+suffix, err)
+		}
+	}
+
+	slog.Info("database renamed", "from", legacy, "to", path)
+
+	return path, nil
 }
 
 func serve() error {
