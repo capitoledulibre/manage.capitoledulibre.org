@@ -878,7 +878,10 @@ func TestNoNumericIDsInPages(t *testing.T) {
 	numeric := regexp.MustCompile(`(?:href|action)="[^"]*/[0-9]+(?:[/"?#])` +
 		`|<option value="[0-9]+"` +
 		`|type="(?:hidden|checkbox|radio)" name="[^"]*" value="[0-9]+"` +
-		`|name="lp" value="[0-9]+[-:]`)
+		// A level-perk pair is "levelUID:perkUID"; an integer leak would be
+		// "12:34". Matching only the first characters flagged UUIDs whose
+		// first group happens to be all digits (about one run in fifty).
+		`|name="lp" value="[0-9]+[-:][0-9]+"`)
 
 	check := func(c *http.Client, path string) {
 		t.Helper()
