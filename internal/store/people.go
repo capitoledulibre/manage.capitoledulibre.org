@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 // A person is one e-mail address, whatever they come for: partner contact
@@ -40,4 +41,59 @@ func touchPersonLogin(ctx context.Context, q querier, personID int64) error {
 	_, err := q.ExecContext(ctx, `UPDATE people SET last_login_at = ? WHERE id = ?`, now(), personID)
 
 	return err
+}
+
+// Person is one e-mail address and the identity attached to it.
+type Person struct {
+	ID          int64
+	UID         string
+	Email       string
+	Name        string
+	Lang        string
+	AvatarFile  string
+	CreatedAt   time.Time
+	LastLoginAt *time.Time
+}
+
+// Label is the name to display for a person.
+func (p *Person) Label() string {
+	if p.Name != "" {
+		return p.Name
+	}
+
+	return p.Email
+}
+
+// Initials are shown in place of an avatar.
+func (p *Person) Initials() string { return initials(p.Label()) }
+
+const personCols = `id, uid, email, name, lang, avatar_file, created_at, last_login_at`
+
+func scanPerson(row interface{ Scan(...any) error }) (*Person, error) {
+	var (
+		p         Person
+		lastLogin sql.NullTime
+	)
+
+	if err := row.Scan(&p.ID, &p.UID, &p.Email, &p.Name, &p.Lang, &p.AvatarFile, &p.CreatedAt, &lastLogin); err != nil {
+		return nil, notFound(err)
+	}
+
+	p.LastLoginAt = timePtr(lastLogin)
+
+	return &p, nil
+}
+
+func (s *Store) GetPerson(ctx context.Context, id int64) (*Person, error) {
+	return scanPerson(s.db.QueryRowContext(ctx, `SELECT `+personCols+` FROM people WHERE id = ?`, id))
+}
+
+// PersonByEmail finds the person behind an address.
+func (s *Store) PersonByEmail(ctx context.Context, email string) (*Person, error) {
+	return scanPerson(s.db.QueryRowContext(ctx, `SELECT `+personCols+` FROM people WHERE email = ?`, NormalizeEmail(email)))
+}
+
+// TouchPersonLogin records a login of a person.
+func (s *Store) TouchPersonLogin(ctx context.Context, id int64) error {
+	return touchPersonLogin(ctx, s.db, id)
 }

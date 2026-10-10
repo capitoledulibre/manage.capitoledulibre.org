@@ -36,11 +36,34 @@ func (s *Server) publicRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/partners.json", s.wrap(s.exportJSON))
 }
 
+// loginPage is the home page: the login form, or where a logged-in person
+// goes next. A partner contact goes to their partner space (or picks an
+// organization when none is selected); someone with no space yet is told so
+// instead of being shown the login form again.
 func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) error {
-	if rc(r).Manager != nil {
+	c := rc(r)
+
+	switch {
+	case c.Manager != nil:
 		http.Redirect(w, r, "/partners/", http.StatusSeeOther)
 
 		return nil
+	case c.Person != nil:
+		managers, err := s.store.ManagersByEmail(r.Context(), c.Person.Email)
+		if err != nil {
+			return err
+		}
+
+		if len(managers) > 0 {
+			http.Redirect(w, r, "/partners/choose", http.StatusSeeOther)
+
+			return nil
+		}
+
+		p := s.page(r, "home.title")
+		p.D = c.Person
+
+		return s.render(w, r, "public/home", p)
 	}
 
 	return s.render(w, r, "public/login", s.page(r, "login.title"))
@@ -70,8 +93,14 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
 func (s *Server) sendLoginLink(r *http.Request, email, lang string) error {
 	ctx := r.Context()
 
-	managers, err := s.store.ManagersByEmail(ctx, email)
-	if err != nil || len(managers) == 0 {
+	// Only known people get a link; the answer on screen is the same either
+	// way, so the form does not tell who is known.
+	person, err := s.store.PersonByEmail(ctx, email)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+
+	if err != nil {
 		return err
 	}
 
@@ -91,7 +120,7 @@ func (s *Server) sendLoginLink(r *http.Request, email, lang string) error {
 		return err
 	}
 
-	lang = managers[0].Lang
+	lang = person.Lang
 
 	return s.mailer.Send(pmail.Message{
 		To:      []string{email},
@@ -150,51 +179,62 @@ func (s *Server) magicConsume(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	managers, err := s.store.ManagersByEmail(ctx, email)
-	if err != nil {
-		return err
-	}
-
-	if len(managers) == 0 {
+	person, err := s.store.PersonByEmail(ctx, email)
+	if errors.Is(err, store.ErrNotFound) {
 		p := s.page(r, "login.title")
 		p.D = map[string]any{"Error": "login.link_invalid"}
 
 		return s.render(w, r, "public/login", p)
 	}
 
-	if c := rc(r); c.managerToken != "" {
-		_ = s.store.DeleteSession(ctx, c.managerToken)
-	}
-
-	m := managers[0]
-
-	token, err := s.store.CreateSession(ctx, &store.Session{Kind: store.SessionManager, ManagerID: &m.ID}, managerSessionTTL)
 	if err != nil {
 		return err
 	}
 
-	_ = s.store.TouchManagerLogin(ctx, m.ID)
-	s.setCookie(w, managerCookie, token, managerSessionTTL)
-
-	if len(managers) > 1 {
-		http.Redirect(w, r, "/partners/choose", http.StatusSeeOther)
-
-		return nil
+	managers, err := s.store.ManagersByEmail(ctx, email)
+	if err != nil {
+		return err
 	}
 
-	http.Redirect(w, r, "/partners/", http.StatusSeeOther)
+	if c := rc(r); c.personToken != "" {
+		_ = s.store.DeleteSession(ctx, c.personToken)
+	}
+
+	// One session for the person; a partner contact starts on their first
+	// organization, and picks another one when they manage several.
+	sess := &store.Session{Kind: store.SessionPerson, PersonID: person.ID}
+	if len(managers) > 0 {
+		sess.ManagerID = &managers[0].ID
+	}
+
+	token, err := s.store.CreateSession(ctx, sess, personSessionTTL)
+	if err != nil {
+		return err
+	}
+
+	_ = s.store.TouchPersonLogin(ctx, person.ID)
+	s.setCookie(w, personCookie, token, personSessionTTL)
+
+	switch {
+	case len(managers) > 1:
+		http.Redirect(w, r, "/partners/choose", http.StatusSeeOther)
+	case len(managers) == 1:
+		http.Redirect(w, r, "/partners/", http.StatusSeeOther)
+	default:
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
 
 	return nil
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) error {
-	if c := rc(r); c.managerToken != "" {
-		if err := s.store.DeleteSession(r.Context(), c.managerToken); err != nil {
+	if c := rc(r); c.personToken != "" {
+		if err := s.store.DeleteSession(r.Context(), c.personToken); err != nil {
 			return err
 		}
 	}
 
-	s.clearCookie(w, managerCookie)
+	s.clearCookie(w, personCookie)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	return nil

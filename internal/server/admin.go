@@ -1038,7 +1038,7 @@ func (s *Server) adminManagerUpdate(w http.ResponseWriter, r *http.Request) erro
 
 	details := m.Email
 	if m.Email != oldEmail {
-		if err := s.store.DeleteManagerSessions(ctx, m.ID); err != nil {
+		if err := s.store.DetachManagerSessions(ctx, m.ID); err != nil {
 			return err
 		}
 
@@ -1058,7 +1058,7 @@ func (s *Server) adminManagerDelete(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	if err := s.store.DeleteManagerSessions(r.Context(), m.ID); err != nil {
+	if err := s.store.DetachManagerSessions(r.Context(), m.ID); err != nil {
 		return err
 	}
 

@@ -46,7 +46,7 @@ func TestPeopleMigration(t *testing.T) {
 	exec(`INSERT INTO sessions (token_hash, kind, manager_id, expires_at, created_at) VALUES ('h1', 'manager', 11, '2099-01-01 00:00:00+00:00', ?)`, t0)
 	exec(`INSERT INTO sessions (token_hash, kind, admin_id, expires_at, created_at) VALUES ('h2', 'admin', 5, '2099-01-01 00:00:00+00:00', ?)`, t0)
 
-	if err := s.migrateTo(ctx, 0); err != nil {
+	if err := s.migrateTo(ctx, 8); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 
@@ -104,6 +104,16 @@ func TestPeopleMigration(t *testing.T) {
 	samContact, err := s.GetManager(ctx, 12)
 	if err != nil || samContact.PersonID != sam.PersonID || samContact.Name != "Sam Staff" {
 		t.Fatalf("Sam as a contact should be the same person: %+v %v", samContact, err)
+	}
+
+	// Sessions then become a person's (0009): the old ones are dropped,
+	// everyone logs in once more.
+	if err := s.migrateTo(ctx, 0); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	if n := count(`SELECT COUNT(*) FROM sessions`); n != 0 {
+		t.Fatalf("%d sessions kept across the change of session model", n)
 	}
 }
 

@@ -177,7 +177,7 @@ func (s *Server) startAdminSession(w http.ResponseWriter, r *http.Request, email
 		_ = s.store.DeleteSession(ctx, c.adminToken)
 	}
 
-	token, err := s.store.CreateSession(ctx, &store.Session{Kind: store.SessionAdmin, AdminID: &admin.ID}, adminSessionTTL)
+	token, err := s.store.CreateSession(ctx, &store.Session{Kind: store.SessionAdmin, AdminID: &admin.ID, PersonID: admin.PersonID}, adminSessionTTL)
 	if err != nil {
 		return err
 	}

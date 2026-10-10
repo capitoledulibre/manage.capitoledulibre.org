@@ -62,8 +62,12 @@ func (s *Store) ConsumeMagicToken(ctx context.Context, token string) (email stri
 	return email, notFound(err)
 }
 
+// Session is a login. Kind is SessionPerson (an e-mail link; ManagerID is
+// the partner organization being looked at, if any) or SessionAdmin (the
+// staff login; AdminID is set). Both belong to a person.
 type Session struct {
 	Kind             string
+	PersonID         int64
 	ManagerID        *int64
 	AdminID          *int64
 	ImpersonateOrgID *int64
@@ -71,15 +75,15 @@ type Session struct {
 }
 
 const (
-	SessionManager = "manager"
-	SessionAdmin   = "admin"
+	SessionPerson = "person"
+	SessionAdmin  = "admin"
 )
 
 func (s *Store) CreateSession(ctx context.Context, sess *Session, ttl time.Duration) (string, error) {
 	token, hash := NewToken()
 	sess.ExpiresAt = now().Add(ttl)
-	_, err := s.db.ExecContext(ctx, `INSERT INTO sessions (token_hash, kind, manager_id, admin_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		hash, sess.Kind, nullInt(sess.ManagerID), nullInt(sess.AdminID), sess.ExpiresAt, now())
+	_, err := s.db.ExecContext(ctx, `INSERT INTO sessions (token_hash, kind, person_id, manager_id, admin_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		hash, sess.Kind, sess.PersonID, nullInt(sess.ManagerID), nullInt(sess.AdminID), sess.ExpiresAt, now())
 
 	return token, err
 }
@@ -90,9 +94,9 @@ func (s *Store) GetSession(ctx context.Context, token, kind string) (*Session, e
 		manager, admin, impersonate sql.NullInt64
 	)
 
-	err := s.db.QueryRowContext(ctx, `SELECT kind, manager_id, admin_id, impersonate_org_id, expires_at FROM sessions
+	err := s.db.QueryRowContext(ctx, `SELECT kind, person_id, manager_id, admin_id, impersonate_org_id, expires_at FROM sessions
 		WHERE token_hash = ? AND kind = ? AND expires_at > ?`, HashToken(token), kind, now()).
-		Scan(&sess.Kind, &manager, &admin, &impersonate, &sess.ExpiresAt)
+		Scan(&sess.Kind, &sess.PersonID, &manager, &admin, &impersonate, &sess.ExpiresAt)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -102,8 +106,8 @@ func (s *Store) GetSession(ctx context.Context, token, kind string) (*Session, e
 	return &sess, nil
 }
 
-// SwitchSessionManager points a manager session at another manager account
-// of the same person (same email, other organization).
+// SwitchSessionManager points a person session at another organization the
+// person manages.
 func (s *Store) SwitchSessionManager(ctx context.Context, token string, managerID int64) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET manager_id = ? WHERE token_hash = ?`, managerID, HashToken(token))
 
@@ -122,10 +126,11 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	return err
 }
 
-// DeleteManagerSessions revokes every session of a manager, used when the
-// manager is removed.
-func (s *Store) DeleteManagerSessions(ctx context.Context, managerID int64) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE manager_id = ?`, managerID)
+// DetachManagerSessions takes an organization away from the sessions looking
+// at it through this manager, used when the manager is removed or moved to
+// another address. The people stay logged in, without that organization.
+func (s *Store) DetachManagerSessions(ctx context.Context, managerID int64) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET manager_id = NULL WHERE manager_id = ?`, managerID)
 
 	return err
 }

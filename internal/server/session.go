@@ -11,25 +11,28 @@ import (
 )
 
 const (
-	managerCookie = "manage_session"
-	adminCookie   = "manage_admin"
-	langCookie    = "manage_lang"
-	flashCookie   = "manage_flash"
-	themeCookie   = "manage_theme"
+	personCookie = "manage_session"
+	adminCookie  = "manage_admin"
+	langCookie   = "manage_lang"
+	flashCookie  = "manage_flash"
+	themeCookie  = "manage_theme"
 	// returnCookie remembers the admin page to go back to after viewing
 	// the partner area as a partner.
 	returnCookie = "manage_admin_return"
 
-	managerSessionTTL = 30 * 24 * time.Hour
-	adminSessionTTL   = 12 * time.Hour
+	personSessionTTL = 30 * 24 * time.Hour
+	adminSessionTTL  = 12 * time.Hour
 )
 
 // reqCtx holds the per-request identity and preferences.
 type reqCtx struct {
 	Lang string
 
-	managerToken string
-	Manager      *store.Manager
+	// Person is who logged in with an e-mail link. Manager is set when that
+	// person is looking at one of the partner organizations they manage.
+	personToken string
+	Person      *store.Person
+	Manager     *store.Manager
 
 	adminToken string
 	Admin      *store.Admin
@@ -75,7 +78,7 @@ func (s *Server) withSession(next http.Handler) http.Handler {
 			return
 		}
 
-		c.Lang = detectLang(r, c.Manager)
+		c.Lang = detectLang(r, c.Person)
 
 		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, ctxKey{}, c)))
 	})
@@ -111,29 +114,48 @@ func (s *Server) loadSessions(ctx context.Context, r *http.Request, c *reqCtx) e
 		}
 	}
 
-	if ck, err := r.Cookie(managerCookie); err == nil {
-		sess, err := s.store.GetSession(ctx, ck.Value, store.SessionManager)
+	if ck, err := r.Cookie(personCookie); err == nil {
+		sess, err := s.store.GetSession(ctx, ck.Value, store.SessionPerson)
 
 		switch {
-		case err == nil && sess.ManagerID != nil:
+		case err == nil:
+			person, err := s.store.GetPerson(ctx, sess.PersonID)
+			if err != nil && !errors.Is(err, store.ErrNotFound) {
+				return err
+			}
+
+			if person == nil {
+				return nil
+			}
+
+			c.Person, c.personToken = person, ck.Value
+
+			if sess.ManagerID == nil {
+				return nil
+			}
+
 			m, err := s.store.GetManager(ctx, *sess.ManagerID)
 			if err != nil && !errors.Is(err, store.ErrNotFound) {
 				return err
 			}
 
-			if m != nil {
-				c.Manager, c.managerToken = m, ck.Value
-
-				if c.Org == nil {
-					org, err := s.store.GetOrganization(ctx, m.OrgID)
-					if err != nil {
-						return err
-					}
-
-					c.Org = org
-				}
+			// The organization must still be this person's: a contact moved
+			// to another address belongs to someone else now.
+			if m == nil || m.PersonID != person.ID {
+				return nil
 			}
-		case err != nil && !errors.Is(err, store.ErrNotFound):
+
+			c.Manager = m
+
+			if c.Org == nil {
+				org, err := s.store.GetOrganization(ctx, m.OrgID)
+				if err != nil {
+					return err
+				}
+
+				c.Org = org
+			}
+		case !errors.Is(err, store.ErrNotFound):
 			return err
 		}
 	}
@@ -142,14 +164,14 @@ func (s *Server) loadSessions(ctx context.Context, r *http.Request, c *reqCtx) e
 }
 
 // detectLang picks the display language: the explicit choice (cookie), then
-// the manager's email language, then the browser preference.
-func detectLang(r *http.Request, m *store.Manager) string {
+// the person's e-mail language, then the browser preference.
+func detectLang(r *http.Request, p *store.Person) string {
 	if ck, err := r.Cookie(langCookie); err == nil && validLang(ck.Value) {
 		return ck.Value
 	}
 
-	if m != nil && validLang(m.Lang) {
-		return m.Lang
+	if p != nil && validLang(p.Lang) {
+		return p.Lang
 	}
 
 	if al := strings.ToLower(r.Header.Get("Accept-Language")); strings.HasPrefix(al, "en") {

@@ -26,8 +26,10 @@ func (s *Server) partnerRoutes(mux *http.ServeMux) {
 
 	h("GET /partners/{$}", s.partnerDashboard)
 	h("POST /partners/notes", s.partnerNotes)
-	h("GET /partners/choose", s.partnerChoose)
-	h("POST /partners/choose", s.partnerChooseSubmit)
+	// Choosing an organization needs a logged-in person, not an organization
+	// already chosen: one whose organization was taken away comes here too.
+	mux.Handle("GET /partners/choose", s.wrap(s.requirePerson(s.partnerChoose)))
+	mux.Handle("POST /partners/choose", s.wrap(s.requirePerson(s.partnerChooseSubmit)))
 	h("GET /partners/documents/{event}/{kind}", s.partnerDocument)
 	h("GET /partners/event-documents/{event}/{kind}", s.partnerEventDocument)
 	h("GET /partners/organization", s.partnerOrganization)
@@ -47,6 +49,18 @@ func (s *Server) partnerRoutes(mux *http.ServeMux) {
 	h("POST /partners/managers", s.partnerManagerInvite)
 	h("POST /partners/managers/{manager}/delete", s.partnerManagerDelete)
 	h("POST /partners/profile", s.partnerProfile)
+}
+
+func (s *Server) requirePerson(next handlerFunc) handlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		if rc(r).Person == nil {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+
+			return nil
+		}
+
+		return next(w, r)
+	}
 }
 
 func (s *Server) requireOrg(next handlerFunc) handlerFunc {
@@ -268,13 +282,8 @@ func (s *Server) partnerNotes(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) partnerChoose(w http.ResponseWriter, r *http.Request) error {
 	c := rc(r)
-	if c.Manager == nil {
-		http.Redirect(w, r, "/partners/", http.StatusSeeOther)
 
-		return nil
-	}
-
-	managers, err := s.store.ManagersByEmail(r.Context(), c.Manager.Email)
+	managers, err := s.store.ManagersByEmail(r.Context(), c.Person.Email)
 	if err != nil {
 		return err
 	}
@@ -303,21 +312,18 @@ func (s *Server) partnerChoose(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) partnerChooseSubmit(w http.ResponseWriter, r *http.Request) error {
 	c := rc(r)
-	if c.Manager == nil {
-		return errForbidden
-	}
 
 	target, err := s.store.GetManagerByUID(r.Context(), r.FormValue("manager"))
 	if err != nil {
 		return errBadInput
 	}
 
-	// Only switch between accounts sharing the authenticated email.
-	if target.Email != c.Manager.Email {
+	// Only switch between organizations the logged-in person manages.
+	if target.PersonID != c.Person.ID {
 		return errForbidden
 	}
 
-	if err := s.store.SwitchSessionManager(r.Context(), c.managerToken, target.ID); err != nil {
+	if err := s.store.SwitchSessionManager(r.Context(), c.personToken, target.ID); err != nil {
 		return err
 	}
 
@@ -853,7 +859,7 @@ func (s *Server) partnerManagerDelete(w http.ResponseWriter, r *http.Request) er
 		return nil
 	}
 
-	if err := s.store.DeleteManagerSessions(ctx, target.ID); err != nil {
+	if err := s.store.DetachManagerSessions(ctx, target.ID); err != nil {
 		return err
 	}
 
@@ -863,8 +869,9 @@ func (s *Server) partnerManagerDelete(w http.ResponseWriter, r *http.Request) er
 
 	s.record(r, c.Org, nil, "manager.removed", target.Email)
 
+	// Removing oneself only takes the organization away: the person stays
+	// logged in, for whatever else they come for.
 	if c.Manager != nil && c.Manager.ID == target.ID && !c.Impersonating {
-		s.clearCookie(w, managerCookie)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 		return nil

@@ -168,8 +168,10 @@ func TestAccessControl(t *testing.T) {
 		carolClient := e.loginAs("carol@acme.test")
 		e.post(alice, "/partners/managers/"+carol.UID+"/delete", nil)
 
+		// Carol stays logged in (she may come for something else), but
+		// the organization is gone from her session.
 		_, body := e.get(carolClient, "/partners/")
-		mustContain(t, body, "Recevoir un lien")
+		mustContain(t, body, "aucun espace ne vous est ouvert")
 	})
 
 	t.Run("the last manager cannot be removed", func(t *testing.T) {
@@ -435,7 +437,8 @@ func TestAdminManagers(t *testing.T) {
 	_, body = e.post(admin, path, url.Values{"name": {"Alice"}, "email": {"carol@acme.test"}})
 	mustContain(t, body, "déjà manager")
 
-	// Changing the email logs the manager out.
+	// Changing the email moves the contact to the person who owns the new
+	// address: the old one keeps their login, not the organization.
 	e.post(admin, path, url.Values{"name": {"Alice Martin"}, "email": {"alice.martin@acme.test"}})
 
 	m, _ = e.st.GetManager(ctx, f.alice.ID)
@@ -443,8 +446,9 @@ func TestAdminManagers(t *testing.T) {
 		t.Errorf("email not changed: %s", m.Email)
 	}
 
+	// Alice was switched to English above: the language is the person's.
 	_, body = e.get(alice, "/partners/")
-	mustContain(t, body, "Recevoir un lien")
+	mustContain(t, body, "no space on")
 
 	// A manager of another organization cannot be edited through this one.
 	if code, _ := e.post(admin, "/admin/organizations/"+f.acme.Slug+"/managers/"+f.bob.UID, url.Values{"email": {"x@y.test"}}); code != 404 {

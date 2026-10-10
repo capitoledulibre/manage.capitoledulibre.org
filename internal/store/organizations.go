@@ -419,12 +419,6 @@ func (s *Store) UpdateManagerIdentity(ctx context.Context, m *Manager) error {
 	return err
 }
 
-func (s *Store) TouchManagerLogin(ctx context.Context, id int64) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE people SET last_login_at = ? WHERE id = (SELECT person_id FROM managers WHERE id = ?)`, now(), id)
-
-	return err
-}
-
 func (s *Store) DeleteManager(ctx context.Context, orgID, id int64) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM managers WHERE id = ? AND organization_id = ?`, id, orgID)
 
