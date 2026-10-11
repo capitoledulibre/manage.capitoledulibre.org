@@ -29,7 +29,7 @@ build: css
 dev: css
 	MANAGE_DEV=1 go run ./cmd/manage
 
-test:
+test: css
 	go test ./...
 
 lint:
