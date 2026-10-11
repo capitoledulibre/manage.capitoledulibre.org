@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -290,33 +291,48 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) error {
 }
 
 // slotCardData is what the slot_card partial shows. Back is carried through
-// the forms so a card re-rendered by htmx keeps it; ShowPole names the pole
-// on the pages that mix every pole.
+// the forms so a card re-rendered by htmx keeps it.
 type slotCardData struct {
-	Lang     string
-	Slot     *store.Slot
-	Pole     *store.Pole
-	Member   bool
-	Locked   bool
-	Waiting  bool
-	Back     string
-	ShowPole bool
+	Lang    string
+	Slot    *store.Slot
+	Pole    *store.Pole
+	Member  bool
+	Locked  bool
+	Waiting bool
+	Back    string
 	// Compact leaves out the time and place, which the slot's own page
 	// already shows as its heading.
 	Compact  bool
 	Error    string
 	Announce string
 	Overlaps []*store.Slot
+	// ShowPeople lists who is signed up, on the planning; Manage adds
+	// their numbers and a link to edit the slot, for whoever runs the pole.
+	ShowPeople bool
+	People     []*store.Person
+	Manage     bool
 }
 
 func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting bool) *slotCardData {
 	back := safeRedirect(r.FormValue("back"), sl.URL())
 
-	return &slotCardData{
+	card := &slotCardData{
 		Lang: rc(r).Lang, Slot: sl, Pole: v.Pole, Member: v.Member, Locked: v.Locked, Waiting: waiting, Back: back,
-		ShowPole: strings.HasPrefix(back, "/volunteers/"+v.Event.Slug+"/slots"),
-		Compact:  back == sl.URL(),
+		Compact: back == sl.URL(),
 	}
+
+	// A card of the planning shows who is on the slot, which an action
+	// on it has just changed.
+	if strings.HasPrefix(back, planningURL(v.Event)) {
+		people, err := s.store.ListSlotVolunteers(r.Context(), sl.ID)
+		if err != nil {
+			slog.Error("slot card", "slot", sl.UID, "err", err)
+		}
+
+		card.ShowPeople, card.People, card.Manage = true, people, v.Manage
+	}
+
+	return card
 }
 
 // respondSlot answers a slot action: the card for htmx, a redirect back to

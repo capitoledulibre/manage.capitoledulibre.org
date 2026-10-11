@@ -1,45 +1,109 @@
 {{define "content"}}
 {{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}
-<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="/volunteers/{{$e.Slug}}/coordination">← {{t $l "vol.coord.title_event" $e.Name}}</a></nav>
-<div class="mb-4 flex flex-wrap items-end justify-between gap-4">
-  <div>
-    <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.coord.planning"}}</h1>
-    <p class="mt-1 text-sm text-gray-600">{{t $l "vol.coord.planning_intro"}}</p>
-    <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm"><a class="link" href="/volunteers/{{$e.Slug}}/coordination/roster">{{t $l "vol.roster.link"}}</a><a class="link" href="/volunteers/{{$e.Slug}}/coordination/signups.csv">{{t $l "vol.roster.csv"}}</a></p>
+{{$scope := t $l "vol.planning.all_poles"}}{{with $d.Pole}}{{$scope = .Name}}{{end}}
+<div class="print:hidden">
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.planning.title"}}</h1>
+      <p class="mt-1 text-sm text-gray-600">{{$e.Name}}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {{if $d.Days}}<button type="button" class="btn-secondary btn-sm" data-print>{{t $l "vol.planning.print"}}</button>{{end}}
+      {{with $d.CSV}}<a class="btn-secondary btn-sm" href="{{.}}">{{t $l "vol.planning.csv"}}</a>{{end}}
+    </div>
   </div>
-  <nav class="flex gap-2 text-sm" aria-label="{{t $l "vol.pole.filters"}}">
-    <a href="?" class="filter {{if not $d.OnlyShort}}filter-on{{end}}" {{if not $d.OnlyShort}}aria-current="true"{{end}}>{{t $l "vol.coord.all"}}</a>
-    <a href="?short=1" class="filter {{if $d.OnlyShort}}filter-on{{end}}" {{if $d.OnlyShort}}aria-current="true"{{end}}>{{t $l "vol.coord.only_short"}}</a>
+
+  {{if eq $e.VolunteerStatus "draft"}}<p class="alert mb-4 bg-amber-50 text-amber-900">{{t $l "vol.planning.draft"}}</p>
+  {{else if ne $e.VolunteerStatus "open"}}<p class="alert mb-4 bg-red-50 text-red-800">{{t $l "vol.err.closed"}}</p>{{end}}
+
+  <nav class="mb-4 inline-flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1" aria-label="{{t $l "vol.planning.views"}}">
+    {{range $d.Views}}<a href="{{.URL}}" class="rounded-md px-3 py-1.5 text-sm font-medium {{if .On}}bg-surface text-gray-900 shadow-sm{{else}}text-gray-600 hover:text-gray-900{{end}}" {{if .On}}aria-current="page"{{end}}>{{t $l .Label}}</a>{{end}}
   </nav>
-</div>
-<p class="mb-6 flex flex-wrap gap-2 text-xs">
-  <span class="badge bg-green-100 text-green-800">{{t $l "vol.coord.legend_full"}}</span>
-  <span class="badge bg-amber-100 text-amber-800">{{t $l "vol.coord.legend_short"}}</span>
-  <span class="badge bg-red-100 text-red-800">{{t $l "vol.coord.legend_empty"}}</span>
-</p>
-{{range $d.Days}}
-<section class="mb-8">
-  <h2 class="mb-2 text-sm font-semibold text-gray-700"><span class="inline-block first-letter:uppercase">{{dayKeyName $l .Day}}</span> <span class="font-normal text-gray-500">· {{t $l "vol.coord.day_filled" .Filled .Capacity}}</span></h2>
-  <div class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{dayKeyName $l .Day}}">
-  <table class="table">
-    <tbody>
-    {{range .Rows}}
-    <tr class="pole-c{{.Pole.Color}}">
-      <th scope="row" class="w-56 !normal-case !tracking-normal" style="border-left: 3px solid var(--pole)">
-        <a class="text-sm font-semibold text-gray-900 hover:underline" href="{{.Pole.ManageURL}}">{{.Pole.Name}}</a>{{with .Location}}<span class="font-normal text-gray-500"> · {{.}}</span>{{end}}
-        <br><span class="font-normal text-gray-500">{{.Filled}}/{{.Capacity}}</span></th>
-      <td>
-        <div class="flex flex-wrap gap-1.5">
-        {{range .Slots}}<a href="{{.ManageURL}}" class="badge whitespace-nowrap py-1 {{if .IsFull}}bg-green-100 text-green-800{{else if eq .Filled 0}}bg-red-100 text-red-800{{else}}bg-amber-100 text-amber-800{{end}}" title="{{with .Title}}{{.}} · {{end}}{{tn $l "vol.slot.filled_sr" .Filled .Capacity}}">{{clock .StartsAt}}–{{clock .EndsAt}} <strong class="ml-1">{{.Filled}}/{{.Capacity}}</strong></a>{{end}}
-        </div>
-      </td>
-    </tr>
+  {{with $d.PoleLinks}}
+  <nav class="mb-2 flex flex-wrap gap-2 text-sm" aria-label="{{t $l "vol.planning.by_pole"}}">
+    {{range .}}<a href="{{.URL}}" class="filter {{with .Pole}}pole-c{{.Color}}{{end}} {{if .On}}filter-on{{end}}" {{if .On}}aria-current="true"{{end}}>{{if .Label}}{{t $l .Label}}{{else}}{{.Name}}{{end}}</a>{{end}}
+  </nav>
+  {{end}}
+  {{with $d.DayLinks}}
+  <nav class="mb-6 flex flex-wrap gap-2 text-sm" aria-label="{{t $l "vol.planning.by_day"}}">
+    {{range .}}<a href="{{.URL}}" class="filter first-letter:uppercase {{if .On}}filter-on{{end}}" {{if .On}}aria-current="true"{{end}}>{{if .Label}}{{t $l .Label}}{{else}}{{dayKeyName $l .Day}}{{if eq .Day $d.Today}} · {{t $l "vol.me.today"}}{{end}}{{end}}</a>{{end}}
+  </nav>
+  {{end}}
+
+  {{range $d.Days}}
+  <section class="mb-8">
+    <h2 class="mb-3 text-lg font-semibold"><span class="inline-block first-letter:uppercase {{if eq .Day $d.Today}}text-brand-700{{end}}">{{dayKeyName $l .Day}}{{if eq .Day $d.Today}} · {{t $l "vol.me.today"}}{{end}}</span>
+      <span class="text-sm font-normal text-gray-500">· {{t $l "vol.coord.day_filled" .Filled .Capacity}}</span></h2>
+    {{range .Poles}}
+    <div class="pole-c{{.Pole.Color}} mb-5">
+      <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold">
+        <span class="h-4 w-1 rounded-full" style="background: var(--pole)" aria-hidden="true"></span>
+        <a class="text-gray-900 hover:underline" href="{{.Pole.URL}}">{{.Pole.Name}}</a>
+        {{if .Manage}}<a class="link text-xs font-normal" href="{{.Pole.ManageURL}}">{{t $l "vol.planning.manage"}}</a>{{end}}
+      </h3>
+      <div class="space-y-2">{{range .Slots}}{{template "slot_card" .Card}}{{end}}</div>
+    </div>
     {{end}}
-    </tbody>
-  </table>
+  </section>
+  {{else}}
+  <p class="text-sm text-gray-600">{{if eq $d.View "mine"}}{{t $l "vol.me.empty"}} <a class="link" href="{{$d.OpenURL}}">{{t $l "vol.home.open_link"}}</a>{{else if eq $d.View "open"}}{{t $l "vol.open.none"}}{{else}}{{t $l "vol.coord.no_slots"}}{{end}}</p>
+  {{end}}
+
+  {{if eq $d.View "mine"}}
+  {{template "waiting_list" (dict "Lang" $l "Slots" $d.Waiting)}}
+  {{/* A downloaded file goes stale as soon as a manager moves a slot; the
+       subscription keeps the volunteer's calendar right on its own. */}}
+  <details class="card mt-8">
+    <summary class="cursor-pointer font-semibold">{{t $l "vol.me.calendar_title"}} <span class="font-normal text-gray-500">— {{t $l "vol.me.calendar_sub"}}</span></summary>
+    <p class="help mt-3">{{t $l "vol.me.calendar_help"}}</p>
+    <div class="mt-3 flex gap-2">
+      <label for="calendar-url" class="sr-only">{{t $l "vol.me.calendar_label"}}</label>
+      <input id="calendar-url" class="input font-mono text-xs" type="text" readonly value="{{$d.CalendarURL}}" data-select-on-focus>
+      <button type="button" class="btn-secondary btn-sm shrink-0" data-copy="#calendar-url" data-copied="{{t $l "vol.copied"}}">{{t $l "vol.copy"}}</button>
+    </div>
+    <p class="help mt-2">{{t $l "vol.me.calendar_private"}}</p>
+    <form method="post" action="/volunteers/{{$e.Slug}}/me/calendar/reset" class="mt-2" data-confirm="{{t $l "vol.me.calendar_reset_confirm"}}">
+      <button class="link text-sm">{{t $l "vol.me.calendar_reset"}}</button>
+    </form>
+    <p class="help mt-2">{{t $l "vol.me.calendar_download"}} <a class="link" href="/volunteers/{{$e.Slug}}/me.ics">{{t $l "vol.me.calendar_file"}}</a></p>
+  </details>
+  {{end}}
+</div>
+
+{{/* On paper, the roster: a day per page, each headed with what it is,
+     boxes to tick on the day and blank lines for the free places. Phone
+     numbers only on the poles the reader runs. */}}
+<div class="hidden print:block">
+{{range $i, $day := $d.Days}}
+<section class="{{if $i}}break-before-page{{end}}">
+  <p class="mb-1 flex justify-between gap-4 text-xs text-gray-500"><span>{{$e.Name}} · {{t $l "vol.planning.title"}} · {{$scope}}</span><span>{{t $l "vol.roster.internal_short"}} · {{t $l "vol.roster.printed_short" (dayName $l $d.Printed) (clock $d.Printed)}}</span></p>
+  <h2 class="mb-3 text-lg font-semibold"><span class="inline-block first-letter:uppercase">{{dayKeyName $l .Day}}</span> <span class="text-sm font-normal text-gray-500">· {{t $l "vol.coord.day_filled" .Filled .Capacity}}</span></h2>
+  {{range .Poles}}{{$manage := .Manage}}
+  <div class="pole-c{{.Pole.Color}} mb-6">
+    <h3 class="mb-2 break-after-avoid border-l-4 pl-2 font-semibold" style="border-color: var(--pole)">{{.Pole.Name}}</h3>
+    <table class="table">
+      <thead><tr><th class="w-28">{{t $l "vol.roster.col_time"}}</th><th class="w-2/5">{{t $l "vol.roster.col_slot"}}</th><th>{{t $l "vol.roster.col_people"}}</th></tr></thead>
+      <tbody>
+      {{range .Slots}}{{$sl := .Slot}}
+      <tr class="break-inside-avoid">
+        <td class="!align-top font-semibold whitespace-nowrap tabular-nums">{{clock $sl.StartsAt}}–{{clock $sl.EndsAt}}</td>
+        <td class="!align-top">
+          {{with $sl.LocationName}}<strong>{{.}}</strong>{{end}}{{with $sl.Title}}{{if $sl.LocationName}} · {{end}}{{.}}{{end}}{{if not (or $sl.LocationName $sl.Title)}}<span class="text-gray-400">{{t $l "vol.slot_form.whole_pole"}}</span>{{end}}
+          {{with .Tasks}}<ul class="mt-1 list-disc pl-4 text-xs text-gray-600">{{range .}}<li>{{.Label}}</li>{{end}}</ul>{{end}}
+        </td>
+        <td class="!align-top">
+          <ul class="space-y-1.5">
+            {{range .People}}<li class="flex items-center gap-2"><span class="roster-box" aria-hidden="true"></span><span><span class="font-medium text-gray-900">{{.Label}}</span>{{if and $manage .Phone}} <span class="text-gray-600 tabular-nums">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
+            {{range seq .Free}}<li class="flex items-center gap-2" aria-hidden="true"><span class="roster-box"></span><span class="roster-blank"></span></li>{{end}}
+          </ul>
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
   </div>
+  {{end}}
 </section>
-{{else}}
-<p class="text-sm text-gray-600">{{if $d.OnlyShort}}{{t $l "vol.pole.summary_full"}}.{{else}}{{t $l "vol.coord.no_slots"}}{{end}}</p>
 {{end}}
+</div>
 {{end}}

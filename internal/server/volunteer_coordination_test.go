@@ -121,8 +121,10 @@ func TestCoordination(t *testing.T) {
 	}
 
 	// Planning and volunteers.
+	// The planning moved out of the coordination: its old address leads to
+	// the planning of every pole, with the links to edit the slots.
 	_, body = e.get(coco, base+"/planning")
-	mustContain(t, body, "Planning global", "Buvette", `href="`+f.morning.ManageURL()+`"`)
+	mustContain(t, body, "Tous les pôles", "Buvette", `href="`+f.morning.ManageURL()+`"`, "Modifier le créneau")
 
 	_, body = e.post(coco, base+"/volunteers", url.Values{"name": {"Paul"}, "email": {"paul@example.org"}, "phone": {"0600000000"}, "pole": {f.accueil.Slug}})
 	mustContain(t, body, "Paul est enregistré·e, dans le pôle « Accueil ».", "paul@example.org", "06 00 00 00 00")

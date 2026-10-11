@@ -238,9 +238,10 @@ func (s *Store) ListPersonSlots(ctx context.Context, eventID, personID int64) ([
 		WHERE p.event_id = ? ORDER BY s.starts_at`, personID, eventID)
 }
 
-// ListEventSlots returns every slot of an edition, for the global planning.
-func (s *Store) ListEventSlots(ctx context.Context, eventID int64) ([]*Slot, error) {
-	return s.querySlots(ctx, 0, `WHERE p.event_id = ? ORDER BY s.starts_at, p.position, l.position, s.id`, eventID)
+// ListEventSlots returns every slot of an edition, for the planning, with
+// Mine computed for personID (0 for nobody).
+func (s *Store) ListEventSlots(ctx context.Context, eventID, personID int64) ([]*Slot, error) {
+	return s.querySlots(ctx, personID, `WHERE p.event_id = ? ORDER BY s.starts_at, p.position, l.position, s.id`, eventID)
 }
 
 // ListOpenSlots returns the slots of an edition starting after from that

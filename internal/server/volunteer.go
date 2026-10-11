@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"time"
 
@@ -36,8 +35,9 @@ func (s *Server) volunteerRoutes(mux *http.ServeMux) {
 	vol("POST /volunteers/profile/gravatar", s.profileGravatar)
 
 	vol("GET /volunteers/{event}", s.eventHome)
-	vol("GET /volunteers/{event}/slots", s.openSlots)
-	vol("GET /volunteers/{event}/me", s.myPlanning)
+	vol("GET /volunteers/{event}/planning", s.planningPage)
+	vol("GET /volunteers/{event}/slots", s.redirectPlanning("open"))
+	vol("GET /volunteers/{event}/me", s.redirectPlanning("mine"))
 	vol("GET /volunteers/{event}/me.ics", s.myPlanningICS)
 	vol("POST /volunteers/{event}/me/calendar/reset", s.calendarReset)
 
@@ -475,153 +475,6 @@ func groupByDay(slots []*store.Slot) []*slotDay {
 	return out
 }
 
-// openSlots answers "where am I needed?": many volunteers want to help on a
-// given day more than in a given pole. Only slots the volunteer can take
-// are listed: poles they belong to, and public poles, which a sign-up joins
-// on the way.
-func (s *Server) openSlots(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-	person := rc(r).Person
-
-	e, err := s.volunteerEvent(r)
-	if err != nil {
-		return err
-	}
-
-	poles, err := s.store.ListPoles(ctx, e.ID)
-	if err != nil {
-		return err
-	}
-
-	members, err := s.store.MemberPoleIDs(ctx, e.ID, person.ID)
-	if err != nil {
-		return err
-	}
-
-	now := time.Now()
-	takeable := map[int64]*store.Pole{}
-
-	for _, p := range poles {
-		if (members[p.ID] || p.IsOpen()) && !e.SignupsLocked(p.FreezeAt, now) {
-			takeable[p.ID] = p
-		}
-	}
-
-	slots, err := s.store.ListOpenSlots(ctx, e.ID, person.ID, now)
-	if err != nil {
-		return err
-	}
-
-	type card struct {
-		Slot   *store.Slot
-		Pole   *store.Pole
-		Member bool
-	}
-
-	type day struct {
-		Day   string
-		Cards []card
-	}
-
-	var (
-		days     []*day
-		dayKeys  []string
-		polesSet = map[int64]bool{}
-		poleList []*store.Pole
-	)
-
-	filter := r.URL.Query().Get("day")
-	poleFilter := r.URL.Query().Get("pole")
-
-	for _, sl := range slots {
-		p, ok := takeable[sl.PoleID]
-		if !ok {
-			continue
-		}
-
-		// The filters offer what there is: the days and the poles with
-		// slots still to fill.
-		if !polesSet[p.ID] {
-			polesSet[p.ID] = true
-			poleList = append(poleList, p)
-		}
-
-		if poleFilter != "" && p.Slug != poleFilter {
-			continue
-		}
-
-		key := dayKey(sl.StartsAt)
-		if len(dayKeys) == 0 || dayKeys[len(dayKeys)-1] != key {
-			dayKeys = append(dayKeys, key)
-		}
-
-		if filter != "" && key != filter {
-			continue
-		}
-
-		if len(days) == 0 || days[len(days)-1].Day != key {
-			days = append(days, &day{Day: key})
-		}
-
-		days[len(days)-1].Cards = append(days[len(days)-1].Cards, card{Slot: sl, Pole: p, Member: members[p.ID]})
-	}
-
-	query := url.Values{}
-	if filter != "" {
-		query.Set("day", filter)
-	}
-
-	if poleFilter != "" {
-		query.Set("pole", poleFilter)
-	}
-
-	back := "/volunteers/" + e.Slug + "/slots"
-	if len(query) > 0 {
-		back += "?" + query.Encode()
-	}
-
-	slices.SortFunc(poleList, func(a, b *store.Pole) int { return a.Position - b.Position })
-
-	p := s.page(r, "vol.open.title")
-	p.D = map[string]any{"Event": e, "Days": days, "DayKeys": dayKeys, "Filter": filter, "Back": back,
-		"Poles": poleList, "PoleFilter": poleFilter, "Locked": e.VolunteerStatus != store.VolunteersOpen}
-
-	return s.render(w, r, "volunteer/open_slots", p)
-}
-
-func (s *Server) myPlanning(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-	person := rc(r).Person
-
-	e, err := s.volunteerEvent(r)
-	if err != nil {
-		return err
-	}
-
-	slots, err := s.store.ListPersonSlots(ctx, e.ID, person.ID)
-	if err != nil {
-		return err
-	}
-
-	waiting, err := s.upcomingWaitlist(r, e.ID)
-	if err != nil {
-		return err
-	}
-
-	// The subscription secret is created on the first visit of this page,
-	// so a person who never opens it never gets one.
-	token, err := s.store.CalendarToken(ctx, person.ID)
-	if err != nil {
-		return err
-	}
-
-	p := s.page(r, "vol.me.title")
-	p.D = map[string]any{"Event": e, "Days": groupByDay(slots), "Today": dayKey(time.Now()), "Waiting": waiting,
-		"Count": len(slots), "CalendarURL": s.cfg.BaseURL + "/calendar/" + token + ".ics"}
-
-	return s.render(w, r, "volunteer/me", p)
-}
-
 // calendarFor renders the slots of a person in an edition as an iCalendar
 // document. UIDs are stable per slot and person, so a calendar that reads
 // the feed again updates its entries instead of duplicating them.
@@ -739,7 +592,7 @@ func (s *Server) calendarReset(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	s.flash(w, "flash.vol.calendar_reset")
-	http.Redirect(w, r, "/volunteers/"+e.Slug+"/me", http.StatusSeeOther)
+	http.Redirect(w, r, planningURL(e)+"?view=mine", http.StatusSeeOther)
 
 	return nil
 }

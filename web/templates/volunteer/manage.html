@@ -30,7 +30,7 @@
 </nav>
 
 {{if eq $d.Tab "planning"}}
-  {{if $d.SlotCount}}<p class="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm"><a class="link" href="{{$pole.ManageURL}}/roster">{{t $l "vol.roster.link"}}</a><a class="link" href="{{$pole.ManageURL}}/signups.csv">{{t $l "vol.roster.csv"}}</a></p>{{end}}
+  {{if $d.SlotCount}}<p class="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm"><a class="link" href="/volunteers/{{$e.Slug}}/planning?pole={{$pole.Slug}}&amp;day=all">{{t $l "vol.planning.link_pole"}}</a><a class="link" href="{{$pole.ManageURL}}/signups.csv">{{t $l "vol.planning.csv"}}</a></p>{{end}}
   {{if $d.Urgent}}<p class="help mb-4">{{t $l "vol.manage.urgent_help"}}</p>{{end}}
   {{range $d.Days}}
   <section class="mb-8">

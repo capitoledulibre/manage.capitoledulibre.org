@@ -68,7 +68,7 @@ func TestVolunteerUX(t *testing.T) {
 	mustContain(t, body, "Tous les pôles", "?pole=accueil", "bientôt")
 
 	_, body = e.get(nina, home+"/slots?pole=accueil")
-	mustContain(t, body, "Accueil – Badges")
+	mustContain(t, body, ">Accueil</a>", "Badges")
 
 	if strings.Contains(body, "Buvette") && strings.Contains(body, `href="`+f.tomorrow.URL()+`"`) {
 		t.Error("the pole filter keeps other poles")

@@ -12,7 +12,7 @@
   {{/* A big "0" greeted every newcomer: the count only shows once there is
        something to count. */}}
   {{with $d.MySlots}}
-  <a href="/volunteers/{{$e.Slug}}/me" class="rounded-lg bg-surface px-4 py-2 text-center shadow-sm ring-1 ring-gray-200 hover:bg-gray-50">
+  <a href="/volunteers/{{$e.Slug}}/planning?view=mine" class="rounded-lg bg-surface px-4 py-2 text-center shadow-sm ring-1 ring-gray-200 hover:bg-gray-50">
     <span class="block text-2xl font-bold">{{len .}}</span>
     <span class="text-xs text-gray-600">{{tn $l "vol.home.my_count" (len .)}}</span>
   </a>
@@ -63,13 +63,13 @@
     </li>
     {{end}}
   </ul>
-  <p class="help mt-4">{{t $l "vol.home.returning_other"}} <a class="link" href="/volunteers/{{$e.Slug}}/slots">{{t $l "vol.home.open_link"}}</a></p>
+  <p class="help mt-4">{{t $l "vol.home.returning_other"}} <a class="link" href="/volunteers/{{$e.Slug}}/planning?view=open">{{t $l "vol.home.open_link"}}</a></p>
 </section>
 {{else if not $d.Joined}}
 <section class="card mb-8">
   <h2 class="card-title">{{t $l "vol.home.steps_title"}}</h2>
   <ol class="list-decimal space-y-2 pl-5 text-sm text-gray-700">
-    <li>{{t $l "vol.home.step1"}} <a class="link" href="/volunteers/{{$e.Slug}}/slots">{{t $l "vol.home.open_link"}}</a></li>
+    <li>{{t $l "vol.home.step1"}} <a class="link" href="/volunteers/{{$e.Slug}}/planning?view=open">{{t $l "vol.home.open_link"}}</a></li>
     <li>{{t $l "vol.home.step2"}}</li>
   </ol>
   <p class="help mt-3">{{with $e.VolunteerFreezeAt}}{{t $l "vol.home.until" (deadline $l .)}}{{else}}{{t $l "vol.home.while_open"}}{{end}}</p>
@@ -80,12 +80,12 @@
 <section class="mb-8">
   <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
     <h2 class="text-lg font-semibold">{{t $l "vol.home.upcoming"}}</h2>
-    <a class="link text-sm" href="/volunteers/{{$e.Slug}}/me">{{t $l "vol.home.all_planning"}} →</a>
+    <a class="link text-sm" href="/volunteers/{{$e.Slug}}/planning?view=mine">{{t $l "vol.home.all_planning"}} →</a>
   </div>
   {{with $d.Upcoming}}
   <div class="space-y-2">{{range .}}{{template "slot_row" (dict "Lang" $l "Slot" . "ShowDay" true)}}{{end}}</div>
   {{else}}{{if not $d.Focus}}
-  <p class="text-sm text-gray-600">{{t $l "vol.home.no_upcoming"}} <a class="link" href="/volunteers/{{$e.Slug}}/slots">{{t $l "vol.home.open_link"}}</a></p>
+  <p class="text-sm text-gray-600">{{t $l "vol.home.no_upcoming"}} <a class="link" href="/volunteers/{{$e.Slug}}/planning?view=open">{{t $l "vol.home.open_link"}}</a></p>
   {{else}}
   <p class="text-sm text-gray-600">{{t $l "vol.home.nothing_after"}}</p>
   {{end}}{{end}}
@@ -95,7 +95,7 @@
 
 <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
   <h2 class="text-lg font-semibold">{{t $l "vol.home.poles"}}</h2>
-  {{if eq $e.VolunteerStatus "open"}}<a class="link text-sm" href="/volunteers/{{$e.Slug}}/slots">{{t $l "vol.home.all_open"}} →</a>{{end}}
+  {{if eq $e.VolunteerStatus "open"}}<a class="link text-sm" href="/volunteers/{{$e.Slug}}/planning?view=open">{{t $l "vol.home.all_open"}} →</a>{{end}}
 </div>
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {{range $d.Poles}}

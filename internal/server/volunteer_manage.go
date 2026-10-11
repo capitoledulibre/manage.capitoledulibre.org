@@ -52,7 +52,7 @@ func (s *Server) poleManageRoutes(mux *http.ServeMux) {
 	m("POST "+base+"/slots/{slot}/volunteers/{person}/delete", s.manageSlotRemoveVolunteer)
 	m("POST "+base+"/tasks/{task}/delete", s.manageTaskDelete)
 	m("POST "+base+"/days/copy", s.manageDayCopy)
-	m("GET "+base+"/roster", s.manageRoster)
+	m("GET "+base+"/roster", s.redirectPlanning(""))
 	m("GET "+base+"/signups.csv", s.manageSignupsCSV)
 
 	s.generateRoutes(m)

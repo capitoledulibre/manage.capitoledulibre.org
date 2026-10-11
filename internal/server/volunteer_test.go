@@ -283,11 +283,13 @@ func TestVolunteerSignupFlow(t *testing.T) {
 	_, body = e.get(omar, f.morning.URL())
 	mustContain(t, body, "Allumer la machine", "Lou Lead", "Une question, un empêchement")
 
+	// The old addresses of "my schedule" and "open slots" lead to the views
+	// of the planning.
 	_, body = e.get(omar, "/volunteers/"+f.event.Slug+"/me")
-	mustContain(t, body, "Mon planning", "Buvette – Café", "/calendar/")
+	mustContain(t, body, `aria-current="page">Mes créneaux`, "Buvette", "Café", "/calendar/")
 
 	_, body = e.get(nina, "/volunteers/"+f.event.Slug+"/slots")
-	mustContain(t, body, "Où a-t-on besoin de vous", "Buvette")
+	mustContain(t, body, `aria-current="page">À pourvoir`, "Buvette")
 
 	omarP, _ := e.st.PersonByEmail(ctx, "omar@example.org")
 	token, _ := e.st.CalendarToken(ctx, omarP.ID)
@@ -429,7 +431,7 @@ func TestVolunteerPagesInEnglish(t *testing.T) {
 	e.get(nina, "/lang/en")
 
 	_, body := e.get(nina, "/volunteers/"+f.event.Slug)
-	mustContain(t, body, "Hello Nina", "Teams", "by invitation", "My schedule")
+	mustContain(t, body, "Hello Nina", "Teams", "by invitation", "Schedule")
 
 	_, body = e.post(nina, f.morning.URL()+"/signup", url.Values{"back": {f.buvette.URL()}})
 	mustContain(t, body, "Signed up", "You joined the “Buvette” team.")

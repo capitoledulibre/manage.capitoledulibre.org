@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -37,10 +36,10 @@ func (s *Server) coordinationRoutes(mux *http.ServeMux) {
 	c("POST "+base+"/poles/{pole}/copy", s.coordinationPoleCopy)
 	c("POST "+base+"/messages", s.coordinationMessage)
 	c("POST "+base+"/messages/{message}/delete", s.coordinationMessageDelete)
-	c("GET "+base+"/planning", s.coordinationPlanning)
+	c("GET "+base+"/planning", s.redirectPlanning(""))
 	c("GET "+base+"/volunteers", s.coordinationVolunteers)
 	c("GET "+base+"/volunteers.csv", s.coordinationVolunteersCSV)
-	c("GET "+base+"/roster", s.coordinationRoster)
+	c("GET "+base+"/roster", s.redirectPlanning(""))
 	c("GET "+base+"/signups.csv", s.coordinationSignupsCSV)
 	c("POST "+base+"/volunteers", s.coordinationVolunteerAdd)
 	c("POST "+base+"/volunteers/{person}/join", s.coordinationVolunteerJoin)
@@ -520,102 +519,6 @@ func (s *Server) coordinationMessageDelete(w http.ResponseWriter, r *http.Reques
 	}
 
 	return s.redirectCoordination(w, r, e, "messages")
-}
-
-// --- global planning --------------------------------------------------------
-
-// planningRow is a line of the global planning: a pole, or a place of it.
-type planningRow struct {
-	Pole     *store.Pole
-	Location string
-	Slots    []*store.Slot
-	Capacity int
-	Filled   int
-}
-
-type planningDay struct {
-	Day      string
-	Rows     []*planningRow
-	Capacity int
-	Filled   int
-}
-
-func (s *Server) coordinationPlanning(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
-	e, err := s.coordinationEvent(r)
-	if err != nil {
-		return err
-	}
-
-	slots, err := s.store.ListEventSlots(ctx, e.ID)
-	if err != nil {
-		return err
-	}
-
-	poles, err := s.store.ListPoles(ctx, e.ID)
-	if err != nil {
-		return err
-	}
-
-	byID := map[int64]*store.Pole{}
-	order := map[int64]int{}
-
-	for i, p := range poles {
-		byID[p.ID], order[p.ID] = p, i
-	}
-
-	onlyShort := r.URL.Query().Get("short") == "1"
-
-	var days []*planningDay
-
-	for _, sl := range slots {
-		if onlyShort && sl.IsFull() {
-			continue
-		}
-
-		key := dayKey(sl.StartsAt)
-		if len(days) == 0 || days[len(days)-1].Day != key {
-			days = append(days, &planningDay{Day: key})
-		}
-
-		d := days[len(days)-1]
-
-		var row *planningRow
-
-		for _, x := range d.Rows {
-			if x.Pole.ID == sl.PoleID && x.Location == sl.LocationName {
-				row = x
-			}
-		}
-
-		if row == nil {
-			row = &planningRow{Pole: byID[sl.PoleID], Location: sl.LocationName}
-			d.Rows = append(d.Rows, row)
-		}
-
-		row.Slots = append(row.Slots, sl)
-		row.Capacity += sl.Capacity
-		row.Filled += sl.Filled
-		d.Capacity += sl.Capacity
-		d.Filled += sl.Filled
-	}
-
-	// The pole order of the edition, inside each day.
-	for _, d := range days {
-		slices.SortStableFunc(d.Rows, func(a, b *planningRow) int {
-			if a.Pole.ID != b.Pole.ID {
-				return order[a.Pole.ID] - order[b.Pole.ID]
-			}
-
-			return strings.Compare(a.Location, b.Location)
-		})
-	}
-
-	p := s.page(r, "vol.coord.planning")
-	p.D = map[string]any{"Event": e, "Days": days, "OnlyShort": onlyShort}
-
-	return s.render(w, r, "volunteer/planning", p)
 }
 
 // --- volunteers -------------------------------------------------------------

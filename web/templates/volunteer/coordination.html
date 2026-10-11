@@ -9,7 +9,7 @@
       <span class="badge {{if eq $e.VolunteerStatus "open"}}bg-green-100 text-green-800{{else if eq $e.VolunteerStatus "frozen"}}bg-amber-100 text-amber-800{{else}}bg-gray-100 text-gray-700{{end}}">{{t $l (printf "vol.status.%s" $e.VolunteerStatus)}}</span></p>
   </div>
   <div class="flex flex-wrap gap-2">
-    <a href="{{$base}}/planning" class="btn">{{t $l "vol.coord.planning"}}</a>
+    <a href="/volunteers/{{$e.Slug}}/planning" class="btn">{{t $l "vol.coord.planning"}}</a>
     <a href="{{$base}}/volunteers" class="btn-secondary">{{t $l "vol.coord.volunteers"}}</a>
   </div>
 </div>
