@@ -456,6 +456,10 @@ func (s *Store) DeletePerson(ctx context.Context, personID int64) ([]int64, erro
 
 		rows.Close()
 
+		if err := forgetInLog(ctx, tx, personID); err != nil {
+			return err
+		}
+
 		_, err = tx.ExecContext(ctx, `DELETE FROM people WHERE id = ?`, personID)
 
 		return err
@@ -519,6 +523,11 @@ func (s *Store) LeaveVolunteering(ctx context.Context, personID int64) (freed []
 
 		if !other {
 			deleted = true
+
+			if err := forgetInLog(ctx, tx, personID); err != nil {
+				return err
+			}
+
 			_, err := tx.ExecContext(ctx, `DELETE FROM people WHERE id = ?`, personID)
 
 			return err

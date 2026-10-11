@@ -33,6 +33,31 @@
 {{end}}
 {{end}}
 
+{{/* vol_log lists entries of the volunteer log. Expects Lang, Entries
+     and ShowEvent (the log of a person spans editions). */}}
+{{define "vol_log"}}
+{{$l := .Lang}}
+<p class="help mb-3">{{t $l "vol.log.help"}}</p>
+{{with .Entries}}
+<div class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200">
+<table class="table">
+  <thead><tr><th>{{t $l "vol.log.when"}}</th>{{if $.ShowEvent}}<th>{{t $l "vol.log.edition"}}</th>{{end}}<th>{{t $l "vol.log.what"}}</th></tr></thead>
+  <tbody>
+  {{range .}}
+  <tr>
+    <td class="whitespace-nowrap text-xs text-gray-500 tabular-nums">{{datetime $l .CreatedAt}}</td>
+    {{if $.ShowEvent}}<td class="whitespace-nowrap text-xs">{{.EventName}}</td>{{end}}
+    <td class="text-sm">{{logLine $l .}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{else}}
+<p class="text-sm text-gray-500">{{t $l "vol.log.empty"}}</p>
+{{end}}
+{{end}}
+
 {{/* member_search lists the people matching the search of the "add
      members" box. Expects Lang, Pole, People, Q, Added and Announce. */}}
 {{define "member_search"}}

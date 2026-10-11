@@ -1,0 +1,86 @@
+{{define "content"}}
+{{$d := .D}}{{$p := $d.P}}
+<nav class="mb-3 text-sm" aria-label="Fil d'Ariane"><a class="link" href="{{$d.Back}}">← Personnes</a></nav>
+<div class="mb-6 flex flex-wrap items-center gap-4">
+  {{with $p.AvatarFile}}<img src="/avatars/{{.}}" alt="" class="h-16 w-16 rounded-full object-cover ring-1 ring-gray-200">
+  {{else}}<span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-xl font-semibold text-brand-800" aria-hidden="true">{{$p.Initials}}</span>{{end}}
+  <div class="flex-1">
+    <h1 class="text-2xl font-bold tracking-tight">{{if $p.Name}}{{$p.Name}}{{else}}<span class="text-gray-400">sans nom</span>{{end}}</h1>
+    <p class="text-sm text-gray-600">{{$p.Email}} · inscrit·e le {{date "fr" $p.CreatedAt}} · {{with $p.LastLoginAt}}dernière connexion le {{date "fr" .}}{{else}}jamais connecté·e{{end}}</p>
+    <div class="mt-2 flex flex-wrap gap-1 text-xs">
+      {{if $d.Staff}}<span class="badge bg-brand-50 text-brand-800">Staff</span>{{end}}
+      {{range $d.Coordinated}}<span class="badge bg-blue-100 text-blue-800">Coordination · {{.Name}}</span>{{end}}
+      {{range $d.Orgs}}<a href="/admin/organizations/{{.Slug}}" class="badge bg-gray-100 text-gray-700 hover:underline">Partenaire · {{.Name}}</a>{{end}}
+    </div>
+  </div>
+  <form method="post" action="/admin/people/{{$p.UID}}/send-link" data-confirm="Envoyer à {{$p.Email}} un lien de connexion valable 7 jours ?">
+    <button class="btn-secondary">Envoyer un lien de connexion</button>
+  </form>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-2">
+  <form method="post" action="/admin/people/{{$p.UID}}" class="card space-y-4">
+    <h2 class="card-title">Coordonnées</h2>
+    <div><label class="label" for="name">Nom</label><input class="input" id="name" name="name" value="{{$p.Name}}" maxlength="200"></div>
+    <div>
+      <label class="label" for="email">Adresse e-mail</label>
+      <input class="input{{if $d.Staff}} bg-gray-50 text-gray-500{{end}}" id="email" type="email" name="email" value="{{$p.Email}}" required {{if $d.Staff}}disabled{{end}}>
+      <p class="help">{{if $d.Staff}}L'adresse d'un membre du staff vient de la connexion staff et ne se change pas ici.{{else}}Changer l'adresse déconnecte la personne&nbsp;: elle se reconnectera avec la nouvelle.{{end}}</p>
+    </div>
+    <div><label class="label" for="phone">Téléphone</label><input class="input" id="phone" type="tel" name="phone" value="{{$p.Phone}}" maxlength="40"></div>
+    {{template "lang_picker" (dict "Name" "lang" "Selected" $p.Lang "Label" "Langue des e-mails")}}
+    <button class="btn">Enregistrer</button>
+  </form>
+
+  <section class="card">
+    <h2 class="card-title">Pôles</h2>
+    {{with $d.Poles}}
+    <ul class="space-y-2 text-sm">
+      {{range .}}
+      <li class="flex flex-wrap items-center gap-2">
+        <span class="text-gray-500">{{.EventName}}</span>
+        <a class="link" href="{{.Pole.ManageURL}}">{{.Pole.Name}}</a>
+        {{if .Lead}}<span class="badge bg-brand-50 text-brand-800">responsable</span>{{end}}
+      </li>
+      {{end}}
+    </ul>
+    {{else}}<p class="text-sm text-gray-500">Aucun pôle.</p>{{end}}
+  </section>
+</div>
+
+<section class="mt-8">
+  <h2 class="mb-3 text-lg font-semibold">Inscriptions <span class="font-normal text-gray-500">({{len $d.Slots}})</span></h2>
+  {{with $d.Slots}}
+  <div class="card overflow-x-auto p-0">
+  <table class="table">
+    <thead><tr><th>Quand</th><th>Pôle</th><th>Créneau</th></tr></thead>
+    <tbody>
+    {{range .}}
+    <tr>
+      <td class="whitespace-nowrap"><a class="link" href="{{.ManageURL}}"><span class="inline-block first-letter:uppercase">{{dayName "fr" .StartsAt}}</span> · {{clock .StartsAt}}–{{clock .EndsAt}}</a></td>
+      <td>{{.PoleName}}</td>
+      <td>{{with .Title}}{{.}}{{else}}{{with .LocationName}}{{.}}{{else}}<span class="text-gray-400">—</span>{{end}}{{end}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{else}}<p class="text-sm text-gray-500">Aucune inscription.</p>{{end}}
+</section>
+
+<section class="mt-8">
+  <h2 class="mb-3 text-lg font-semibold">Historique</h2>
+  {{template "vol_log" (dict "Lang" "fr" "Entries" $d.History "ShowEvent" true)}}
+</section>
+
+{{if and (not $d.Staff) (not $d.Me)}}
+<section class="mt-10 rounded-lg p-4 ring-1 ring-red-200">
+  <form method="post" action="/admin/people/{{$p.UID}}/delete" class="flex flex-wrap items-center justify-between gap-3"
+        data-confirm="Supprimer {{$p.Label}} et tout ce qui s'y rattache{{if $d.Orgs}} (contact de {{range $i, $o := $d.Orgs}}{{if $i}}, {{end}}{{$o.Name}}{{end}}){{end}}, sur toutes les éditions ?">
+    <input type="hidden" name="back" value="{{$d.Back}}">
+    <span class="text-sm text-gray-700">Supprimer cette personne, ses inscriptions et ses rôles de contact partenaire.</span>
+    <button class="btn-danger">Supprimer</button>
+  </form>
+</section>
+{{end}}
+{{end}}

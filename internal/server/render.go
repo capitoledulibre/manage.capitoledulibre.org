@@ -175,6 +175,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *
 var errorFlashes = map[string]bool{
 	"flash.upload_bad_logo": true, "flash.upload_bad_pdf": true, "flash.upload_too_large": true, "flash.upload_missing": true,
 	"flash.last_manager": true, "flash.invalid_email": true, "flash.confirm_mismatch": true, "flash.person_staff": true,
+	"flash.person_email_taken": true,
 }
 
 // errorFlash tells whether a flash key reports a failure: one of
@@ -360,6 +361,7 @@ var funcs = template.FuncMap{
 	"tn":         plural,
 	"named":      named,
 	"hasPrefix":  strings.HasPrefix,
+	"logLine":    logLine,
 	"in":         func(list []string, v string) bool { return slices.Contains(list, v) },
 	// minutes renders a duration as "30 min", "2 h" or "1 h 30".
 	"minutes": func(n int) string {

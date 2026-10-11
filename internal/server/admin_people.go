@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"manage/internal/i18n"
+	"manage/internal/mail"
 	"manage/internal/store"
 )
 
@@ -123,6 +125,146 @@ func (s *Server) adminPersonDelete(w http.ResponseWriter, r *http.Request) error
 	s.dropFile(r, p.AvatarFile)
 	s.flash(w, "flash.person_deleted", p.Label())
 	http.Redirect(w, r, back, http.StatusSeeOther)
+
+	return nil
+}
+
+// adminPerson is the page of a person: what they are on the site, their
+// sign-ups and history, and their details to correct.
+func (s *Server) adminPerson(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	p, err := s.pathPerson(r)
+	if err != nil {
+		return err
+	}
+
+	staff, err := s.store.IsStaff(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+
+	orgs, err := s.store.PersonOrganizations(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+
+	poles, err := s.store.ListPersonPoles(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+
+	coordinated, err := s.store.ListCoordinatedEvents(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+
+	slots, err := s.store.ListAllPersonSlots(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+
+	history, err := s.store.ListPersonLog(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+
+	page := s.page(r, "Personne")
+	page.TitleText = p.Label()
+	page.D = map[string]any{
+		"P": p, "Staff": staff, "Orgs": orgs, "Poles": poles, "Coordinated": coordinated, "Slots": slots,
+		"History": history, "Me": rc(r).Admin.PersonID == p.ID, "Back": safeRedirect(r.URL.Query().Get("back"), "/admin/people"),
+	}
+
+	return s.render(w, r, "admin/person", page)
+}
+
+func personURL(p *store.Person) string { return "/admin/people/" + p.UID }
+
+// adminPersonSave corrects the details of a person. A new address logs them
+// out, as for a partner contact: the old one may not be theirs any more. A
+// staff member's address comes from the staff login and stays.
+func (s *Server) adminPersonSave(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	p, err := s.pathPerson(r)
+	if err != nil {
+		return err
+	}
+
+	staff, err := s.store.IsStaff(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+
+	oldEmail := p.Email
+
+	p.Name = strings.TrimSpace(r.FormValue("name"))
+	p.Phone = strings.TrimSpace(r.FormValue("phone"))
+	p.Lang = r.FormValue("lang")
+
+	if !staff {
+		p.Email = store.NormalizeEmail(r.FormValue("email"))
+	}
+
+	if !validEmail(p.Email) || len(p.Name) > 200 || len(p.Phone) > 40 {
+		s.flash(w, "flash.invalid_email")
+		http.Redirect(w, r, personURL(p), http.StatusSeeOther)
+
+		return nil
+	}
+
+	switch err := s.store.UpdatePerson(ctx, p); {
+	case errors.Is(err, store.ErrDuplicate):
+		s.flash(w, "flash.person_email_taken", p.Email)
+		http.Redirect(w, r, personURL(p), http.StatusSeeOther)
+
+		return nil
+	case errors.Is(err, store.ErrBadInput):
+		return errBadInput
+	case err != nil:
+		return err
+	}
+
+	if p.Email != oldEmail {
+		if err := s.store.DeletePersonSessions(ctx, p.ID); err != nil {
+			return err
+		}
+
+		s.flash(w, "flash.person_email_changed")
+	} else {
+		s.flash(w, "flash.saved")
+	}
+
+	http.Redirect(w, r, personURL(p), http.StatusSeeOther)
+
+	return nil
+}
+
+// adminPersonSendLink e-mails a person a login link, valid seven days, for
+// someone who cannot find theirs or never asked for one.
+func (s *Server) adminPersonSendLink(w http.ResponseWriter, r *http.Request) error {
+	p, err := s.pathPerson(r)
+	if err != nil {
+		return err
+	}
+
+	token, err := s.store.CreateMagicToken(r.Context(), p.Email, inviteTokenTTL)
+	if err != nil {
+		return err
+	}
+
+	err = s.mailer.Send(mail.Message{
+		To:      []string{p.Email},
+		Subject: i18n.T(p.Lang, "mail.link.subject"),
+		Body:    i18n.T(p.Lang, "mail.link.body", s.cfg.BaseURL+"/auth/"+token),
+	})
+	if err != nil {
+		return err
+	}
+
+	s.flash(w, "flash.link_sent", p.Email)
+	http.Redirect(w, r, personURL(p), http.StatusSeeOther)
 
 	return nil
 }

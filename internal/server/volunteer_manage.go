@@ -173,8 +173,16 @@ func (s *Server) managePole(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	tab := r.URL.Query().Get("tab")
-	if tab != "members" && tab != "messages" && tab != "settings" {
+	if tab != "members" && tab != "messages" && tab != "settings" && tab != "history" {
 		tab = "planning"
+	}
+
+	var history []*store.LogEntry
+
+	if tab == "history" {
+		if history, err = s.store.ListPoleLog(ctx, v.Pole.ID); err != nil {
+			return err
+		}
 	}
 
 	p := s.page(r, "vol.manage.title")
@@ -185,7 +193,7 @@ func (s *Server) managePole(w http.ResponseWriter, r *http.Request) error {
 		"Coordinator": coordinator, "CanAddMembers": coordinator || v.Pole.ManagersCanAdd(),
 		"SlotCount": len(slots), "Capacity": capacity, "Filled": filled, "Short": short,
 		"InviteURL": s.cfg.BaseURL + v.Pole.URL() + "/join?key=" + url.QueryEscape(v.Pole.AccessKey),
-		"Modes":     store.PoleModes, "MaxImage": maxPoleImageSize,
+		"Modes":     store.PoleModes, "MaxImage": maxPoleImageSize, "History": history,
 	}
 
 	return s.render(w, r, "volunteer/manage", p)
@@ -390,6 +398,8 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
+		s.logVol(r, logPole(store.LogMemberAdded, v.Pole, p))
+
 		added++
 	}
 
@@ -446,6 +456,10 @@ func (s *Server) manageMemberRemove(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
+	removed := logPole(store.LogMemberRemoved, v.Pole, who)
+	removed.Count = len(freed)
+	s.logVol(r, removed)
+
 	s.notifyPoleRemoved(who, v.Pole, len(freed))
 
 	for _, sl := range freed {
@@ -487,6 +501,7 @@ func (s *Server) manageManagerAdd(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
+	s.logVol(r, logPole(store.LogLeadAdded, v.Pole, p))
 	s.flash(w, "flash.vol.manager_added", p.Label())
 
 	return s.redirectTab(w, r, v.Pole, "members")
@@ -510,6 +525,8 @@ func (s *Server) manageManagerRemove(w http.ResponseWriter, r *http.Request) err
 	if err := s.store.RemovePoleManager(r.Context(), v.Pole.ID, who.ID); err != nil {
 		return err
 	}
+
+	s.logVol(r, logPole(store.LogLeadRemoved, v.Pole, who))
 
 	s.flash(w, "flash.vol.manager_removed", who.Label())
 
@@ -612,6 +629,10 @@ func (s *Server) managePoleMessage(w http.ResponseWriter, r *http.Request) error
 	for _, m := range members {
 		recipients = append(recipients, m.Person)
 	}
+
+	posted := logPole(store.LogMessagePosted, v.Pole, nil)
+	posted.Count = len(recipients)
+	s.logVol(r, posted)
 
 	pole := v.Pole
 	s.notifyMessage(recipients, pole.EventSlug, func(lang string) string { return i18n.T(lang, "mail.vol.scope_pole", pole.Name) },
@@ -867,9 +888,21 @@ func (s *Server) manageSlotCreate(w http.ResponseWriter, r *http.Request) error 
 		}
 	}
 
+	s.logSlotsCreated(r, v.Pole, created)
 	s.flashCount(w, "flash.vol.slots_created", created)
 
 	return s.redirectTab(w, r, v.Pole, "")
+}
+
+// logSlotsCreated records slots created in a pole, by hand or generated.
+func (s *Server) logSlotsCreated(r *http.Request, p *store.Pole, n int) {
+	if n == 0 {
+		return
+	}
+
+	e := logPole(store.LogSlotsCreated, p, nil)
+	e.Count = n
+	s.logVol(r, e)
 }
 
 func (s *Server) manageSlotEdit(w http.ResponseWriter, r *http.Request) error {
@@ -977,8 +1010,15 @@ func (s *Server) manageSlotSave(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	notified := 0
+	moved := !before.StartsAt.Equal(after.StartsAt) || !before.EndsAt.Equal(after.EndsAt) || before.LocationID != after.LocationID
 
-	if !before.StartsAt.Equal(after.StartsAt) || !before.EndsAt.Equal(after.EndsAt) || before.LocationID != after.LocationID {
+	if moved {
+		s.logVol(r, logSlot(store.LogSlotMoved, v.Pole, after, nil))
+	} else {
+		s.logVol(r, logSlot(store.LogSlotUpdated, v.Pole, after, nil))
+	}
+
+	if moved {
 		volunteers, err := s.store.ListSlotVolunteers(ctx, sl.ID)
 		if err != nil {
 			return err
@@ -1020,6 +1060,10 @@ func (s *Server) manageSlotDelete(w http.ResponseWriter, r *http.Request) error 
 	if err := s.store.DeleteSlot(ctx, sl.ID); err != nil {
 		return err
 	}
+
+	deleted := logSlot(store.LogSlotDeleted, v.Pole, sl, nil)
+	deleted.Count = len(volunteers)
+	s.logVol(r, deleted)
 
 	s.notifySlotDeleted(append(volunteers, waiting...), v.Pole, sl)
 	s.flashCount(w, "flash.vol.slot_deleted", len(volunteers))
@@ -1076,6 +1120,7 @@ func (s *Server) manageDayCopy(w http.ResponseWriter, r *http.Request) error {
 		created++
 	}
 
+	s.logSlotsCreated(r, v.Pole, created)
 	s.flashCount(w, "flash.vol.day_copied", created, dayName(rc(r).Lang, to))
 
 	return s.redirectTab(w, r, v.Pole, "")
@@ -1174,6 +1219,8 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
+	s.logVol(r, logSlot(store.LogSignupAdded, v.Pole, sl, who))
+
 	s.flash(w, "flash.vol.volunteer_added", who.Label(), v.Pole.Name)
 	http.Redirect(w, r, sl.ManageURL()+"#volunteers", http.StatusSeeOther)
 
@@ -1195,6 +1242,7 @@ func (s *Server) manageSlotRemoveVolunteer(w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
+	s.logVol(r, logSlot(store.LogSignupRemoved, v.Pole, sl, who))
 	s.notifySignupRemoved(who, v.Pole, sl)
 	s.announceFreePlace(r, v.Pole, sl.ID)
 	s.flash(w, "flash.vol.volunteer_removed", who.Label())

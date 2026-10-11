@@ -465,6 +465,7 @@ func (s *Server) generateSubmit(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	s.logSlotsCreated(r, v.Pole, created)
 	s.flashCount(w, "flash.vol.slots_created", created)
 
 	return s.redirectTab(w, r, v.Pole, "")

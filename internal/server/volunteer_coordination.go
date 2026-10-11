@@ -146,8 +146,16 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	tab := r.URL.Query().Get("tab")
-	if tab != "messages" && tab != "settings" {
+	if tab != "messages" && tab != "settings" && tab != "history" {
 		tab = "poles"
+	}
+
+	var history []*store.LogEntry
+
+	if tab == "history" {
+		if history, err = s.store.ListEventLog(ctx, e.ID); err != nil {
+			return err
+		}
 	}
 
 	p := s.page(r, "vol.coord.title")
@@ -156,7 +164,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 		"Event": e, "Tab": tab, "Coverage": coverage, "Stats": stats, "Messages": messages,
 		"Coordinators": coordinators, "Targets": targets, "Others": others, "Staff": rc(r).Admin != nil,
 		"Modes": store.PoleModes, "Statuses": []string{store.VolunteersDraft, store.VolunteersOpen, store.VolunteersFrozen, store.VolunteersArchived},
-		"MaxImage": maxPoleImageSize,
+		"MaxImage": maxPoleImageSize, "History": history,
 	}
 
 	return s.render(w, r, "volunteer/coordination", p)
@@ -170,6 +178,7 @@ func (s *Server) coordinationSettings(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
+	before := e.VolunteerStatus
 	e.VolunteerStatus = r.FormValue("status")
 	e.VolunteerFreezeAt = formTimePtr(r, "freeze_at")
 
@@ -179,6 +188,10 @@ func (s *Server) coordinationSettings(w http.ResponseWriter, r *http.Request) er
 		}
 
 		return err
+	}
+
+	if e.VolunteerStatus != before {
+		s.logVol(r, &store.LogEntry{Action: store.LogStatus, EventID: e.ID, Title: e.VolunteerStatus})
 	}
 
 	s.flash(w, "flash.saved")
@@ -288,6 +301,10 @@ func (s *Server) coordinatorAdd(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	in := &store.LogEntry{Action: store.LogCoordinatorIn, EventID: e.ID}
+	in.SetSubject(p)
+	s.logVol(r, in)
+
 	s.flash(w, "flash.vol.coordinator_added", p.Label())
 
 	return s.redirectCoordination(w, r, e, "settings")
@@ -311,6 +328,10 @@ func (s *Server) coordinatorRemove(w http.ResponseWriter, r *http.Request) error
 	if err := s.store.RemoveEventCoordinator(r.Context(), e.ID, p.ID); err != nil {
 		return err
 	}
+
+	out := &store.LogEntry{Action: store.LogCoordinatorOut, EventID: e.ID}
+	out.SetSubject(p)
+	s.logVol(r, out)
 
 	s.flash(w, "flash.vol.coordinator_removed", p.Label())
 
@@ -357,6 +378,7 @@ func (s *Server) coordinationPoleCreate(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
+	s.logVol(r, logPole(store.LogPoleCreated, p, nil))
 	s.flash(w, "flash.vol.pole_created", p.Name)
 	http.Redirect(w, r, p.ManageURL()+"?tab=settings", http.StatusSeeOther)
 
@@ -388,6 +410,9 @@ func (s *Server) coordinationPoleDelete(w http.ResponseWriter, r *http.Request) 
 	if err := s.store.DeletePole(r.Context(), p.ID); err != nil {
 		return err
 	}
+
+	// The pole is gone: the entry keeps its name, at the edition's level.
+	s.logVol(r, &store.LogEntry{Action: store.LogPoleDeleted, EventID: e.ID, PoleName: p.Name})
 
 	s.dropFile(r, p.ImageFile)
 	s.flash(w, "flash.vol.pole_deleted", p.Name)
@@ -423,6 +448,7 @@ func (s *Server) coordinationPoleCopy(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
+	s.logVol(r, logPole(store.LogPoleCreated, copied, nil))
 	s.flash(w, "flash.vol.pole_copied", p.Name)
 	http.Redirect(w, r, copied.ManageURL()+"?tab=settings", http.StatusSeeOther)
 
@@ -465,6 +491,8 @@ func (s *Server) coordinationMessage(w http.ResponseWriter, r *http.Request) err
 	for _, v := range volunteers {
 		recipients = append(recipients, v.Person)
 	}
+
+	s.logVol(r, &store.LogEntry{Action: store.LogMessagePosted, EventID: e.ID, Count: len(recipients)})
 
 	name := e.Name
 	s.notifyMessage(recipients, e.Slug, func(lang string) string { return i18n.T(lang, "mail.vol.scope_event", name) },
@@ -690,6 +718,7 @@ func (s *Server) coordinationVolunteerAdd(w http.ResponseWriter, r *http.Request
 		return err
 	}
 
+	s.logVol(r, logPole(store.LogRegistered, pole, p))
 	s.flash(w, "flash.vol.volunteer_registered", p.Label(), pole.Name)
 	http.Redirect(w, r, back, http.StatusSeeOther)
 
@@ -718,6 +747,7 @@ func (s *Server) coordinationVolunteerJoin(w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
+	s.logVol(r, logPole(store.LogMemberAdded, pole, who))
 	s.flash(w, "flash.vol.member_joined", who.Label(), pole.Name)
 	http.Redirect(w, r, "/volunteers/"+e.Slug+"/coordination/volunteers", http.StatusSeeOther)
 

@@ -151,14 +151,20 @@ const poleCols = `p.id, p.uid, p.event_id, e.slug, p.slug, p.name, p.description
 
 const poleFrom = ` FROM poles p JOIN events e ON e.id = p.event_id`
 
-func scanPole(row interface{ Scan(...any) error }) (*Pole, error) {
+func scanPole(row interface{ Scan(...any) error }) (*Pole, error) { return scanPoleExtra(row) }
+
+// scanPoleExtra reads the poleCols columns, plus any extra column the query
+// selected after them.
+func scanPoleExtra(row interface{ Scan(...any) error }, extra ...any) (*Pole, error) {
 	var (
 		p      Pole
 		freeze sql.NullTime
 	)
 
-	err := row.Scan(&p.ID, &p.UID, &p.EventID, &p.EventSlug, &p.Slug, &p.Name, &p.Description, &p.AccessMode, &p.AccessKey, &p.Icon,
-		&p.ImageFile, &p.DefaultTasks, &p.IsDefault, &freeze, &p.Position, &p.CreatedAt)
+	dest := []any{&p.ID, &p.UID, &p.EventID, &p.EventSlug, &p.Slug, &p.Name, &p.Description, &p.AccessMode, &p.AccessKey, &p.Icon,
+		&p.ImageFile, &p.DefaultTasks, &p.IsDefault, &freeze, &p.Position, &p.CreatedAt}
+
+	err := row.Scan(append(dest, extra...)...)
 	if err != nil {
 		return nil, notFound(err)
 	}

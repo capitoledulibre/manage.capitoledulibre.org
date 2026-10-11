@@ -155,6 +155,7 @@ func (s *Server) poleJoin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	s.logVol(r, logPole(store.LogJoined, v.Pole, rc(r).Person))
 	s.flash(w, "flash.vol.joined", v.Pole.Name)
 	http.Redirect(w, r, v.Pole.URL(), http.StatusSeeOther)
 
@@ -194,6 +195,10 @@ func (s *Server) poleLeave(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.LeavePole(ctx, v.Pole.ID, person.ID); err != nil {
 		return err
 	}
+
+	left := logPole(store.LogLeft, v.Pole, person)
+	left.Count = len(mine)
+	s.logVol(r, left)
 
 	var late []*store.Slot
 
@@ -414,6 +419,12 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) error {
 		return s.respondSlot(w, r, card, "vol.err.full", "")
 	}
 
+	if autoJoin {
+		s.logVol(r, logPole(store.LogJoined, v.Pole, person))
+	}
+
+	s.logVol(r, logSlot(store.LogSignup, v.Pole, sl, person))
+
 	when := slotWhen(lang, sl.StartsAt, sl.EndsAt)
 	if autoJoin {
 		// Joining changes more than the card: the page's "not in this pole
@@ -453,6 +464,7 @@ func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	s.logVol(r, logSlot(store.LogUnsignup, v.Pole, sl, person))
 	s.announceFreePlace(r, v.Pole, sl.ID)
 
 	if isLate(sl) {
@@ -482,6 +494,8 @@ func (s *Server) slotWaitlistJoin(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
+	s.logVol(r, logSlot(store.LogWaitlist, v.Pole, sl, rc(r).Person))
+
 	card.Waiting = true
 
 	return s.respondSlot(w, r, card, "", "vol.done.waitlist")
@@ -496,6 +510,8 @@ func (s *Server) slotWaitlistLeave(w http.ResponseWriter, r *http.Request) error
 	if err := s.store.LeaveWaitlist(r.Context(), sl.ID, rc(r).Person.ID); err != nil {
 		return err
 	}
+
+	s.logVol(r, logSlot(store.LogWaitlistLeft, v.Pole, sl, rc(r).Person))
 
 	return s.respondSlot(w, r, s.slotCard(r, v, sl, false), "", "vol.done.waitlist_left")
 }

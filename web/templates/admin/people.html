@@ -23,7 +23,7 @@
   {{range $d.Rows}}
   {{$p := .Person}}{{$r := .Roles}}
   <tr>
-    <td><span class="inline-flex items-center gap-2">{{template "person_avatar" $p}}{{if $p.Name}}{{$p.Name}}{{else}}<span class="text-gray-400">sans nom</span>{{end}}</span></td>
+    <td><a class="inline-flex items-center gap-2 hover:underline" href="/admin/people/{{$p.UID}}?back={{$d.Back}}">{{template "person_avatar" $p}}{{if $p.Name}}{{$p.Name}}{{else}}<span class="text-gray-400">sans nom</span>{{end}}</a></td>
     <td><a class="link" href="mailto:{{$p.Email}}">{{$p.Email}}</a>{{with $p.Phone}}<br><span class="text-xs text-gray-500">{{phone .}}</span>{{end}}</td>
     <td class="text-xs">
       <div class="flex flex-wrap gap-1">

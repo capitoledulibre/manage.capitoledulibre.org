@@ -22,7 +22,7 @@
 </dl>
 
 <nav class="mb-6 flex flex-wrap gap-1 border-b border-gray-200" aria-label="{{t $l "vol.coord.sections"}}">
-  {{range $tab := list "poles" "messages" "settings"}}
+  {{range $tab := list "poles" "messages" "settings" "history"}}
   <a href="?tab={{$tab}}" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq $tab $d.Tab}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq $tab $d.Tab}}aria-current="page"{{end}}>{{t $l (printf "vol.coord.tab_%s" $tab)}}</a>
   {{end}}
 </nav>
@@ -100,6 +100,9 @@
   <div><button class="btn">{{t $l "vol.manage.publish"}}</button></div>
 </form>
 {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages "Manage" $base "Back" (printf "%s?tab=messages" $base))}}
+
+{{else if eq $d.Tab "history"}}
+{{template "vol_log" (dict "Lang" $l "Entries" $d.History)}}
 
 {{else if eq $d.Tab "settings"}}
 <div class="grid gap-6 lg:grid-cols-2">
