@@ -33,13 +33,13 @@ func (s *Server) notifyPeople(people []*store.Person, subject func(lang string) 
 		return
 	}
 
-	go func() {
+	s.background(func() {
 		for _, m := range msgs {
 			if err := s.mailer.Send(m); err != nil {
 				slog.Error("volunteer notification", "to", m.To, "err", err)
 			}
 		}
-	}()
+	})
 }
 
 // volSubject prefixes a subject with the event name.

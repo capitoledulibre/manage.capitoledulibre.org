@@ -170,7 +170,7 @@ Everything is configured with environment variables; see
 
 | Variable | Description |
 | --- | --- |
-| `MANAGE_BASE_URL` | Public URL, used in emails and logo URLs |
+| `MANAGE_BASE_URL` | Public URL, used in emails and logo URLs; must be `https://` outside dev mode |
 | `MANAGE_SITE_NAME` | Event name in pages and emails (default: « Mon événement ») |
 | `MANAGE_SITE_URL` | Event website, linked in the footer |
 | `MANAGE_CONTACT_EMAIL` | Contact address shown to partners, default sender |
@@ -181,8 +181,8 @@ Everything is configured with environment variables; see
 | `MANAGE_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
 | `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |
 | `MANAGE_ADMIN_EMAILS`, `MANAGE_ADMIN_GROUP` | Who may log in as staff |
-| `MANAGE_EXPORT_TOKEN` | Token for the JSON export, at least 32 characters (`openssl rand -hex 32`); empty disables token access |
-| `MANAGE_TRUSTED_PROXIES` | Peers whose `X-Forwarded-For` is believed, to rate-limit login requests per client: addresses or CIDR ranges, `private` (default: loopback and private ranges) or `none` |
+| `MANAGE_EXPORT_TOKEN` | Token for the JSON export, at least 32 characters (`openssl rand -hex 32`), sent as `Authorization: Bearer` (never in the URL); empty disables token access |
+| `MANAGE_TRUSTED_PROXIES` | Peers whose `X-Forwarded-For` is believed, to rate-limit login requests per client: addresses or CIDR ranges, `private` (default: loopback and private ranges) or `none`; use `none` when the container is exposed without a reverse proxy, or a client could forge its address |
 | `MANAGE_VOLUNTEER_REMINDER_HOUR` | Hour (event time, 0–23) at which volunteers get the recap of their slots of the next day (default: 18) |
 | `MANAGE_GRAVATAR` | `1` (default) looks missing profile pictures up on gravatar.com, from the server; `0` never does |
 
@@ -252,11 +252,15 @@ avatars are set by each staff member on their profile page (`/admin/profile`).
 Dates and times are shown, and volunteer reminders sent, in the Europe/Paris
 time zone.
 
-Put it behind a TLS reverse proxy. Cookies get the `Secure` flag when
-`MANAGE_BASE_URL` starts with `https://`. Back up the `/data` volume
-(SQLite database in WAL mode plus the `files/` directory). `manage backup
-[path]` writes a consistent copy of the database while the server runs, for
-a cron job during the event:
+Put it behind a TLS reverse proxy: outside dev mode the server refuses to
+start unless `MANAGE_BASE_URL` is `https://`, mail goes through
+`MANAGE_SMTP_HOST`, and `MANAGE_SMTP_TLS=none` points at a local relay.
+Files it writes (database, backups, exports, uploads) are readable by its
+own user only. Back up the `/data` volume (SQLite database in WAL mode plus
+the `files/` directory). `manage backup [path]` writes a consistent copy of
+the database while the server runs, for a cron job during the event; it
+fails, rather than backing up an empty database, when `MANAGE_DATA_DIR`
+holds none:
 
 ```sh
 docker exec manage /manage backup /data/backup-$(date +%F).db

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -19,8 +20,10 @@ import (
 const (
 	loginTokenTTL  = 30 * time.Minute
 	inviteTokenTTL = 7 * 24 * time.Hour
-	// maxLoginEmails limits login emails per address and hour.
-	maxLoginEmails = 5
+	// maxLoginEmails limits login emails per address and quarter of an
+	// hour, as the login page says.
+	maxLoginEmails   = 5
+	loginEmailWindow = 15 * time.Minute
 	// loginsPerIP limits the login requests of one client per quarter of an
 	// hour: enough for a family or an office behind one address.
 	loginsPerIP = 30
@@ -124,7 +127,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
 
 	// Anyone can ask for a link while an edition takes volunteers: one
 	// client cannot make the server send e-mails to many addresses.
-	if !s.loginByIP.Allow(s.clientIP(r)) {
+	if !s.loginByIP.Allow(rateKey(s.clientIP(r))) {
 		slog.Warn("login requests rate limited", "ip", s.clientIP(r))
 		w.WriteHeader(http.StatusTooManyRequests)
 
@@ -132,19 +135,22 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// The response is identical whether the email is known or not, so the
-	// form cannot be used to discover who is known.
-	if err := s.sendLoginLink(r, email, rc(r).Lang, next); err != nil {
-		slog.Error("send login link", "email", email, "err", err)
-	}
+	// form cannot be used to discover who is known; the link goes out off
+	// the request so that the time to answer does not tell either.
+	lang := rc(r).Lang
+
+	s.background(func() {
+		if err := s.sendLoginLink(context.Background(), email, lang, next); err != nil {
+			slog.Error("send login link", "email", email, "err", err)
+		}
+	})
 
 	p.D = map[string]any{"Email": email, "Volunteer": strings.HasPrefix(next, "/volunteers/"), "Next": next}
 
 	return s.render(w, r, "public/login_sent", p)
 }
 
-func (s *Server) sendLoginLink(r *http.Request, email, lang, next string) error {
-	ctx := r.Context()
-
+func (s *Server) sendLoginLink(ctx context.Context, email, lang, next string) error {
 	// Known people get a link. So does anyone while an edition takes
 	// volunteers: signing in is how a newcomer volunteers, and the person is
 	// only created once the link is used, so a mistyped address leaves
@@ -166,7 +172,7 @@ func (s *Server) sendLoginLink(r *http.Request, email, lang, next string) error 
 		lang = person.Lang
 	}
 
-	n, err := s.store.CountRecentMagicTokens(ctx, email, time.Hour)
+	n, err := s.store.CountRecentMagicTokens(ctx, email, loginEmailWindow)
 	if err != nil {
 		return err
 	}
@@ -192,6 +198,23 @@ func (s *Server) sendLoginLink(r *http.Request, email, lang, next string) error 
 		Subject: i18n.T(lang, "mail.login.subject"),
 		Body:    i18n.T(lang, "mail.login.body", link, int(loginTokenTTL.Minutes())),
 	})
+}
+
+// rateKey is the client a rate limit counts: an IPv4 address, or the /64
+// of an IPv6 one, since a single machine commonly owns a whole /64 and
+// would otherwise get a fresh allowance per address.
+func rateKey(ip string) string {
+	a, err := netip.ParseAddr(ip)
+	if err != nil || !a.Is6() || a.Is4In6() {
+		return ip
+	}
+
+	p, err := a.Prefix(64)
+	if err != nil {
+		return ip
+	}
+
+	return p.String()
 }
 
 // clientIP returns the address of the caller. X-Forwarded-For is only read

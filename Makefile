@@ -7,15 +7,19 @@ TAILWIND ?= bin/tailwindcss
 UNAME_S := $(shell uname -s | tr A-Z a-z)
 UNAME_M := $(shell uname -m | sed -e 's/x86_64/x64/' -e 's/aarch64/arm64/')
 TAILWIND_OS := $(subst darwin,macos,$(UNAME_S))
+SHA256 := $(shell command -v sha256sum >/dev/null && echo sha256sum || echo shasum -a 256)
 
 .PHONY: all build css css-watch dev test lint clean vendor-pdfjs vendor-htmx
 
 all: build
 
+# The CLI is checked against tailwindcss.sha256 before it ever runs.
 $(TAILWIND):
-	mkdir -p bin
-	curl -sSL -o $@ https://github.com/tailwindlabs/tailwindcss/releases/download/$(TAILWIND_VERSION)/tailwindcss-$(TAILWIND_OS)-$(UNAME_M)
-	chmod +x $@
+	mkdir -p $(dir $@)
+	curl -sSLf -o $@.tmp https://github.com/tailwindlabs/tailwindcss/releases/download/$(TAILWIND_VERSION)/tailwindcss-$(TAILWIND_OS)-$(UNAME_M)
+	echo "$$(awk '$$2 == "tailwindcss-$(TAILWIND_OS)-$(UNAME_M)" { print $$1 }' tailwindcss.sha256)  $@.tmp" | $(SHA256) -c -
+	chmod +x $@.tmp
+	mv $@.tmp $@
 
 css: $(TAILWIND)
 	$(TAILWIND) -i web/static/css/input.css -o web/static/css/app.css --minify

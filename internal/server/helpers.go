@@ -105,11 +105,11 @@ func (s *Server) record(r *http.Request, org *store.Organization, partnershipID 
 			actionLabel(action), c.Actor(), details, s.cfg.BaseURL, org.ID),
 	}
 
-	go func() {
+	s.background(func() {
 		if err := s.mailer.Send(msg); err != nil {
 			slog.Error("notify staff", "err", err)
 		}
-	}()
+	})
 }
 
 // notifyManagers emails every manager of an organization in their language.
@@ -127,11 +127,11 @@ func (s *Server) notifyManagers(r *http.Request, org *store.Organization, subjec
 			Body:    i18n.T(m.Lang, bodyKey, append([]any{s.cfg.BaseURL + "/"}, args...)...),
 		}
 
-		go func() {
+		s.background(func() {
 			if err := s.mailer.Send(msg); err != nil {
 				slog.Error("notify manager", "email", msg.To, "err", err)
 			}
-		}()
+		})
 	}
 
 	return nil

@@ -60,10 +60,9 @@ func (s *Server) exportAuthorized(r *http.Request) bool {
 		return false
 	}
 
-	token := r.URL.Query().Get("token")
-	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
-		token = strings.TrimPrefix(h, "Bearer ")
-	}
+	// The header only: a token in the query string ends up in the access
+	// logs of every proxy on the way.
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 
-	return subtle.ConstantTimeCompare([]byte(token), []byte(s.cfg.ExportToken)) == 1
+	return ok && subtle.ConstantTimeCompare([]byte(token), []byte(s.cfg.ExportToken)) == 1
 }

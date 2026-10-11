@@ -102,6 +102,7 @@ func (e *env) hx(c *http.Client, path string, form url.Values) (int, string) {
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
+	e.app.bg.Wait()
 
 	return resp.StatusCode, string(body)
 }

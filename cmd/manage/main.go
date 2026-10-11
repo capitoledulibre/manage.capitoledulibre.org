@@ -26,6 +26,10 @@ import (
 )
 
 func main() {
+	// The database, its backups, exports and uploads hold personal data:
+	// none of them for other users of the machine.
+	syscall.Umask(0o077)
+
 	cmd := "serve"
 	if len(os.Args) > 1 {
 		cmd = os.Args[1]
@@ -72,7 +76,8 @@ func open(ctx context.Context, cfg *config.Config) (*store.Store, error) {
 }
 
 // backupCmd snapshots the database without stopping the server, so it can
-// run from cron while the event is live.
+// run from cron while the event is live. It reads the database as it is: a
+// wrong MANAGE_DATA_DIR fails instead of backing up a fresh empty one.
 func backupCmd(args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -90,7 +95,7 @@ func backupCmd(args []string) error {
 
 	ctx := context.Background()
 
-	st, err := open(ctx, cfg)
+	st, err := store.OpenExisting(filepath.Join(cfg.DataDir, "manage.db"))
 	if err != nil {
 		return err
 	}
@@ -147,8 +152,7 @@ func serve() error {
 		return err
 	}
 
-	go srv.RunReminders(ctx)
-	go srv.RunVolunteerReminders(ctx)
+	srv.Start(ctx)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Listen,
@@ -159,7 +163,14 @@ func serve() error {
 		IdleTimeout:       2 * time.Minute,
 	}
 
+	// ListenAndServe returns as soon as a shutdown starts: wait for it to
+	// finish the requests under way, then for the e-mails and jobs they
+	// started, before the deferred Close takes the database away.
+	shutdown := make(chan struct{})
+
 	go func() {
+		defer close(shutdown)
+
 		<-ctx.Done()
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -173,6 +184,10 @@ func serve() error {
 	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+
+	<-shutdown
+	srv.Wait()
+	slog.Info("stopped")
 
 	return nil
 }
@@ -194,7 +209,7 @@ func exportCmd(args []string) error {
 
 	ctx := context.Background()
 
-	st, err := open(ctx, cfg)
+	st, err := store.OpenExisting(filepath.Join(cfg.DataDir, "manage.db"))
 	if err != nil {
 		return err
 	}

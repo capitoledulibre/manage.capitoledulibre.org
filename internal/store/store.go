@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -48,6 +49,18 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	}
 
 	return s, nil
+}
+
+// OpenExisting opens a database that must already exist, without migrating
+// it: for the commands that read it next to a running server (backup,
+// export), which must neither create an empty one by mistake nor change
+// its schema under the server.
+func OpenExisting(path string) (*Store, error) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, fmt.Errorf("no database: %w", err)
+	}
+
+	return openDB(path)
 }
 
 // openDB opens the database without migrating it.

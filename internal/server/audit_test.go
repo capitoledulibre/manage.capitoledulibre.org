@@ -2,9 +2,11 @@ package server
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -220,5 +222,110 @@ func TestLeadAddsAndRemovesOnlyTheirPeople(t *testing.T) {
 
 	if n := e.mailer.count("outsider@example.org"); n != 0 {
 		t.Errorf("the outsider got %d e-mails", n)
+	}
+}
+
+func TestRateKey(t *testing.T) {
+	for ip, want := range map[string]string{
+		"203.0.113.5":          "203.0.113.5",
+		"2001:db8:1:2:3:4:5:6": "2001:db8:1:2::/64",
+		"2001:db8:1:2:ffff::1": "2001:db8:1:2::/64",
+		"::ffff:203.0.113.5":   "::ffff:203.0.113.5",
+		"not an address":       "not an address",
+	} {
+		if got := rateKey(ip); got != want {
+			t.Errorf("rateKey(%q) = %q, want %q", ip, got, want)
+		}
+	}
+}
+
+func TestGeneratorStopsEarly(t *testing.T) {
+	e := newEnv(t)
+	f := e.volFixture()
+
+	// A thousand ranges times a thousand places: a million slots, refused
+	// at once rather than counted one by one.
+	var ranges, places strings.Builder
+
+	for i := range 1000 {
+		ranges.WriteString("09:00-10:00\n")
+		places.WriteString("Salle " + strconv.Itoa(i) + "\n")
+	}
+
+	start := time.Now()
+	_, body := e.post(e.loginAs(f.leadEmail), f.buvette.ManageURL()+"/generate", url.Values{
+		"from": {"2026-11-14"}, "to": {"2026-11-15"}, "mode": {"list"}, "list": {ranges.String()},
+		"new_locations": {places.String()}, "capacity": {"1"}, "action": {"preview"},
+	})
+
+	mustContain(t, body, "plus de 2 000 créneaux")
+
+	if d := time.Since(start); d > 5*time.Second {
+		t.Errorf("preview took %s", d)
+	}
+}
+
+func TestRequestBodiesAreBounded(t *testing.T) {
+	e := newEnv(t)
+
+	// A form field after a large file part: the server stops reading.
+	body := strings.NewReader("--x\r\nContent-Disposition: form-data; name=\"f\"; filename=\"a\"\r\n\r\n" +
+		strings.Repeat("a", maxUploadBody+1) + "\r\n--x\r\nContent-Disposition: form-data; name=\"email\"\r\n\r\na@b.fr\r\n--x--\r\n")
+
+	req, _ := http.NewRequest(http.MethodPost, e.srv.URL+"/login", body)
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=x")
+
+	resp, err := e.client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	page, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	// The address after the file was never reached: the form is refused as
+	// if it had none.
+	mustContain(t, string(page), "Adresse email invalide.")
+}
+
+func TestCalendarFeedIsSealed(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+
+	// A title with a bare CR cannot add properties to the feed.
+	f.morning.Title = "Café\rBEGIN:VALARM"
+	mustOK(t, e.st.UpdateSlot(ctx, f.morning))
+
+	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, nina.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.morning.ID, nina.ID))
+
+	token, err := e.st.CalendarToken(ctx, nina.ID)
+	mustOK(t, err)
+
+	_, body := e.get(e.client(), "/calendar/"+token+".ics")
+	if strings.Contains(body, "\rBEGIN:VALARM") {
+		t.Error("a CR in a title reaches the feed")
+	}
+
+	// A corrected address cuts off the calendar of the old one.
+	nina.Email = "nina.dupont@example.org"
+	mustOK(t, e.st.UpdatePerson(ctx, nina))
+
+	if _, err := e.st.PersonByCalendarToken(ctx, token); err == nil {
+		t.Error("the calendar token survives a change of address")
+	}
+
+	// Unchanged address, token kept.
+	again, err := e.st.CalendarToken(ctx, nina.ID)
+	mustOK(t, err)
+
+	nina.Name = "Nina Dupont"
+	mustOK(t, e.st.UpdatePerson(ctx, nina))
+
+	if _, err := e.st.PersonByCalendarToken(ctx, again); err != nil {
+		t.Error("the calendar token goes with a change of name")
 	}
 }

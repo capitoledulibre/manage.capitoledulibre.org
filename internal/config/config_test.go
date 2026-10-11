@@ -42,8 +42,10 @@ func TestValidateServe(t *testing.T) {
 		t.Error(err)
 	}
 
-	// Outside dev mode, e-mails (login links) must not end up in the log.
-	oidc := Config{OIDCIssuer: "https://id.example.org", OIDCClientID: "manage", OIDCClientSecret: "secret"}
+	// Outside dev mode, e-mails (login links) must not end up in the log,
+	// nor travel in clear, and the site is served over HTTPS.
+	oidc := Config{OIDCIssuer: "https://id.example.org", OIDCClientID: "manage", OIDCClientSecret: "secret",
+		BaseURL: "https://manage.example.org", SMTPTLS: "starttls"}
 	if err := oidc.ValidateServe(); err == nil {
 		t.Error("serve without SMTP outside dev mode must fail")
 	}
@@ -51,6 +53,25 @@ func TestValidateServe(t *testing.T) {
 	oidc.SMTPHost, oidc.MailFrom = "smtp.example.org", "manage@example.org"
 	if err := oidc.ValidateServe(); err != nil {
 		t.Error(err)
+	}
+
+	plain := oidc
+	plain.BaseURL = "http://manage.example.org"
+
+	if err := plain.ValidateServe(); err == nil {
+		t.Error("serve over plain HTTP outside dev mode must fail")
+	}
+
+	clear := oidc
+	clear.SMTPTLS = "none"
+
+	if err := clear.ValidateServe(); err == nil {
+		t.Error("SMTP in clear to a remote server must fail")
+	}
+
+	clear.SMTPHost = "127.0.0.1"
+	if err := clear.ValidateServe(); err != nil {
+		t.Errorf("SMTP in clear to a local relay: %v", err)
 	}
 }
 

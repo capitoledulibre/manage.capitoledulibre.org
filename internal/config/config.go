@@ -202,6 +202,16 @@ func (c *Config) ValidateServe() error {
 		return fmt.Errorf("e-mails need an SMTP server: set MANAGE_SMTP_HOST (or MANAGE_DEV=1 to print them to the log)")
 	}
 
+	// Login links travel in e-mails and cookies: in clear, anyone on the way
+	// could use them.
+	if !c.Dev && !strings.HasPrefix(c.BaseURL, "https://") {
+		return fmt.Errorf("MANAGE_BASE_URL must be https:// outside dev mode (got %q)", c.BaseURL)
+	}
+
+	if !c.Dev && c.SMTPTLS == "none" && !loopbackHost(c.SMTPHost) {
+		return fmt.Errorf("MANAGE_SMTP_TLS=none sends login links in clear: only allowed to a local relay or in dev mode")
+	}
+
 	if c.SMTPHost != "" && c.MailFrom == "" {
 		return fmt.Errorf("e-mails need a sender: set MANAGE_MAIL_FROM or MANAGE_CONTACT_EMAIL")
 	}
@@ -228,6 +238,17 @@ func (c *Config) DevAdminLogin() bool {
 	}
 
 	host := u.Hostname()
+	if host == "localhost" {
+		return true
+	}
+
+	ip := net.ParseIP(host)
+
+	return ip != nil && ip.IsLoopback()
+}
+
+// loopbackHost tells whether host is this machine: a local mail relay.
+func loopbackHost(host string) bool {
 	if host == "localhost" {
 		return true
 	}

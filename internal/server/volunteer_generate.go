@@ -412,11 +412,25 @@ func (s *Server) plan(r *http.Request, v *poleView, f *genForm, locations []*sto
 		byName[l.Name] = l.ID
 	}
 
+	// Each slot of the plan either exists already or is one more: once the
+	// count passes what exists plus the bound, the plan is too big, and
+	// going on (thousands of lines times thousands of places) would only
+	// burn the CPU.
+	limit := maxGenerated + len(have)
+	tried := 0
+
+days:
 	for _, day := range p.Days {
 		d := day.Day
 
 		for _, g := range day.Ranges {
 			for i := range places {
+				if tried++; tried > limit {
+					p.Slots = max(p.Slots, maxGenerated+1)
+
+					break days
+				}
+
 				locID := int64(0)
 				if len(p.Places) > 0 {
 					locID = byName[p.Places[i]] // 0 for a new place, which cannot clash yet

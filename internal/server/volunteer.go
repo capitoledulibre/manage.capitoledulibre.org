@@ -461,7 +461,9 @@ func (s *Server) calendarFor(r *http.Request, person *store.Person, e *store.Eve
 		return "", err
 	}
 
-	esc := strings.NewReplacer(`\`, `\\`, ";", `\;`, ",", `\,`, "\n", `\n`).Replace
+	// A bare CR ends a line for lenient readers: it must not let a slot
+	// title add properties to the feed.
+	esc := strings.NewReplacer(`\`, `\\`, ";", `\;`, ",", `\,`, "\r\n", `\n`, "\n", `\n`, "\r", `\n`).Replace
 
 	var b strings.Builder
 

@@ -16,8 +16,11 @@ func (s *Store) UpdatePerson(ctx context.Context, p *Person) error {
 		return ErrBadInput
 	}
 
-	_, err := s.db.ExecContext(ctx, `UPDATE people SET name = ?, email = ?, phone = ?, lang = ? WHERE id = ?`,
-		p.Name, NormalizeEmail(p.Email), p.Phone, p.Lang, p.ID)
+	// A new address may belong to someone else: the calendar subscription,
+	// a secret like a session, stops working with the old one.
+	_, err := s.db.ExecContext(ctx, `UPDATE people SET name = ?, phone = ?, lang = ?,
+		calendar_token = CASE WHEN email = ? THEN calendar_token END, email = ? WHERE id = ?`,
+		p.Name, p.Phone, p.Lang, NormalizeEmail(p.Email), NormalizeEmail(p.Email), p.ID)
 	if err != nil && strings.Contains(err.Error(), "UNIQUE") {
 		return ErrDuplicate
 	}

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"manage/internal/config"
@@ -34,6 +35,25 @@ type Server struct {
 	gravatar *gravatar.Fetcher
 	// loginByIP limits the login links one client asks for.
 	loginByIP *ratelimit.Limiter
+	// bg tracks the work done off the request (e-mails, reminders), which a
+	// shutdown waits for before the database closes.
+	bg sync.WaitGroup
+}
+
+// background runs f off the request, tracked for Wait.
+func (s *Server) background(f func()) { s.bg.Go(f) }
+
+// Start runs the periodic jobs until ctx is done.
+func (s *Server) Start(ctx context.Context) {
+	s.background(func() { s.RunReminders(ctx) })
+	s.background(func() { s.RunVolunteerReminders(ctx) })
+}
+
+// Wait blocks until the work started off the requests is over: once the
+// HTTP server has shut down, so that no e-mail is lost to a restart.
+func (s *Server) Wait() {
+	s.bg.Wait()
+	s.gravatar.Wait()
 }
 
 func New(ctx context.Context, cfg *config.Config, st *store.Store, fs *files.Store, mailer mail.Sender) (*Server, error) {
@@ -147,12 +167,37 @@ func (s *Server) Handler() http.Handler {
 	protection := http.NewCrossOriginProtection()
 
 	var h http.Handler = mux
+	h = limitBodies(h)
 	h = s.withSession(h)
 	h = protection.Handler(h)
 	h = securityHeaders(h, s.cfg.SecureCookies())
 	h = logRequests(h)
 
 	return h
+}
+
+// Request bodies: a form fits in maxFormBody; an upload in maxUploadBody,
+// the largest file accepted (a PDF) with room for the other fields. Each
+// upload handler then applies its own, smaller, limit.
+const (
+	maxFormBody   = 1 << 20
+	maxUploadBody = maxPDFSize + 1<<20
+)
+
+// limitBodies bounds every request body. Without it, any form handler
+// reading a field of a multipart body would spool an unbounded file to disk
+// first, for anyone and before any rate limit.
+func limitBodies(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		limit := int64(maxFormBody)
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
+			limit = maxUploadBody
+		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
+
+		h.ServeHTTP(w, r)
+	})
 }
 
 // securityHeaders sets the browser security policy. HSTS is only sent when

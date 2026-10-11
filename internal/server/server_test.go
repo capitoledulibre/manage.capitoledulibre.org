@@ -187,6 +187,9 @@ func (e *env) post(c *http.Client, path string, form url.Values) (int, string) {
 
 	body, _ := io.ReadAll(resp.Body)
 
+	// E-mails go out off the request: let them leave before the test looks.
+	e.app.bg.Wait()
+
 	return resp.StatusCode, string(body)
 }
 
@@ -403,7 +406,20 @@ func TestFullFlow(t *testing.T) {
 		t.Errorf("export without token: %d", code)
 	}
 
-	_, body = e.get(e.client(), "/api/partners.json?token=secret")
+	// The token goes in the header, not in the query string.
+	if code, _ := e.get(e.client(), "/api/partners.json?token=secret"); code != 401 {
+		t.Errorf("export with the token in the query: %d", code)
+	}
+
+	req, _ := http.NewRequest(http.MethodGet, e.srv.URL+"/api/partners.json", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+
+	resp, err := e.client().Do(req)
+	mustOK(t, err)
+
+	raw, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	body = string(raw)
 
 	var doc struct {
 		Levels []struct {
