@@ -10,7 +10,7 @@
   <script src="{{asset "/static/js/app.js"}}" defer></script>
   {{if eq .Area "volunteer"}}<script src="{{asset "/static/vendor/htmx/htmx.min.js"}}" defer></script>{{end}}
 </head>
-<body class="flex min-h-full flex-col text-gray-900">
+<body class="flex min-h-full flex-col text-gray-900{{if and (eq .Area "volunteer") .Vol .Vol.Event}} pb-16 sm:pb-0{{end}}">
   {{if .Impersonating}}
   <div class="bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">
     <form method="post" action="/admin/stop-impersonate" class="inline-flex flex-wrap items-center justify-center gap-3">
@@ -29,7 +29,7 @@
         {{end}}
         <span>{{.Site.Name}}{{if eq .Area "admin"}} <span class="font-normal text-gray-500">· Admin</span>{{end}}</span>
       </a>
-      <nav class="order-last -mx-3 flex w-full flex-wrap items-center gap-1 sm:order-none sm:mx-0 sm:w-auto sm:flex-1">
+      <nav class="order-last -mx-3 {{if eq .Area "volunteer"}}hidden sm:flex{{else}}flex{{end}} w-full flex-wrap items-center gap-1 sm:order-none sm:mx-0 sm:w-auto sm:flex-1">
         {{if eq .Area "partner"}}{{template "partner_nav" .}}{{end}}
         {{if eq .Area "volunteer"}}{{template "volunteer_nav" .}}{{end}}
         {{if and (eq .Area "admin") .Admin}}{{template "admin_nav" .}}{{end}}
@@ -76,6 +76,7 @@
       </div>
     </form>
   </dialog>
+  {{if eq .Area "volunteer"}}{{template "volunteer_tabs" .}}{{end}}
   <footer class="border-t border-gray-200 bg-surface">
     <div class="mx-auto flex max-w-6xl flex-wrap justify-between gap-2 px-4 py-4 text-xs text-gray-500">
       <span>{{.Site.Name}}{{with .Site.URL}} · <a class="hover:underline" href="{{.}}">{{trimScheme .}}</a>{{end}}</span>

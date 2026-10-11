@@ -51,6 +51,7 @@ func (s *Server) poleManageRoutes(mux *http.ServeMux) {
 	m("POST "+base+"/slots/{slot}/volunteers", s.manageSlotAddVolunteer)
 	m("POST "+base+"/slots/{slot}/volunteers/{person}/delete", s.manageSlotRemoveVolunteer)
 	m("POST "+base+"/tasks/{task}/delete", s.manageTaskDelete)
+	m("POST "+base+"/days/copy", s.manageDayCopy)
 }
 
 // managedPole loads the pole of the path for someone who runs it.
@@ -691,6 +692,22 @@ type slotForm struct {
 	RepeatUntil  string
 	AllLocations bool
 	Error        string
+	// Outside is set when the slot falls outside the dates of the edition,
+	// a frequent slip of the day: the form asks for a confirmation.
+	Outside bool
+}
+
+// outsideEdition tells whether a slot starts or ends on a day outside the
+// dates of its edition. Without dates there is nothing to check.
+func outsideEdition(e *store.Event, sl *store.Slot) bool {
+	if e.StartsOn == nil || e.EndsOn == nil {
+		return false
+	}
+
+	first, last := e.StartsOn.Format(time.DateOnly), e.EndsOn.Format(time.DateOnly)
+	start, end := dayKey(sl.StartsAt), dayKey(sl.EndsAt.Add(-time.Minute))
+
+	return start < first || end > last
 }
 
 func (s *Server) renderSlotForm(w http.ResponseWriter, r *http.Request, f *slotForm, extra map[string]any) error {
@@ -789,8 +806,10 @@ func (s *Server) manageSlotCreate(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if msg != "" {
-		return s.renderSlotForm(w, r, &slotForm{V: v, New: true, Slot: sl, Error: msg, Tasks: r.FormValue("tasks"),
+	outside := msg == "" && outsideEdition(v.Event, sl) && r.FormValue("outside_ok") != "yes"
+
+	if msg != "" || outside {
+		return s.renderSlotForm(w, r, &slotForm{V: v, New: true, Slot: sl, Error: msg, Outside: outside, Tasks: r.FormValue("tasks"),
 			RepeatUntil: r.FormValue("repeat_until"), AllLocations: r.FormValue("all_locations") == "1"}, nil)
 	}
 
@@ -852,36 +871,52 @@ func (s *Server) manageSlotCreate(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *Server) manageSlotEdit(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, sl, err := s.managedSlot(r)
 	if err != nil {
 		return err
 	}
 
-	tasks, err := s.store.ListTasks(ctx, sl.ID)
+	errKey := r.URL.Query().Get("error")
+	if !strings.HasPrefix(errKey, "vol.err.") || !i18n.Has(errKey) {
+		errKey = ""
+	}
+
+	extra, err := s.slotEditExtras(r, v, sl)
 	if err != nil {
 		return err
+	}
+
+	return s.renderSlotForm(w, r, &slotForm{V: v, Slot: sl, Error: errKey}, extra)
+}
+
+// slotEditExtras reads what the edit page shows next to the form: tasks,
+// volunteers, messages, the members not on the slot, the waiting list.
+func (s *Server) slotEditExtras(r *http.Request, v *poleView, sl *store.Slot) (map[string]any, error) {
+	ctx := r.Context()
+
+	tasks, err := s.store.ListTasks(ctx, sl.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	volunteers, err := s.store.ListSlotVolunteers(ctx, sl.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	messages, err := s.store.ListSlotMessages(ctx, sl.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	members, err := s.store.ListPoleMembers(ctx, v.Pole.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	waiting, err := s.store.ListWaitlist(ctx, sl.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Offer the members who are not on the slot already.
@@ -898,14 +933,9 @@ func (s *Server) manageSlotEdit(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	errKey := r.URL.Query().Get("error")
-	if !strings.HasPrefix(errKey, "vol.err.") || !i18n.Has(errKey) {
-		errKey = ""
-	}
-
-	return s.renderSlotForm(w, r, &slotForm{V: v, Slot: sl, Error: errKey}, map[string]any{
+	return map[string]any{
 		"Tasks": tasks, "Volunteers": volunteers, "Messages": messages, "Available": available, "Waiting": waiting,
-	})
+	}, nil
 }
 
 func (s *Server) manageSlotSave(w http.ResponseWriter, r *http.Request) error {
@@ -923,10 +953,16 @@ func (s *Server) manageSlotSave(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if msg != "" {
-		http.Redirect(w, r, sl.ManageURL()+"?error="+msg, http.StatusSeeOther)
+	outside := msg == "" && outsideEdition(v.Event, sl) && !outsideEdition(v.Event, &before) && r.FormValue("outside_ok") != "yes"
 
-		return nil
+	if msg != "" || outside {
+		// The form comes back with what was typed.
+		extra, err := s.slotEditExtras(r, v, &before)
+		if err != nil {
+			return err
+		}
+
+		return s.renderSlotForm(w, r, &slotForm{V: v, Slot: sl, Error: msg, Outside: outside}, extra)
 	}
 
 	if err := s.store.UpdateSlot(ctx, sl); err != nil {
@@ -985,6 +1021,60 @@ func (s *Server) manageSlotDelete(w http.ResponseWriter, r *http.Request) error 
 
 	s.notifySlotDeleted(append(volunteers, waiting...), v.Pole, sl)
 	s.flashCount(w, "flash.vol.slot_deleted", len(volunteers))
+
+	return s.redirectTab(w, r, v.Pole, "")
+}
+
+// manageDayCopy copies the slots of a day of the pole to another day: same
+// hours, places, titles, places wanted and tasks, nobody signed up. A
+// two-day event is often the same day twice.
+func (s *Server) manageDayCopy(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	v, err := s.managedPole(r)
+	if err != nil {
+		return err
+	}
+
+	from, err1 := time.ParseInLocation(time.DateOnly, r.FormValue("from"), paris)
+	to, err2 := time.ParseInLocation(time.DateOnly, r.FormValue("to"), paris)
+
+	if err1 != nil || err2 != nil || from.Equal(to) {
+		s.flash(w, "vol.err.day_copy")
+
+		return s.redirectTab(w, r, v.Pole, "")
+	}
+
+	slots, err := s.store.ListSlots(ctx, v.Pole.ID, 0)
+	if err != nil {
+		return err
+	}
+
+	created := 0
+
+	for _, sl := range slots {
+		if dayKey(sl.StartsAt) != from.Format(time.DateOnly) {
+			continue
+		}
+
+		// The clock time is kept across a change of daylight saving time.
+		start := sl.StartsAt.In(paris)
+		at := time.Date(to.Year(), to.Month(), to.Day(), start.Hour(), start.Minute(), 0, 0, paris)
+
+		n := &store.Slot{PoleID: v.Pole.ID, LocationID: sl.LocationID, Title: sl.Title, Capacity: sl.Capacity,
+			StartsAt: at, EndsAt: at.Add(sl.EndsAt.Sub(sl.StartsAt))}
+		if err := s.store.CreateSlot(ctx, n); err != nil {
+			return err
+		}
+
+		if err := s.store.CopyTasks(ctx, sl.ID, n.ID); err != nil {
+			return err
+		}
+
+		created++
+	}
+
+	s.flashCount(w, "flash.vol.day_copied", created, dayName(rc(r).Lang, to))
 
 	return s.redirectTab(w, r, v.Pole, "")
 }

@@ -416,6 +416,16 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) error {
 
 	when := slotWhen(lang, sl.StartsAt, sl.EndsAt)
 	if autoJoin {
+		// Joining changes more than the card: the page's "not in this pole
+		// yet" block and the other cards. htmx reloads the whole page, with
+		// the outcome as its flash message.
+		if isHX(r) {
+			s.flash(w, "vol.done.joined_signup", v.Pole.Name, when)
+			w.Header().Set("HX-Redirect", card.Back)
+
+			return nil
+		}
+
 		return s.respondSlot(w, r, card, "", "vol.done.joined_signup", v.Pole.Name, when)
 	}
 

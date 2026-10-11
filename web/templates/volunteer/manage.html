@@ -30,7 +30,19 @@
   {{if $d.Urgent}}<p class="help mb-4">{{t $l "vol.manage.urgent_help"}}</p>{{end}}
   {{range $d.Days}}
   <section class="mb-8">
-    <h2 class="mb-2 text-sm font-semibold text-gray-700 first-letter:uppercase">{{dayKeyName $l .Day}}</h2>
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <h2 class="text-sm font-semibold text-gray-700 first-letter:uppercase">{{dayKeyName $l .Day}}</h2>
+      <details class="relative" data-menu>
+        <summary class="btn-secondary btn-sm list-none">{{t $l "vol.manage.copy_day"}}</summary>
+        <form method="post" action="{{$pole.ManageURL}}/days/copy" class="absolute right-0 z-20 mt-2 w-72 space-y-2 rounded-lg bg-surface p-4 shadow-lg ring-1 ring-gray-200">
+          <input type="hidden" name="from" value="{{.Day}}">
+          <label class="label" for="copy-{{.Day}}">{{t $l "vol.manage.copy_day_to"}}</label>
+          <input id="copy-{{.Day}}" class="input" type="date" name="to" required>
+          <p class="help">{{t $l "vol.manage.copy_day_help"}}</p>
+          <button class="btn btn-sm">{{t $l "vol.coord.copy"}}</button>
+        </form>
+      </details>
+    </div>
     <div class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{dayKeyName $l .Day}}">
     <table class="table">
       <thead><tr><th>{{t $l "vol.manage.col_time"}}</th><th>{{t $l "vol.manage.col_place"}}</th><th>{{t $l "vol.manage.col_title"}}</th><th>{{t $l "vol.manage.col_filled"}}</th><th>{{t $l "vol.manage.col_who"}}</th><th>{{t $l "vol.manage.col_waiting"}}</th><th>{{t $l "vol.tasks.title"}}</th><th><span class="sr-only">{{t $l "vol.manage.col_actions"}}</span></th></tr></thead>

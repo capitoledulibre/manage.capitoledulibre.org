@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -287,8 +288,23 @@ func (s *Server) eventHome(w http.ResponseWriter, r *http.Request) error {
 			continue
 		}
 
+		manage := coordinator || managed[id]
+
+		// The default pole only shows once it holds something: an empty card
+		// at the head of the list said nothing to a volunteer.
+		if c.Pole.IsDefault && c.Slots == 0 && !manage {
+			messages, err := s.store.ListPoleMessages(ctx, id)
+			if err != nil {
+				return err
+			}
+
+			if len(messages) == 0 {
+				continue
+			}
+		}
+
 		cards = append(cards, &poleCard{Pole: c.Pole, Coverage: c, Member: members[id],
-			Manage: coordinator || managed[id], Missing: max(c.Capacity-c.Filled, 0)})
+			Manage: manage, Missing: max(c.Capacity-c.Filled, 0)})
 	}
 
 	mine, err := s.store.ListPersonSlots(ctx, e.ID, person.ID)
@@ -296,10 +312,15 @@ func (s *Server) eventHome(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	focus, err := s.dayFocus(r, mine, time.Now())
+	if err != nil {
+		return err
+	}
+
 	var upcoming []*store.Slot
 
 	for _, sl := range mine {
-		if sl.EndsAt.After(time.Now()) && len(upcoming) < 3 {
+		if sl.EndsAt.After(time.Now()) && len(upcoming) < 3 && (focus == nil || sl.ID != focus.Slot.ID) {
 			upcoming = append(upcoming, sl)
 		}
 	}
@@ -320,10 +341,60 @@ func (s *Server) eventHome(w http.ResponseWriter, r *http.Request) error {
 	p.D = map[string]any{
 		"Event": e, "Poles": cards, "Messages": messages, "MySlots": mine, "Upcoming": upcoming,
 		"Joined": len(members) > 0, "Waiting": waiting, "PrevEvent": prev, "Returning": returning,
-		"Coordinator": coordinator, "FirstName": firstName(person.Name, person.Email),
+		"Coordinator": coordinator, "FirstName": firstName(person.Name, person.Email), "Focus": focus,
 	}
 
 	return s.render(w, r, "volunteer/home", p)
+}
+
+// dayFocus is the slot a volunteer is on right now, or else their next one
+// of the day, with what they need on the spot: its tasks and whom to call.
+type dayFocus struct {
+	Slot     *store.Slot
+	Ongoing  bool
+	Tasks    []*store.SlotTask
+	Contacts []*store.Person
+}
+
+// dayFocus picks, among the person's slots, the one to put first on the
+// day of the event: the one under way, or the next one starting the same
+// day. Nil on other days.
+func (s *Server) dayFocus(r *http.Request, mine []*store.Slot, now time.Time) (*dayFocus, error) {
+	var f *dayFocus
+
+	for _, sl := range mine {
+		switch {
+		case !sl.StartsAt.After(now) && sl.EndsAt.After(now):
+			f = &dayFocus{Slot: sl, Ongoing: true}
+		case f == nil && sl.StartsAt.After(now) && dayKey(sl.StartsAt) == dayKey(now):
+			f = &dayFocus{Slot: sl}
+		}
+
+		if f != nil && f.Ongoing {
+			break
+		}
+	}
+
+	if f == nil {
+		return nil, nil
+	}
+
+	ctx := r.Context()
+
+	var err error
+
+	if f.Tasks, err = s.store.ListTasks(ctx, f.Slot.ID); err != nil {
+		return nil, err
+	}
+
+	managers, err := s.store.ListPoleManagers(ctx, f.Slot.PoleID)
+	if err != nil {
+		return nil, err
+	}
+
+	f.Contacts = named(managers)
+
+	return f, nil
 }
 
 // returningPoles finds, for a volunteer who has joined nothing yet this
@@ -453,15 +524,29 @@ func (s *Server) openSlots(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var (
-		days    []*day
-		dayKeys []string
+		days     []*day
+		dayKeys  []string
+		polesSet = map[int64]bool{}
+		poleList []*store.Pole
 	)
 
 	filter := r.URL.Query().Get("day")
+	poleFilter := r.URL.Query().Get("pole")
 
 	for _, sl := range slots {
 		p, ok := takeable[sl.PoleID]
 		if !ok {
+			continue
+		}
+
+		// The filters offer what there is: the days and the poles with
+		// slots still to fill.
+		if !polesSet[p.ID] {
+			polesSet[p.ID] = true
+			poleList = append(poleList, p)
+		}
+
+		if poleFilter != "" && p.Slug != poleFilter {
 			continue
 		}
 
@@ -481,14 +566,25 @@ func (s *Server) openSlots(w http.ResponseWriter, r *http.Request) error {
 		days[len(days)-1].Cards = append(days[len(days)-1].Cards, card{Slot: sl, Pole: p, Member: members[p.ID]})
 	}
 
-	back := "/volunteers/" + e.Slug + "/slots"
+	query := url.Values{}
 	if filter != "" {
-		back += "?day=" + url.QueryEscape(filter)
+		query.Set("day", filter)
 	}
+
+	if poleFilter != "" {
+		query.Set("pole", poleFilter)
+	}
+
+	back := "/volunteers/" + e.Slug + "/slots"
+	if len(query) > 0 {
+		back += "?" + query.Encode()
+	}
+
+	slices.SortFunc(poleList, func(a, b *store.Pole) int { return a.Position - b.Position })
 
 	p := s.page(r, "vol.open.title")
 	p.D = map[string]any{"Event": e, "Days": days, "DayKeys": dayKeys, "Filter": filter, "Back": back,
-		"Locked": e.VolunteerStatus != store.VolunteersOpen}
+		"Poles": poleList, "PoleFilter": poleFilter, "Locked": e.VolunteerStatus != store.VolunteersOpen}
 
 	return s.render(w, r, "volunteer/open_slots", p)
 }
@@ -722,6 +818,14 @@ func (s *Server) volunteerProfileSave(w http.ResponseWriter, r *http.Request) er
 
 	if err := s.store.UpdateVolunteerProfile(ctx, person.ID, name, phone); err != nil {
 		return err
+	}
+
+	// The profile page carries the language of the e-mails; the welcome
+	// form keeps the one the person arrived with.
+	if lang := r.FormValue("lang"); validLang(lang) {
+		if err := s.store.SetPersonLang(ctx, person.ID, lang); err != nil {
+			return err
+		}
 	}
 
 	// Only the profile page of a pole manager carries the choice; the

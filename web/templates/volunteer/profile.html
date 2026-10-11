@@ -18,6 +18,10 @@
       <input class="input" id="phone" type="tel" name="phone" value="{{.Person.Phone}}" autocomplete="tel" maxlength="40">
       <p class="help">{{t .Lang "vol.profile.phone_help"}}</p>
     </div>
+    <div>
+      {{template "lang_picker" (dict "Name" "lang" "Selected" .Person.Lang "Label" (t .Lang "vol.profile.mail_lang"))}}
+      <p class="help">{{t .Lang "vol.profile.mail_lang_help"}}</p>
+    </div>
     {{if $d.PoleManager}}
     <input type="hidden" name="share_phone_shown" value="1">
     <div>

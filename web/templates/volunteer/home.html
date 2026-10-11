@@ -19,6 +19,31 @@
   {{end}}
 </section>
 
+{{with $d.Focus}}
+{{/* On the day, what a volunteer looks for first: where to be now, what to
+     do there and whom to call. */}}
+<section class="pole-c{{.Slot.PoleColor}} slot-card mb-8 !px-5 !py-5" aria-labelledby="focus-title">
+  <p class="text-xs font-semibold tracking-wide text-brand-700 uppercase">{{if .Ongoing}}{{t $l "vol.focus.now"}}{{else}}{{t $l "vol.focus.next"}}{{end}}</p>
+  <h2 id="focus-title" class="mt-1 text-xl font-bold"><span class="tabular-nums">{{clock .Slot.StartsAt}} – {{clock .Slot.EndsAt}}</span> · {{.Slot.PoleName}}{{with .Slot.Title}} – {{.}}{{end}}</h2>
+  {{with .Slot.LocationName}}<p class="mt-1 inline-flex items-center gap-1 text-sm text-gray-700"><svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M10 18s6-5.3 6-10a6 6 0 1 0-12 0c0 4.7 6 10 6 10zm0-7.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>{{.}}</p>{{end}}
+  <div class="mt-4 grid gap-6 md:grid-cols-2">
+    <div>
+      <h3 class="mb-2 text-sm font-semibold">{{t $l "vol.tasks.title"}}</h3>
+      {{template "task_list" (dict "Lang" $l "Tasks" .Tasks "CanTick" true "Slot" .Slot)}}
+    </div>
+    {{with .Contacts}}
+    <div>
+      <h3 class="mb-2 text-sm font-semibold">{{t $l "vol.slot.contacts"}}</h3>
+      <ul class="space-y-2 text-sm">
+        {{range .}}<li class="flex items-center gap-2">{{template "person_avatar" .}}<span><strong>{{.Name}}</strong>{{if and .SharePhone .Phone}} · <a class="link" href="tel:{{telHref .Phone}}">{{phone .Phone}}</a>{{else}} · <a class="link" href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</span></li>{{end}}
+      </ul>
+    </div>
+    {{end}}
+  </div>
+  <a class="link mt-4 inline-block text-sm" href="{{.Slot.URL}}">{{t $l "vol.focus.details"}} →</a>
+</section>
+{{end}}
+
 {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages)}}
 
 {{if $d.Returning}}
@@ -59,9 +84,11 @@
   </div>
   {{with $d.Upcoming}}
   <div class="space-y-2">{{range .}}{{template "slot_row" (dict "Lang" $l "Slot" . "ShowDay" true)}}{{end}}</div>
-  {{else}}
+  {{else}}{{if not $d.Focus}}
   <p class="text-sm text-gray-600">{{t $l "vol.home.no_upcoming"}} <a class="link" href="/volunteers/{{$e.Slug}}/slots">{{t $l "vol.home.open_link"}}</a></p>
-  {{end}}
+  {{else}}
+  <p class="text-sm text-gray-600">{{t $l "vol.home.nothing_after"}}</p>
+  {{end}}{{end}}
   {{template "waiting_list" (dict "Lang" $l "Slots" $d.Waiting)}}
 </section>
 {{end}}

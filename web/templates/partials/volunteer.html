@@ -133,7 +133,9 @@
   <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
     {{if not .Compact}}
     <div class="w-28 shrink-0 font-semibold tabular-nums">{{clock .Slot.StartsAt}}<span class="text-gray-400"> – </span>{{clock .Slot.EndsAt}}</div>
-    <div class="min-w-0 flex-1">
+    {{/* At least 12rem for the title, so on a phone the places and the
+         button go to their own line rather than squeezing it. */}}
+    <div class="min-w-0 flex-1 basis-48">
       {{/* On a pole's page every card is that pole's: the title names what
            tells the slots apart, the title or else the location. */}}
       <a href="{{.Slot.URL}}" class="inline-flex items-center gap-2 font-medium text-gray-900 hover:underline">
@@ -143,6 +145,9 @@
         {{- else}}{{.Pole.Name}}{{end -}}
       </a>
       {{if and .Slot.LocationName (or .ShowPole .Slot.Title)}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{.Slot.LocationName}}</span>{{end}}
+      {{/* A slot still short of people that starts within two days is the
+           one worth a look; every slot not yet full would drown it. */}}
+      {{if and (not .Slot.Mine) (urgent .Slot)}}<span class="badge ml-1 bg-amber-100 text-amber-800">{{t $l "vol.slot.soon"}}</span>{{end}}
       {{/* Tasks are ticked on the day by the people on the slot. */}}
       {{if and .Slot.TaskCount .Slot.Mine}}<p class="text-xs text-gray-500">{{tn $l "vol.slot.tasks_done" .Slot.TaskCount .Slot.TaskDone}}</p>{{end}}
     </div>

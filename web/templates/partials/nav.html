@@ -18,6 +18,28 @@
   {{end}}
 {{end}}
 
+{{/* volunteer_tabs is the volunteer navigation on a phone: a bar at the
+     bottom of the screen, under the thumb, where the day of the event is
+     spent. The header carries the same links on larger screens. */}}
+{{define "volunteer_tabs"}}
+{{with .Vol.Event}}
+{{$p := $.Path}}{{$base := printf "/volunteers/%s" .Slug}}
+<nav class="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-200 bg-surface sm:hidden" aria-label="{{t $.Lang "vol.tabs.label"}}">
+  {{template "volunteer_tab" (dict "Href" $base "On" (eq $p $base) "Label" (t $.Lang "vol.tabs.poles") "Icon" "M3 4h6v6H3zm8 0h6v6h-6zM3 12h6v6H3zm8 0h6v6h-6z")}}
+  {{template "volunteer_tab" (dict "Href" (printf "%s/slots" $base) "On" (eq $p (printf "%s/slots" $base)) "Label" (t $.Lang "vol.tabs.open") "Icon" "M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm1 4v3h3v2h-3v3H9v-3H6V9h3V6z")}}
+  {{template "volunteer_tab" (dict "Href" (printf "%s/me" $base) "On" (eq $p (printf "%s/me" $base)) "Label" (t $.Lang "vol.tabs.me") "Icon" "M5 2h2v2h6V2h2v2h2v14H3V4h2zm-0 6v8h10V8z")}}
+  {{if $.Vol.Coordinator}}{{template "volunteer_tab" (dict "Href" (printf "%s/coordination" $base) "On" (hasPrefix $p (printf "%s/coordination" $base)) "Label" (t $.Lang "vol.tabs.coordination") "Icon" "M3 17V9h3v8zm5 0V3h3v14zm5 0v-6h3v6z")}}{{end}}
+</nav>
+{{end}}
+{{end}}
+
+{{define "volunteer_tab"}}
+<a href="{{.Href}}" class="flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-medium {{if .On}}text-brand-700{{else}}text-gray-500{{end}}" {{if .On}}aria-current="page"{{end}}>
+  <svg viewBox="0 0 20 20" class="h-5 w-5" fill="currentColor" aria-hidden="true"><path d="{{.Icon}}"/></svg>
+  {{.Label}}
+</a>
+{{end}}
+
 {{define "admin_nav"}}
   <a class="nav-link {{if eq .Nav "pipeline"}}nav-link-active{{end}}" href="/admin/">Pipeline</a>
   <a class="nav-link" href="/admin/volunteers">Bénévoles</a>

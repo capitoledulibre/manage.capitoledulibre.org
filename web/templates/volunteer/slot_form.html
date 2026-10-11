@@ -21,6 +21,12 @@
       </select>
     </div>
   </div>
+  {{if $f.Outside}}
+  <div class="rounded-md bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+    <p>{{t $l "vol.slot_form.outside" (dateSpan $l $f.V.Event.StartsOn $f.V.Event.EndsOn)}}</p>
+    <label class="mt-2 inline-flex items-center gap-2 font-medium"><input type="checkbox" name="outside_ok" value="yes" class="h-4 w-4 accent-brand-600" required> {{t $l "vol.slot_form.outside_ok"}}</label>
+  </div>
+  {{end}}
   <div>
     <label class="label" for="s-title">{{t $l "vol.slot_form.title"}}</label>
     <input id="s-title" class="input" name="title" value="{{$s.Title}}" maxlength="200">

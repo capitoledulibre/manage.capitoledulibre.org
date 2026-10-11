@@ -181,13 +181,35 @@ func TestVolunteerSignupFlow(t *testing.T) {
 	_, body = e.get(nina, f.buvette.URL())
 	mustContain(t, body, "Buvette", "Café", "Je m&#39;inscris", "Vous n&#39;êtes pas encore dans ce pôle")
 
-	// Signing up on a public pole joins it, and htmx gets the card back.
-	code, body = e.hx(nina, f.morning.URL()+"/signup", url.Values{"back": {f.buvette.URL()}})
-	if code != 200 || !strings.Contains(body, `id="slot-`+f.morning.UID+`"`) || strings.Contains(body, "<html") {
-		t.Fatalf("htmx signup: %d\n%s", code, body)
+	// Signing up on a public pole joins it: htmx reloads the page, which
+	// shows the outcome.
+	req, _ := http.NewRequest(http.MethodPost, e.srv.URL+f.morning.URL()+"/signup", strings.NewReader(url.Values{"back": {f.buvette.URL()}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+
+	resp, err := nina.Do(req)
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if resp.StatusCode != 200 || resp.Header.Get("HX-Redirect") != f.buvette.URL() {
+		t.Fatalf("htmx signup joining the pole: %d %q", resp.StatusCode, resp.Header.Get("HX-Redirect"))
 	}
 
-	mustContain(t, body, "Inscrit·e", "Vous avez rejoint le pôle", `hx-swap-oob="true"`)
+	_, body = e.get(nina, f.buvette.URL())
+	mustContain(t, body, "Vous avez rejoint le pôle", "Inscrit·e")
+
+	if strings.Contains(body, "Vous n&#39;êtes pas encore dans ce pôle") {
+		t.Error("the page still says the volunteer is not in the pole")
+	}
+
+	// Once in the pole, htmx gets the card back.
+	code, body = e.hx(nina, f.morning.URL()+"/unsignup", url.Values{"back": {f.buvette.URL()}})
+	if code != 200 || !strings.Contains(body, `id="slot-`+f.morning.UID+`"`) || strings.Contains(body, "<html") {
+		t.Fatalf("htmx unsignup: %d\n%s", code, body)
+	}
+
+	mustContain(t, body, "Désinscription enregistrée", `hx-swap-oob="true"`)
+	e.hx(nina, f.morning.URL()+"/signup", url.Values{"back": {f.buvette.URL()}})
 
 	if ok, _ := e.st.IsPoleMember(ctx, f.buvette.ID, ninaP.ID); !ok {
 		t.Fatal("a sign-up on a public pole joins it")
@@ -409,7 +431,7 @@ func TestVolunteerPagesInEnglish(t *testing.T) {
 	_, body := e.get(nina, "/volunteers/"+f.event.Slug)
 	mustContain(t, body, "Hello Nina", "Teams", "by invitation", "My schedule")
 
-	_, body = e.hx(nina, f.morning.URL()+"/signup", nil)
+	_, body = e.post(nina, f.morning.URL()+"/signup", url.Values{"back": {f.buvette.URL()}})
 	mustContain(t, body, "Signed up", "You joined the “Buvette” team.")
 }
 

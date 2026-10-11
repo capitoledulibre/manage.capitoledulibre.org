@@ -305,6 +305,17 @@ func (s *Store) UpdateVolunteerProfile(ctx context.Context, personID int64, name
 	return err
 }
 
+// SetPersonLang sets the language of a person's e-mails.
+func (s *Store) SetPersonLang(ctx context.Context, personID int64, lang string) error {
+	if lang != "fr" && lang != "en" {
+		return ErrBadInput
+	}
+
+	_, err := s.db.ExecContext(ctx, `UPDATE people SET lang = ? WHERE id = ?`, lang, personID)
+
+	return err
+}
+
 // SetSharePhone records whether a pole manager shows their phone to the
 // volunteers of their poles.
 func (s *Store) SetSharePhone(ctx context.Context, personID int64, share bool) error {
