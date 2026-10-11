@@ -165,7 +165,7 @@ Everything is configured with environment variables; see
 | `MANAGE_SITE_URL` | Event website, linked in the footer |
 | `MANAGE_CONTACT_EMAIL` | Contact address shown to partners, default sender |
 | `MANAGE_SITE_LOGO` | Optional path to the event logo (SVG, PNG, JPEG, WebP), header and favicon; initials of the name otherwise |
-| `MANAGE_DATA_DIR` | Directory for `manage.db` (a `partners.db` left by the partner dashboard is renamed on start) and uploaded files |
+| `MANAGE_DATA_DIR` | Directory for `manage.db` (a `partners.db` left by the former partner application is renamed on start) and uploaded files |
 | `MANAGE_SMTP_*`, `MANAGE_MAIL_FROM` | Outgoing email |
 | `MANAGE_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
 | `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |
@@ -179,7 +179,7 @@ Everything is configured with environment variables; see
 
 ```sh
 curl -H "Authorization: Bearer $MANAGE_EXPORT_TOKEN" \
-  "https://partners.example.org/api/partners.json?event=example-conf-2026"
+  "https://manage.example.org/api/partners.json?event=example-conf-2026"
 # or, on the server:
 partners export -event example-conf-2026 -o partners.json
 ```
@@ -201,11 +201,11 @@ are included, grouped by level (highest first):
           "slug": "acme",
           "website": "https://acme.example",
           "description": { "fr": "…", "en": "…" },
-          "logo": "https://partners.example.org/logos/3f2a….svg",
-          "logo_dark": "https://partners.example.org/logos/9b1c….svg",
+          "logo": "https://manage.example.org/logos/3f2a….svg",
+          "logo_dark": "https://manage.example.org/logos/9b1c….svg",
           "social": { "linkedin": "https://www.linkedin.com/company/acme", "x": "@acme" },
           "hiring": true,
-          "jobs_url": "https://partners.example.org/jobs#acme"
+          "jobs_url": "https://manage.example.org/jobs#acme"
         }
       ]
     }
@@ -228,8 +228,8 @@ The previous application (Django) stored editions, levels, perks and
 partners. They can be imported once:
 
 ```sh
-partners import-django -dry-run /path/to/old/db.sqlite3   # show what would be imported
-partners import-django /path/to/old/db.sqlite3
+manage import-django -dry-run /path/to/old/db.sqlite3   # show what would be imported
+manage import-django /path/to/old/db.sqlite3
 ```
 
 Partnerships are imported as confirmed. Organizations are matched by name
@@ -252,6 +252,21 @@ docker run … -v ./logo.svg:/brand/logo.svg:ro -e MANAGE_SITE_LOGO=/brand/logo.
 
 The logo is read at startup; restart the container after changing it. Staff
 avatars are set by each staff member on their profile page (`/admin/profile`).
+
+Dates and times are shown, and volunteer reminders sent, in the Europe/Paris
+time zone.
+
+### Coming from the two former applications
+
+- **partners.example.org**: point `MANAGE_DATA_DIR` at its data
+  directory (or copy it). Its `partners.db` is renamed `manage.db` on the
+  first start and migrated in place: each manager and staff member becomes a
+  person, editions get their volunteer side (in draft) and a default pole.
+  Sessions are reset, so everyone logs in again. Take a copy first.
+- **benevoles.example.org**: its database is not imported (nothing
+  to keep). Rename its environment variables to the `MANAGE_` ones above;
+  the staff OIDC client and its redirect URL `…/admin/callback` stay the
+  same, only the host changes.
 
 Put it behind a TLS reverse proxy. Cookies get the `Secure` flag when
 `MANAGE_BASE_URL` starts with `https://`. Back up the `/data` volume
@@ -279,3 +294,7 @@ internal/mail/       SMTP sender
 web/templates/       html/template pages
 web/static/          Tailwind input, compiled CSS, small JS
 ```
+
+## Licence
+
+[Apache License 2.0](LICENSE).

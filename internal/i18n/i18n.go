@@ -129,6 +129,8 @@ var messages = map[string][2]string{
 	"login.email":             {"Adresse email", "Email address"},
 	"login.submit":            {"Recevoir un lien de connexion", "Send me a login link"},
 	"login.help":              {"Pas de mot de passe : nous vous envoyons un lien de connexion à usage unique.", "No password: we email you a single-use login link."},
+	"login.volunteer":         {"Vous êtes bénévole ?", "Volunteering?"},
+	"login.volunteer_link":    {"Espace bénévole →", "Volunteer area →"},
 	"login.too_many":          {"Trop de demandes de connexion depuis votre réseau. Vérifiez votre boîte mail, puis réessayez dans un quart d'heure.", "Too many login requests from your network. Check your inbox, then try again in a quarter of an hour."},
 	"login.invalid_email":     {"Adresse email invalide.", "Invalid email address."},
 	"login.link_invalid":      {"Ce lien de connexion est invalide ou a expiré. Demandez-en un nouveau.", "This login link is invalid or has expired. Please request a new one."},

@@ -22,6 +22,9 @@
       <button class="btn w-full">{{t .Lang "login.submit"}}</button>
       <p class="help">{{t .Lang "login.help"}}</p>
     </form>
+    {{/* The site root is the partners' door; volunteers have their own,
+         which creates the account of a newcomer. */}}
+    <p class="mt-6 border-t border-gray-200 pt-4 text-sm text-gray-600">{{t .Lang "login.volunteer"}} <a class="link" href="/volunteers/login">{{t .Lang "login.volunteer_link"}}</a></p>
   </div>
 </div>
 {{end}}

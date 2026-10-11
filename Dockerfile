@@ -4,7 +4,8 @@ FROM golang:1.27-alpine AS build
 ARG TAILWIND_VERSION=v4.3.3
 ARG TARGETARCH
 WORKDIR /src
-RUN apk add --no-cache curl make
+# The musl build of the Tailwind CLI links against the C++ runtime.
+RUN apk add --no-cache curl make libstdc++ libgcc
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
