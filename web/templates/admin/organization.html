@@ -82,18 +82,16 @@
 
     <section class="card">
       <h2 class="card-title">Logos</h2>
-      <div class="mb-3 grid grid-cols-2 gap-2">
-        <div class="checker flex h-20 items-center justify-center rounded p-2">{{if $o.LogoFile}}<img src="{{logoURL $o.LogoFile}}" alt="" class="max-h-full max-w-full object-contain">{{end}}</div>
-        <div class="flex h-20 items-center justify-center rounded bg-ink p-2">{{if $o.LogoDarkFile}}<img src="{{logoURL $o.LogoDarkFile}}" alt="" class="max-h-full max-w-full object-contain">{{end}}</div>
-      </div>
       <div class="grid grid-cols-2 gap-2">
-        <div>{{template "upload" (dict "Lang" "fr" "ID" "up-orglogo-default" "Action" (printf "/admin/organizations/%s/logo" $o.Slug) "Field" "logo"
-          "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "SVG, PNG, JPEG, WebP" "MaxBytes" (uploadLimit "logo")
-          "Title" (printf "Logo principal · %s" $o.Name) "Label" (or (and $o.LogoFile "Remplacer") "Ajouter") "Image" true "Hidden" (dict "variant" "default"))}}</div>
-        <div>{{template "upload" (dict "Lang" "fr" "ID" "up-orglogo-dark" "Action" (printf "/admin/organizations/%s/logo" $o.Slug) "Field" "logo"
-          "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "SVG, PNG, JPEG, WebP" "MaxBytes" (uploadLimit "logo")
-          "Title" (printf "Logo fond sombre · %s" $o.Name) "Label" (or (and $o.LogoDarkFile "Remplacer") "Ajouter") "Image" true "Hidden" (dict "variant" "dark"))}}</div>
+        {{template "upload_target" (dict "Lang" "fr" "ID" "up-orglogo-default" "Label" "Logo principal" "Src" (and $o.LogoFile (logoURL $o.LogoFile)) "Class" "checker h-24 w-full rounded p-2")}}
+        {{template "upload_target" (dict "Lang" "fr" "ID" "up-orglogo-dark" "Label" "Logo fond sombre" "Src" (and $o.LogoDarkFile (logoURL $o.LogoDarkFile)) "Class" "bg-ink h-24 w-full rounded p-2")}}
       </div>
+      {{template "upload" (dict "Lang" "fr" "ID" "up-orglogo-default" "Action" (printf "/admin/organizations/%s/logo" $o.Slug) "Field" "logo"
+        "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "SVG, PNG, JPEG, WebP" "MaxBytes" (uploadLimit "logo")
+        "Title" (printf "Logo principal · %s" $o.Name) "Image" true "NoButton" true "Hidden" (dict "variant" "default"))}}
+      {{template "upload" (dict "Lang" "fr" "ID" "up-orglogo-dark" "Action" (printf "/admin/organizations/%s/logo" $o.Slug) "Field" "logo"
+        "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "SVG, PNG, JPEG, WebP" "MaxBytes" (uploadLimit "logo")
+        "Title" (printf "Logo fond sombre · %s" $o.Name) "Image" true "NoButton" true "Hidden" (dict "variant" "dark"))}}
       {{if .D.Logos}}
       <details class="mt-3 text-sm">
         <summary class="cursor-pointer text-gray-600">Historique ({{len .D.Logos}})</summary>

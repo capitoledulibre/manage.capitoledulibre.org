@@ -131,11 +131,11 @@
     <section class="card">
       <h2 class="card-title">{{t $l "vol.coord.logo"}}</h2>
       <p class="help mb-3">{{t $l "vol.coord.logo_help"}}</p>
-      <div class="flex flex-wrap items-center gap-3">
-        {{with $e.LogoFile}}<img src="/volunteer-images/{{.}}" alt="" class="h-14 w-14 rounded-lg object-contain ring-1 ring-gray-200">{{end}}
+      <div class="flex flex-wrap items-end gap-3">
+        {{template "upload_target" (dict "Lang" $l "ID" "up-event-logo" "Label" (t $l "vol.coord.logo") "Src" (and $e.LogoFile (printf "/volunteer-images/%s" $e.LogoFile)) "Class" "checker h-32 w-48 rounded-lg p-2")}}
         {{template "upload" (dict "Lang" $l "ID" "up-event-logo" "Action" (printf "%s/logo" $base) "Field" "logo"
           "Accept" "image/png,image/jpeg,image/webp,image/svg+xml,.svg" "Formats" "PNG, JPEG, WebP, SVG" "MaxBytes" $d.MaxImage
-          "Title" (t $l "vol.coord.logo") "Label" (t $l "vol.manage.image_upload") "Image" true)}}
+          "Title" (t $l "vol.coord.logo") "Image" true "NoButton" true)}}
         {{if $e.LogoFile}}<form method="post" action="{{$base}}/logo/delete" data-confirm="{{t $l "vol.coord.logo_remove_confirm"}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.image_remove"}}</button></form>{{end}}
       </div>
     </section>

@@ -193,11 +193,11 @@
       <section class="card">
         <h2 class="card-title">{{t $l "vol.manage.image"}}</h2>
         <p class="help mb-3">{{t $l "vol.manage.image_help"}}</p>
-        <div class="pole-c{{$pole.Color}} flex flex-wrap items-center gap-3">
-          {{template "pole_icon" (dict "Pole" $pole "Big" true)}}
+        <div class="flex flex-wrap items-end gap-3">
+          {{template "upload_target" (dict "Lang" $l "ID" "up-pole-image" "Label" (t $l "vol.manage.image") "Src" (and $pole.ImageFile (printf "/volunteer-images/%s" $pole.ImageFile)) "Class" "h-32 w-32 rounded-lg")}}
           {{template "upload" (dict "Lang" $l "ID" "up-pole-image" "Action" (printf "%s/image" $pole.ManageURL) "Field" "image"
             "Accept" "image/png,image/jpeg,image/webp,image/svg+xml,.svg" "Formats" "PNG, JPEG, WebP, SVG" "MaxBytes" $d.MaxImage
-            "Title" (t $l "vol.manage.image") "Label" (t $l "vol.manage.image_upload") "Image" true)}}
+            "Title" (t $l "vol.manage.image") "Image" true "NoButton" true)}}
           {{if $pole.ImageFile}}<form method="post" action="{{$pole.ManageURL}}/image/delete" data-confirm="{{t $l "vol.manage.image_remove_confirm"}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.image_remove"}}</button></form>{{end}}
         </div>
       </section>

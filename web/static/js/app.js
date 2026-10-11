@@ -203,6 +203,48 @@
       }),
     );
 
+    // A target outside the dialog (the picture shown on the page) is a drop
+    // zone too: a click opens the file picker straight away, a dropped file
+    // opens the dialog with it, ready to save.
+    let fromTarget = false;
+
+    const load = (file) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      input.files = transfer.files;
+      choose(file);
+    };
+
+    document.querySelectorAll(`[data-upload-target="${dialog.id}"]`).forEach((target) => {
+      const pick = () => {
+        reset();
+        fromTarget = true;
+        input.click();
+      };
+
+      target.addEventListener("click", pick);
+      target.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          pick();
+        }
+      });
+      target.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        target.dataset.dragging = "";
+      });
+      target.addEventListener("dragleave", () => delete target.dataset.dragging);
+      target.addEventListener("drop", (event) => {
+        event.preventDefault();
+        delete target.dataset.dragging;
+        const file = event.dataTransfer.files[0];
+        if (!file) return;
+        reset();
+        load(file);
+        dialog.showModal();
+      });
+    });
+
     zone.addEventListener("click", () => input.click());
     dialog.querySelector("[data-upload-browse]").addEventListener("click", () => input.click());
     zone.addEventListener("keydown", (event) => {
@@ -212,7 +254,12 @@
       }
     });
 
-    input.addEventListener("change", () => choose(input.files[0]));
+    input.addEventListener("change", () => {
+      choose(input.files[0]);
+      // Picked from the page: the dialog shows the choice and saves it.
+      if (fromTarget && input.files[0] && !dialog.open) dialog.showModal();
+      fromTarget = false;
+    });
 
     zone.addEventListener("dragover", (event) => {
       event.preventDefault();
@@ -225,10 +272,7 @@
       const file = event.dataTransfer.files[0];
       if (!file) return;
       // Put the dropped file in the form's file field.
-      const transfer = new DataTransfer();
-      transfer.items.add(file);
-      input.files = transfer.files;
-      choose(file);
+      load(file);
     });
 
     form.addEventListener("submit", () => {

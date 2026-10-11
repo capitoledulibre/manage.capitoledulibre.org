@@ -20,15 +20,15 @@
   </section>
   <section class="card">
     <h2 class="card-title">Avatar</h2>
-    <div class="mb-4 flex items-center gap-4">
-      {{template "avatar" (dict "Admin" $a "Size" "h-20 w-20 text-2xl")}}
+    <div class="mb-4 flex items-end gap-4">
+      {{template "upload_target" (dict "Lang" "fr" "ID" "up-avatar" "Label" "Avatar" "Src" (and $a.AvatarFile (printf "/avatars/%s" $a.AvatarFile)) "Class" "h-28 w-28 rounded-full" "ImgClass" "h-full w-full !max-h-none !max-w-none object-cover")}}
       {{if $a.AvatarFile}}
       <form method="post" action="/admin/profile/avatar/delete"><button class="btn-danger btn-sm">Retirer</button></form>
       {{end}}
     </div>
     {{template "upload" (dict "Lang" "fr" "ID" "up-avatar" "Action" "/admin/profile/avatar" "Field" "avatar"
       "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "PNG, JPEG, WebP, SVG" "MaxBytes" (uploadLimit "avatar")
-      "Title" "Avatar" "Label" (or (and $a.AvatarFile "Remplacer") "Ajouter") "Image" true)}}
+      "Title" "Avatar" "Image" true "NoButton" true)}}
     <p class="help mt-2">Une image carrée rend mieux.</p>
   </section>
 </div>
