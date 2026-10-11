@@ -81,7 +81,7 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) error {
 
 	// Someone not signed in picks their door: partner, volunteer or staff.
 	p := s.page(r, "door.title")
-	p.D = map[string]any{"Staff": s.oidc != nil || s.cfg.DevAdminLogin()}
+	p.D = map[string]any{"Staff": s.oidc != nil || s.devAdminLogin(r)}
 
 	return s.render(w, r, "public/door", p)
 }
@@ -547,9 +547,13 @@ func validEmail(email string) bool {
 	return at > 0 && at < len(email)-3 && strings.Contains(email[at:], ".")
 }
 
-// safeRedirect only allows local paths, to avoid open redirects.
+// safeRedirect keeps next when it is a path of this site, else returns
+// fallback. A backslash or a control character is refused outright:
+// browsers read "/\host" as "//host", and http.Redirect cleans "/./\host"
+// into it.
 func safeRedirect(next, fallback string) string {
-	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") {
+	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") ||
+		strings.ContainsFunc(next, func(r rune) bool { return r == '\\' || unicode.IsControl(r) }) {
 		return fallback
 	}
 

@@ -110,7 +110,7 @@ func (s *Server) wrap(h handlerFunc) http.Handler {
 		case errors.Is(err, store.ErrNotFound):
 			status = http.StatusNotFound
 		default:
-			slog.Error("request failed", "method", r.Method, "path", r.URL.Path, "err", err)
+			slog.Error("request failed", "method", r.Method, "path", logPath(r), "err", err)
 		}
 
 		w.Header().Del("Content-Disposition")
@@ -186,6 +186,22 @@ func (r *statusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+// secretPaths are the paths whose last segment is a secret: a login link,
+// a calendar subscription. Logs keep the prefix only, or anyone reading
+// them could use the link.
+var secretPaths = []string{"/auth/", "/calendar/"}
+
+// logPath is the path of a request as logs show it.
+func logPath(r *http.Request) string {
+	for _, prefix := range secretPaths {
+		if strings.HasPrefix(r.URL.Path, prefix) {
+			return prefix + "…"
+		}
+	}
+
+	return r.URL.Path
+}
+
 func logRequests(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -196,6 +212,6 @@ func logRequests(h http.Handler) http.Handler {
 			return
 		}
 
-		slog.Info("http", "method", r.Method, "path", r.URL.Path, "status", rec.status, "duration", time.Since(start).Round(time.Millisecond))
+		slog.Info("http", "method", r.Method, "path", logPath(r), "status", rec.status, "duration", time.Since(start).Round(time.Millisecond))
 	})
 }

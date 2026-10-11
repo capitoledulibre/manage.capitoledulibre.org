@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"slices"
 	"strings"
 	"time"
@@ -51,7 +52,7 @@ func newOIDCClient(ctx context.Context, cfg *config.Config) (*oidcClient, error)
 // the development login form when OIDC is disabled.
 func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) error {
 	if s.oidc == nil {
-		if !s.cfg.DevAdminLogin() {
+		if !s.devAdminLogin(r) {
 			return errNotFound
 		}
 
@@ -149,11 +150,26 @@ func (s *Server) adminAllowed(email string, groups []string) bool {
 	return s.cfg.AdminGroup != "" && slices.Contains(groups, s.cfg.AdminGroup)
 }
 
+// devAdminLogin tells whether the password-less staff login is offered to
+// this request: config.DevAdminLogin, and a request from the machine itself.
+// The configured base URL alone is not enough: a server listening on every
+// interface with a forgotten MANAGE_BASE_URL would open the admin area to
+// its network. The peer address is read as is, never from X-Forwarded-For.
+func (s *Server) devAdminLogin(r *http.Request) bool {
+	if !s.cfg.DevAdminLogin() {
+		return false
+	}
+
+	ap, err := netip.ParseAddrPort(r.RemoteAddr)
+
+	return err == nil && ap.Addr().Unmap().IsLoopback()
+}
+
 // adminDevLogin logs in any email listed in MANAGE_ADMIN_EMAILS (or any
 // email when the list is empty). See config.DevAdminLogin for when it is
 // available.
 func (s *Server) adminDevLogin(w http.ResponseWriter, r *http.Request) error {
-	if s.oidc != nil || !s.cfg.DevAdminLogin() {
+	if s.oidc != nil || !s.devAdminLogin(r) {
 		return errNotFound
 	}
 

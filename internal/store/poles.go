@@ -566,13 +566,17 @@ func (s *Store) ListPoleMembers(ctx context.Context, poleID int64) ([]*PoleMembe
 	return out, rows.Err()
 }
 
-// SearchPeopleNotInPole finds people matching q (name or e-mail) who have
-// not joined the pole.
+// SearchPeopleNotInPole finds volunteers matching q (name or e-mail) who
+// have not joined the pole. A lead must not browse the partner contacts and
+// the staff: they are only found when they volunteer too (they belong to a
+// pole). Anyone can still be added by address.
 func (s *Store) SearchPeopleNotInPole(ctx context.Context, poleID int64, q string, limit int) ([]*Person, error) {
 	pattern := "%" + escapeLike(q) + "%"
 
 	return s.queryPeople(ctx, `SELECT `+personCols+` FROM people
 		WHERE (name LIKE ? ESCAPE '\' OR email LIKE ? ESCAPE '\')
+		  AND (id IN (SELECT person_id FROM pole_members)
+		       OR id NOT IN (SELECT person_id FROM managers UNION SELECT person_id FROM admins))
 		  AND id NOT IN (SELECT person_id FROM pole_members WHERE pole_id = ?)
 		ORDER BY name COLLATE NOCASE, email COLLATE NOCASE LIMIT ?`, pattern, pattern, poleID, limit)
 }

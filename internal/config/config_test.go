@@ -41,6 +41,17 @@ func TestValidateServe(t *testing.T) {
 	if err := (&Config{Dev: true}).ValidateServe(); err != nil {
 		t.Error(err)
 	}
+
+	// Outside dev mode, e-mails (login links) must not end up in the log.
+	oidc := Config{OIDCIssuer: "https://id.example.org", OIDCClientID: "manage", OIDCClientSecret: "secret"}
+	if err := oidc.ValidateServe(); err == nil {
+		t.Error("serve without SMTP outside dev mode must fail")
+	}
+
+	oidc.SMTPHost, oidc.MailFrom = "smtp.example.org", "manage@example.org"
+	if err := oidc.ValidateServe(); err != nil {
+		t.Error(err)
+	}
 }
 
 func TestSiteDefaults(t *testing.T) {

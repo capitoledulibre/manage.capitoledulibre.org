@@ -138,11 +138,14 @@ migrations, the export format and French/English catalog parity.
 In dev mode (`MANAGE_DEV=1`):
 
 - emails are printed to the log instead of being sent (unless SMTP is set),
-  so magic links can be copied from the terminal;
+  so magic links can be copied from the terminal; outside dev mode the
+  server refuses to start without `MANAGE_SMTP_HOST`, so login links never
+  reach a production log;
 - without OIDC, `/admin/login` offers a password-less form (restricted to
   `MANAGE_ADMIN_EMAILS` when set). It is only enabled when
-  `MANAGE_BASE_URL` is a loopback address, so a forgotten `MANAGE_DEV`
-  cannot open the admin area on a public server.
+  `MANAGE_BASE_URL` is a loopback address, and only answers requests from
+  the machine itself, so a forgotten `MANAGE_DEV` cannot open the admin area
+  to the network.
 
 Typical first steps: log in at `/admin/login`, create an edition with its
 levels and perks, create an organization with a first manager, set the
@@ -174,7 +177,7 @@ Everything is configured with environment variables; see
 | `MANAGE_VOLUNTEER_CONTACT_EMAIL` | Contact address shown to volunteers and set as Reply-To of their e-mails (default: `MANAGE_CONTACT_EMAIL`) |
 | `MANAGE_SITE_LOGO` | Optional path to the event logo (SVG, PNG, JPEG, WebP), header and favicon; initials of the name otherwise |
 | `MANAGE_DATA_DIR` | Directory for `manage.db` and uploaded files |
-| `MANAGE_SMTP_*`, `MANAGE_MAIL_FROM` | Outgoing email |
+| `MANAGE_SMTP_*`, `MANAGE_MAIL_FROM` | Outgoing email; `MANAGE_SMTP_HOST` is required outside dev mode |
 | `MANAGE_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
 | `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |
 | `MANAGE_ADMIN_EMAILS`, `MANAGE_ADMIN_GROUP` | Who may log in as staff |

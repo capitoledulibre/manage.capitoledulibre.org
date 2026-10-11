@@ -196,6 +196,12 @@ func (c *Config) ValidateServe() error {
 		return fmt.Errorf("OIDC is not configured (MANAGE_OIDC_ISSUER, MANAGE_OIDC_CLIENT_ID, MANAGE_OIDC_CLIENT_SECRET); set MANAGE_DEV=1 for local development")
 	}
 
+	// Without SMTP, e-mails go to the log, login links included: fine on a
+	// laptop, a leak anywhere else.
+	if !c.Dev && c.SMTPHost == "" {
+		return fmt.Errorf("e-mails need an SMTP server: set MANAGE_SMTP_HOST (or MANAGE_DEV=1 to print them to the log)")
+	}
+
 	if c.SMTPHost != "" && c.MailFrom == "" {
 		return fmt.Errorf("e-mails need a sender: set MANAGE_MAIL_FROM or MANAGE_CONTACT_EMAIL")
 	}

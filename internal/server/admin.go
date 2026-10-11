@@ -743,7 +743,8 @@ func (s *Server) adminAttendeesCSV(w http.ResponseWriter, r *http.Request) error
 				role = "Visiteur"
 			}
 
-			_ = cw.Write([]string{org.Name, level, a.FirstName, a.LastName, a.Email, role, a.Dietary})
+			// Partners type these cells: a spreadsheet must not run them.
+			_ = cw.Write([]string{csvSafe(org.Name), csvSafe(level), csvSafe(a.FirstName), csvSafe(a.LastName), csvSafe(a.Email), role, csvSafe(a.Dietary)})
 		}
 	}
 
