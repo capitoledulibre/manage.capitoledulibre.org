@@ -8,6 +8,7 @@
     <p class="text-sm text-gray-700"><span class="first-letter:uppercase inline-block">{{dayName $l $s.StartsAt}}</span> · <strong>{{clock $s.StartsAt}} – {{clock $s.EndsAt}}</strong>
       {{with $s.LocationName}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{.}}</span>{{end}}</p>
   </div>
+  {{if $v.Manage}}<a href="{{$s.ManageURL}}" class="btn-secondary">{{t $l "vol.manage.edit"}}</a>{{end}}
 </div>
 
 {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages)}}

@@ -13,14 +13,80 @@
      written next to it. Expects a *store.Person. */}}
 {{define "person_initials"}}<span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden="true">{{.Initials}}</span>{{end}}
 
-{{/* vol_messages lists notices. Expects Lang and Messages. */}}
+{{/* vol_messages lists notices. Expects Lang and Messages; with Manage
+     (the management URL of the pole) and Back, each one can be deleted. */}}
 {{define "vol_messages"}}
 {{range .Messages}}
 <div class="mb-4 rounded-lg border-l-4 border-brand-500 bg-brand-50 px-4 py-3 text-sm text-gray-900">
   <div>{{nl2br .Body}}</div>
-  <p class="mt-2 text-xs text-gray-500">{{with .Author}}{{.}} · {{end}}{{datetime $.Lang .CreatedAt}}</p>
+  <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+    <p class="text-xs text-gray-500">{{with .Author}}{{.}} · {{end}}{{datetime $.Lang .CreatedAt}}</p>
+    {{if $.Manage}}
+    <form method="post" action="{{$.Manage}}/messages/{{.UID}}/delete" data-confirm="{{t $.Lang "vol.manage.message_delete_confirm"}}">
+      <input type="hidden" name="back" value="{{$.Back}}">
+      <button class="btn-danger btn-sm">{{t $.Lang "vol.delete"}}</button>
+    </form>
+    {{end}}
+  </div>
 </div>
 {{end}}
+{{end}}
+
+{{/* member_search lists the people matching the search of the "add
+     members" box. Expects Lang, Pole, People, Q, Added and Announce. */}}
+{{define "member_search"}}
+{{$l := .Lang}}
+{{with .Announce}}<div id="announcer" class="sr-only" role="status" aria-live="polite" hx-swap-oob="true">{{.}}</div>{{end}}
+<div id="member-search-results" class="mt-2">
+  {{if .Added}}<p class="text-sm text-green-800" role="status">✓ {{tn $l "vol.manage.added" .Added}}</p>{{end}}
+  {{if .People}}
+  <ul class="divide-y divide-gray-100 rounded-md ring-1 ring-gray-200">
+    {{range .People}}
+    <li class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+      <span><strong>{{if .Name}}{{.Name}}{{else}}<i class="text-gray-500">{{t $l "vol.manage.no_name"}}</i>{{end}}</strong> <span class="text-gray-500">&lt;{{.Email}}&gt;</span></span>
+      <form method="post" action="{{$.Pole.ManageURL}}/members" hx-post="{{$.Pole.ManageURL}}/members" hx-target="#member-search-results" hx-swap="outerHTML">
+        <input type="hidden" name="emails" value="{{.Email}}"><input type="hidden" name="q" value="{{$.Q}}">
+        <button class="btn btn-sm">{{t $l "vol.manage.add"}}</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{else if ge (len .Q) 2}}
+  <p class="help" role="status">{{t $l "vol.manage.no_match" .Q}}</p>
+  {{end}}
+</div>
+{{end}}
+
+{{/* member_added answers an htmx addition: the search results, and the
+     members table out of band. */}}
+{{define "member_added"}}
+{{template "member_search" .}}
+{{template "members_table" (dict "Lang" .Lang "Pole" .Pole "Members" .Members "OOB" true)}}
+{{end}}
+
+{{/* members_table lists the members of a pole. Expects Lang, Pole,
+     Members and OOB (out-of-band swap). */}}
+{{define "members_table"}}
+{{$l := .Lang}}
+<div id="members-table" {{if .OOB}}hx-swap-oob="true"{{end}} class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200">
+<table class="table">
+  <thead><tr><th>{{t $l "vol.manage.col_name"}}</th><th>{{t $l "login.email"}}</th><th>{{t $l "vol.profile.phone"}}</th><th>{{t $l "vol.manage.col_slots"}}</th><th><span class="sr-only">{{t $l "vol.manage.col_actions"}}</span></th></tr></thead>
+  <tbody>
+  {{range .Members}}
+  <tr>
+    <td><span class="inline-flex items-center gap-2">{{template "person_initials" .Person}}{{.Person.Label}}</span>{{if .IsManager}} <span class="badge bg-brand-50 text-brand-800">{{t $l "vol.manage.lead"}}</span>{{end}}</td>
+    <td><a class="link" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
+    <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
+    <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0</span>{{else}}{{.SlotCount}}{{end}}</td>
+    <td class="text-right">{{if not $.Pole.IsDefault}}
+      <form method="post" action="{{$.Pole.ManageURL}}/members/{{.Person.UID}}/delete" data-confirm="{{if .SlotCount}}{{tn $l "vol.manage.remove_confirm_slots" .SlotCount .Person.Label}}{{else}}{{t $l "vol.manage.remove_confirm" .Person.Label}}{{end}}">
+        <button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button>
+      </form>{{end}}</td>
+  </tr>
+  {{else}}<tr><td colspan="5" class="text-gray-500">{{t $l "vol.manage.no_members"}}</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
 {{end}}
 
 {{/* slot_row is one of the person's slots, in a list. Expects Lang and

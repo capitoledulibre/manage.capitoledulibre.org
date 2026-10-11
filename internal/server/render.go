@@ -150,7 +150,11 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *
 
 	p.Flash, args = s.popFlash(w, r)
 	if p.Flash != "" && i18n.Has(p.Flash) {
-		p.FlashText, p.FlashError = i18n.T(p.Lang, p.Flash, anys(args)...), errorFlash(p.Flash)
+		// A text without a verb ("Créneau créé.") takes no argument.
+		p.FlashText, p.FlashError = i18n.T(p.Lang, p.Flash), errorFlash(p.Flash)
+		if len(args) > 0 && strings.Contains(p.FlashText, "%") {
+			p.FlashText = i18n.T(p.Lang, p.Flash, anys(args)...)
+		}
 	}
 
 	var buf bytes.Buffer
@@ -352,8 +356,22 @@ var funcs = template.FuncMap{
 	"slotWhen":   slotWhen,
 	"tn":         plural,
 	"named":      named,
-	"phone":      formatPhone,
-	"telHref":    telHref,
+	// inputDT renders a time for a datetime-local field, in the event's
+	// time zone.
+	"inputDT": func(v any) string {
+		t := toTime(v)
+		if t == nil {
+			return ""
+		}
+
+		return t.In(paris).Format("2006-01-02T15:04")
+	},
+	// urgent marks a slot still short of volunteers that starts within two
+	// days. Highlighting every slot not yet full painted whole plannings
+	// amber, which drowned the signal.
+	"urgent":  func(sl *store.Slot) bool { return !sl.IsFull() && isLate(sl) },
+	"phone":   formatPhone,
+	"telHref": telHref,
 	"nl2br": func(v string) template.HTML {
 		return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(v), "\n", "<br>"))
 	},

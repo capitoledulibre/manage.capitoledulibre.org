@@ -7,6 +7,7 @@
     <h1 class="text-2xl font-bold tracking-tight">{{$pole.Name}}</h1>
     {{with $d.Managers}}<p class="text-sm text-gray-600">{{tn $l "vol.managers" (len .)}} {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
   </div>
+  {{if $v.Manage}}<a href="{{$pole.ManageURL}}" class="btn-secondary">{{t $l "vol.manage.manage_pole"}}</a>{{end}}
 </div>
 {{with $pole.Description}}<p class="mb-6 text-sm text-gray-700">{{nl2br .}}</p>{{end}}
 

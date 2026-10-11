@@ -146,6 +146,11 @@ func (s *Store) GetPerson(ctx context.Context, id int64) (*Person, error) {
 	return scanPerson(s.db.QueryRowContext(ctx, `SELECT `+personCols+` FROM people WHERE id = ?`, id))
 }
 
+// GetPersonByUID finds a person by their public identifier.
+func (s *Store) GetPersonByUID(ctx context.Context, uid string) (*Person, error) {
+	return scanPerson(s.db.QueryRowContext(ctx, `SELECT `+personCols+` FROM people WHERE uid = ?`, uid))
+}
+
 // PersonByEmail finds the person behind an address.
 func (s *Store) PersonByEmail(ctx context.Context, email string) (*Person, error) {
 	return scanPerson(s.db.QueryRowContext(ctx, `SELECT `+personCols+` FROM people WHERE email = ?`, NormalizeEmail(email)))

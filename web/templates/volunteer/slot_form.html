@@ -1,0 +1,133 @@
+{{define "content"}}
+{{$d := .D}}{{$l := .Lang}}{{$f := $d.F}}{{$pole := $f.V.Pole}}{{$s := $f.Slot}}
+<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="{{$pole.ManageURL}}">← {{t $l "vol.manage.title_pole" $pole.Name}}</a></nav>
+<h1 class="text-2xl font-bold tracking-tight">{{if $f.New}}{{t $l "vol.slot_form.new"}}{{else}}{{t $l "vol.slot_form.edit"}}{{end}}</h1>
+{{if not $f.New}}<p class="mt-1 text-sm text-gray-600"><span class="inline-block first-letter:uppercase">{{dayName $l $s.StartsAt}}</span> · {{clock $s.StartsAt}} – {{clock $s.EndsAt}}{{with $s.LocationName}} · {{.}}{{end}} · <a class="link" href="{{$s.URL}}">{{t $l "vol.slot_form.public_page"}}</a></p>{{end}}
+
+{{with $f.Error}}<div class="alert mt-4 bg-red-50 text-red-800" role="alert">{{t $l .}}</div>{{end}}
+
+<form method="post" action="{{if $f.New}}{{$pole.ManageURL}}/slots{{else}}{{$s.ManageURL}}{{end}}" class="card mt-6 max-w-2xl space-y-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div><label class="label" for="s-start">{{t $l "vol.slot_form.start"}}</label><input id="s-start" class="input" type="datetime-local" name="starts_at" value="{{inputDT $s.StartsAt}}" required></div>
+    <div><label class="label" for="s-end">{{t $l "vol.slot_form.end"}}</label><input id="s-end" class="input" type="datetime-local" name="ends_at" value="{{inputDT $s.EndsAt}}" required></div>
+  </div>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div><label class="label" for="s-cap">{{t $l "vol.slot_form.capacity"}}</label><input id="s-cap" class="input" type="number" name="capacity" min="1" max="500" value="{{$s.Capacity}}" required></div>
+    <div>
+      <label class="label" for="s-loc">{{t $l "vol.slot_form.location"}}</label>
+      <select id="s-loc" class="input" name="location" {{if not $f.Locations}}disabled{{end}}>
+        <option value="">{{if $f.Locations}}{{t $l "vol.slot_form.whole_pole"}}{{else}}{{t $l "vol.slot_form.no_locations"}}{{end}}</option>
+        {{range $f.Locations}}<option value="{{.UID}}" {{if eq .UID $f.Location}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </div>
+  </div>
+  <div>
+    <label class="label" for="s-title">{{t $l "vol.slot_form.title"}}</label>
+    <input id="s-title" class="input" name="title" value="{{$s.Title}}" maxlength="200">
+    <p class="help">{{t $l "vol.slot_form.title_help"}}</p>
+  </div>
+  {{if $f.New}}
+  <div>
+    <label class="label" for="s-tasks">{{t $l "vol.slot_form.tasks"}}</label>
+    <textarea id="s-tasks" class="input" name="tasks" rows="4" placeholder="{{t $l "vol.manage.tasks_placeholder"}}">{{$f.Tasks}}</textarea>
+    <p class="help">{{t $l "vol.slot_form.tasks_help"}}</p>
+  </div>
+  <details {{if or $f.RepeatUntil $f.AllLocations}}open{{end}} class="rounded-md p-3 ring-1 ring-gray-200">
+    <summary class="cursor-pointer text-sm font-medium">{{t $l "vol.slot_form.series"}}</summary>
+    <div class="mt-3 space-y-3">
+      <div>
+        <label class="label" for="s-repeat">{{t $l "vol.slot_form.repeat_until"}}</label>
+        <input id="s-repeat" class="input max-w-xs" type="datetime-local" name="repeat_until" value="{{$f.RepeatUntil}}">
+        <p class="help">{{t $l "vol.slot_form.repeat_help"}}</p>
+      </div>
+      {{if $f.Locations}}<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="all_locations" value="1" class="h-4 w-4 accent-brand-600" {{if $f.AllLocations}}checked{{end}}> {{t $l "vol.slot_form.all_locations"}}</label>{{end}}
+    </div>
+  </details>
+  {{end}}
+  <button class="btn">{{if $f.New}}{{t $l "vol.slot_form.create"}}{{else}}{{t $l "vol.save"}}{{end}}</button>
+</form>
+
+{{if not $f.New}}
+<div class="mt-10 grid gap-8 lg:grid-cols-2">
+  <section id="volunteers">
+    <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.slot.volunteers" $s.Filled $s.Capacity}}</h2>
+    <ul class="mb-4 space-y-2">
+      {{range $d.Volunteers}}
+      <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_initials" .}}
+        <span class="flex-1">{{.Label}} <span class="text-gray-500">{{.Email}}{{with .Phone}} · {{phone .}}{{end}}</span></span>
+        <form method="post" action="{{$s.ManageURL}}/volunteers/{{.UID}}/delete" data-confirm="{{t $l "vol.slot_form.remove_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button></form>
+      </li>
+      {{else}}<li class="text-sm text-gray-500">{{t $l "vol.slot.nobody"}}</li>{{end}}
+    </ul>
+
+    {{/* Two intents, two fields. A single "name or e-mail" box turned every
+         typo into an account. */}}
+    {{if $d.Available}}
+    <form method="post" action="{{$s.ManageURL}}/volunteers" class="flex flex-wrap gap-2">
+      <label for="add-member" class="sr-only">{{t $l "vol.slot_form.pick_member"}}</label>
+      {{/* Nobody preselected: one click on the button used to sign up
+           whoever came first in the list. */}}
+      <select id="add-member" class="input max-w-xs" name="person" required>
+        <option value="" disabled selected>{{t $l "vol.slot_form.pick_member"}}</option>
+        {{range $d.Available}}<option value="{{.Person.UID}}">{{.Person.Label}}{{if eq .SlotCount 0}} — {{t $l "vol.manage.no_slot"}}{{end}}</option>{{end}}
+      </select>
+      <button class="btn-secondary btn-sm">{{t $l "vol.slot_form.sign_up_member"}}</button>
+    </form>
+    <p class="help">{{t $l "vol.slot_form.force_help"}}</p>
+    {{else}}
+    <p class="help">{{t $l "vol.slot_form.all_on"}}</p>
+    {{end}}
+
+    {{with $d.Waiting}}
+    <p class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">{{tn $l "vol.slot_form.waiting" (len .)}} {{range $i, $p := .}}{{if $i}}, {{end}}{{$p.Label}}{{end}}. {{t $l "vol.slot_form.waiting_help"}}</p>
+    {{end}}
+
+    <details class="mt-4">
+      <summary class="cursor-pointer text-sm text-gray-600">{{t $l "vol.slot_form.invite_title"}}</summary>
+      <form method="post" action="{{$s.ManageURL}}/volunteers" class="mt-3 space-y-3">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div><label class="label" for="inv-name">{{t $l "vol.profile.name"}}</label><input id="inv-name" class="input" name="name" autocomplete="off"></div>
+          <div><label class="label" for="inv-email">{{t $l "login.email"}}</label><input id="inv-email" class="input" type="email" name="email" required autocomplete="off"></div>
+        </div>
+        <button class="btn-secondary btn-sm">{{t $l "vol.slot_form.invite_submit"}}</button>
+        <p class="help">{{t $l "vol.slot_form.invite_help"}}</p>
+      </form>
+    </details>
+  </section>
+
+  <section id="tasks">
+    <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.tasks.title"}}</h2>
+    <ul class="mb-4 space-y-2">
+      {{range $d.Tasks}}
+      <li class="flex items-center justify-between gap-2 text-sm"><span>{{.Label}}{{if .Done}} <span class="badge bg-green-100 text-green-800">{{t $l "vol.slot_form.done"}}</span>{{end}}</span>
+        <form method="post" action="{{$pole.ManageURL}}/tasks/{{.UID}}/delete" data-confirm="{{t $l "vol.slot_form.task_delete_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.delete"}}</button></form></li>
+      {{else}}<li class="text-sm text-gray-500">{{t $l "vol.tasks.none"}}</li>{{end}}
+    </ul>
+    <form method="post" action="{{$s.ManageURL}}/tasks" class="space-y-2">
+      <label for="new-tasks" class="sr-only">{{t $l "vol.slot_form.tasks"}}</label>
+      <textarea id="new-tasks" class="input" name="labels" rows="2" placeholder="{{t $l "vol.slot_form.one_per_line"}}" required></textarea>
+      <button class="btn-secondary btn-sm">{{t $l "vol.manage.add"}}</button>
+    </form>
+  </section>
+</div>
+
+<section id="messages" class="mt-10 max-w-2xl">
+  <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.slot_form.messages"}}</h2>
+  <form method="post" action="{{$s.ManageURL}}/messages" class="card mb-4 space-y-3">
+    <label for="slot-msg" class="sr-only">{{t $l "vol.slot_form.messages"}}</label>
+    <textarea id="slot-msg" class="input" name="body" rows="2" placeholder="{{t $l "vol.slot_form.message_placeholder"}}" required></textarea>
+    <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="notify" value="1" class="h-4 w-4 accent-brand-600"> {{t $l "vol.slot_form.message_notify"}}</label>
+    <div><button class="btn-secondary btn-sm">{{t $l "vol.manage.publish"}}</button></div>
+  </form>
+  {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages "Manage" $pole.ManageURL "Back" (printf "%s#messages" $s.ManageURL))}}
+</section>
+
+<section class="mt-10 max-w-2xl rounded-lg p-4 ring-1 ring-red-200">
+  <form method="post" action="{{$s.ManageURL}}/delete" class="flex flex-wrap items-center justify-between gap-3"
+        data-confirm="{{if $s.Filled}}{{tn $l "vol.slot_form.delete_confirm_filled" $s.Filled}}{{else}}{{t $l "vol.slot_form.delete_confirm"}}{{end}}">
+    <span class="text-sm text-gray-700">{{t $l "vol.slot_form.delete_title"}}{{if $s.Filled}} · {{tn $l "vol.slot_form.delete_lost" $s.Filled}}{{end}}</span>
+    <button class="btn-danger">{{t $l "vol.delete"}}</button>
+  </form>
+</section>
+{{end}}
+{{end}}

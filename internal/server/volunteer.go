@@ -46,6 +46,8 @@ func (s *Server) volunteerRoutes(mux *http.ServeMux) {
 	vol("POST /volunteers/{event}/{pole}/slots/{slot}/waitlist", s.slotWaitlistJoin)
 	vol("POST /volunteers/{event}/{pole}/slots/{slot}/waitlist/delete", s.slotWaitlistLeave)
 	vol("POST /volunteers/{event}/{pole}/tasks/{task}/toggle", s.taskToggle)
+
+	s.poleManageRoutes(mux)
 }
 
 // requireVolunteer lets in a signed-in person. A staff member signed in
@@ -814,9 +816,10 @@ func (s *Server) volunteerImage(w http.ResponseWriter, r *http.Request) error {
 // --- navigation ---------------------------------------------------------------
 
 // volunteerNav is the menu of the volunteer space: the edition being
-// looked at.
+// looked at, and the poles the person runs in it.
 type volunteerNav struct {
 	Event *store.Event
+	Poles []*store.Pole
 }
 
 func (s *Server) volunteerNav(r *http.Request) *volunteerNav {
@@ -830,7 +833,15 @@ func (s *Server) volunteerNav(r *http.Request) *volunteerNav {
 		nav.Event, err = s.currentVolunteerEvent(r)
 	}
 
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
+	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			slog.Error("volunteer menu", "err", err)
+		}
+
+		return nav
+	}
+
+	if nav.Poles, err = s.store.ListManagedPoles(r.Context(), nav.Event.ID, rc(r).Person.ID); err != nil {
 		slog.Error("volunteer menu", "err", err)
 	}
 
