@@ -308,3 +308,50 @@ func TestBackupTo(t *testing.T) {
 		t.Fatal("an existing backup is overwritten")
 	}
 }
+
+// TestForeignKeysOffMigration rebuilds a table others reference, the way
+// SQLite changes a column: with the marker, dropping the old table does not
+// run the ON DELETE actions of its children.
+func TestForeignKeysOffMigration(t *testing.T) {
+	ctx := context.Background()
+
+	s, err := Open(ctx, filepath.Join(t.TempDir(), "db.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	admin, err := s.UpsertAdmin(ctx, "staff@conf.test", "Staff")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token, err := s.CreateSession(ctx, &Session{Kind: SessionAdmin, PersonID: admin.PersonID, AdminID: &admin.ID}, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rebuild := `CREATE TABLE admins_new (
+    id         INTEGER PRIMARY KEY,
+    uid        TEXT NOT NULL UNIQUE,
+    person_id  INTEGER NOT NULL UNIQUE REFERENCES people(id) ON DELETE CASCADE,
+    created_at DATETIME NOT NULL
+);
+INSERT INTO admins_new SELECT id, uid, person_id, created_at FROM admins;
+DROP TABLE admins;
+ALTER TABLE admins_new RENAME TO admins;`
+
+	if err := s.applyMigration(ctx, "9001_rebuild.sql", 9001, foreignKeysOff+"\n"+rebuild); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.GetSession(ctx, token, SessionAdmin); err != nil {
+		t.Errorf("the staff session went with the old table: %v", err)
+	}
+
+	// A rebuild that breaks a reference is refused.
+	broken := foreignKeysOff + "\nDELETE FROM admins;"
+	if err := s.applyMigration(ctx, "9002_broken.sql", 9002, broken); err == nil {
+		t.Error("a migration leaving a dangling reference was applied")
+	}
+}

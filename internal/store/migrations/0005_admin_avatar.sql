@@ -1,1 +1,0 @@
-ALTER TABLE admins ADD COLUMN avatar_file TEXT NOT NULL DEFAULT '';

@@ -92,8 +92,6 @@ func (s *Store) BackupTo(ctx context.Context, path string) error {
 	return nil
 }
 
-func (s *Store) migrate(ctx context.Context) error { return s.migrateTo(ctx, 0) }
-
 // foreignKeysOff marks a migration that rebuilds a table other tables
 // reference. With foreign keys enforced, dropping that table would run the
 // ON DELETE actions of its children (deleting sessions, clearing the staff
@@ -102,9 +100,10 @@ func (s *Store) migrate(ctx context.Context) error { return s.migrateTo(ctx, 0) 
 // schema changes.
 const foreignKeysOff = "-- manage:foreign-keys-off"
 
-// migrateTo applies the pending migrations up to version limit, or all of
-// them when limit is 0. Tests use the limit to build an older database.
-func (s *Store) migrateTo(ctx context.Context, limit int) error {
+// migrate applies the pending migrations. 0001_schema.sql is the whole
+// schema as it stood before the first deployment; later changes come as
+// numbered migrations after it.
+func (s *Store) migrate(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at DATETIME NOT NULL)`); err != nil {
 		return err
 	}
@@ -129,7 +128,7 @@ func (s *Store) migrateTo(ctx context.Context, limit int) error {
 			return fmt.Errorf("bad migration name %q", name)
 		}
 
-		if version <= current || (limit > 0 && version > limit) {
+		if version <= current {
 			continue
 		}
 
