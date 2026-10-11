@@ -97,7 +97,8 @@ func (s *Server) planning(r *http.Request, e *store.Event, q planQuery) (out []*
 		case q.Visible != nil && !q.Visible[sl.PoleID],
 			poleID != 0 && sl.PoleID != poleID,
 			q.View == "mine" && !sl.Mine,
-			q.View == "open" && (sl.IsFull() || !sl.StartsAt.After(now)):
+			q.View == "open" && (sl.IsFull() || !sl.StartsAt.After(now)),
+			q.View == "late" && (sl.TaskDone >= sl.TaskCount || !sl.EndsAt.Before(now)):
 			continue
 		}
 
@@ -146,6 +147,10 @@ func planningURL(e *store.Event) string { return "/volunteers/" + e.Slug + "/pla
 
 var planViews = []string{"all", "mine", "open"}
 
+// leadViews are the views of whoever runs a pole: the tasks left undone on
+// the slots that are over, on the poles they run.
+var leadViews = []string{"late"}
+
 func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	person := rc(r).Person
@@ -190,9 +195,19 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 
 	query := r.URL.Query()
 
+	views := planViews
+	if coordinator || len(managed) > 0 {
+		views = append(slices.Clone(planViews), leadViews...)
+	}
+
 	q := planQuery{PersonID: person.ID, Visible: visible, View: query.Get("view")}
-	if !slices.Contains(planViews, q.View) {
+	if !slices.Contains(views, q.View) {
 		q.View = "all"
+	}
+
+	// Late tasks are for whoever runs the pole to chase.
+	if q.View == "late" && !coordinator {
+		q.Visible = managed
 	}
 
 	for _, p := range shown {
@@ -249,6 +264,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 					Lang: lang, Slot: ps.Slot, Pole: pp.Pole, Member: members[pp.Pole.ID],
 					Locked: e.SignupsLocked(pp.Pole.FreezeAt, now), Waiting: waiting[ps.Slot.ID], Back: back,
 					ShowPeople: true, People: ps.People, Manage: pp.Manage,
+					Tasks: ps.Tasks, CanTick: ps.Slot.Mine || pp.Manage,
 				}
 			}
 		}
@@ -258,10 +274,10 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	base := planningURL(e) + "?"
 	dp := dayParam(day, all)
 
-	var views, poleLinks, dayLinks []planLink
+	var viewLinks, poleLinks, dayLinks []planLink
 
-	for _, v := range planViews {
-		views = append(views, planLink{Label: "vol.planning.view_" + v, URL: base + planURLQuery(v, q.Pole, dp), On: v == q.View})
+	for _, v := range views {
+		viewLinks = append(viewLinks, planLink{Label: "vol.planning.view_" + v, URL: base + planURLQuery(v, q.Pole, dp), On: v == q.View})
 	}
 
 	if len(shown) > 1 {
@@ -293,7 +309,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 
 	data := map[string]any{
 		"Event": e, "Days": days, "View": q.View, "Pole": q.Pole, "Today": dayKey(now), "Printed": now,
-		"Views": views, "PoleLinks": poleLinks, "DayLinks": dayLinks, "CSV": csvURL,
+		"Views": viewLinks, "PoleLinks": poleLinks, "DayLinks": dayLinks, "CSV": csvURL,
 		"OpenURL": base + planURLQuery("open", q.Pole, dp),
 	}
 

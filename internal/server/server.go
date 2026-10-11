@@ -30,6 +30,7 @@ type Server struct {
 	tmpl   *templates
 	oidc   *oidcClient
 	logo   *brandLogo
+	icons  *siteIcons
 	site   Site
 	// gravatar fills in missing profile pictures.
 	gravatar *gravatar.Fetcher
@@ -74,6 +75,10 @@ func New(ctx context.Context, cfg *config.Config, st *store.Store, fs *files.Sto
 	i18n.SetSite(cfg.SiteName)
 
 	s := &Server{cfg: cfg, store: st, files: fs, mailer: mailer, tmpl: tmpl, logo: logo, site: newSite(cfg, logo)}
+
+	if s.icons, err = newSiteIcons(s.site, logo); err != nil {
+		return nil, err
+	}
 
 	gravatarURL := cfg.GravatarURL
 	if gravatarURL == "" {
@@ -157,6 +162,10 @@ func (s *Server) Handler() http.Handler {
 	static, _ := fs.Sub(web.Static, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
 	mux.HandleFunc("GET /brand/logo", s.serveBrandLogo)
+	mux.HandleFunc("GET /icon.svg", s.serveIconSVG)
+	// iOS asks for these at the root, whatever the page says.
+	mux.HandleFunc("GET /apple-touch-icon.png", s.serveTouchIcon)
+	mux.HandleFunc("GET /apple-touch-icon-precomposed.png", s.serveTouchIcon)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
 
 	s.publicRoutes(mux)

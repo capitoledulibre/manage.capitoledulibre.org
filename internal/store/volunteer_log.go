@@ -28,6 +28,8 @@ const (
 	LogPoleDeleted    = "pole_deleted"    // the actor deleted the pole
 	LogCoordinatorIn  = "coordinator_in"  // the actor added the subject to the coordination
 	LogCoordinatorOut = "coordinator_out" // the actor removed the subject from it
+	LogTaskDone       = "task_done"       // the actor ticked a task (Title) of a slot
+	LogTaskUndone     = "task_undone"     // the actor unticked it
 	LogStatus         = "status"          // the actor set the volunteer status, Title holds it
 	LogRegistered     = "registered"      // the actor registered the subject
 	LogMessagePosted  = "message_posted"  // the actor posted a message, Count people e-mailed

@@ -401,6 +401,18 @@ var funcs = template.FuncMap{
 
 		return out
 	},
+	"tasksDone": func(tasks []*store.SlotTask) int {
+		n := 0
+
+		for _, t := range tasks {
+			if t.Done() {
+				n++
+			}
+		}
+
+		return n
+	},
+	"slotOver": func(sl *store.Slot) bool { return time.Now().After(sl.EndsAt) },
 	"pct": func(filled, capacity int) int {
 		if capacity == 0 {
 			return 100

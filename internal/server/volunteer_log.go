@@ -59,7 +59,8 @@ func logLine(lang string, e *store.LogEntry) string {
 			slot += " (" + e.Place + ")"
 		}
 
-		if e.Title != "" {
+		// A task entry names the task in Title, not the slot.
+		if e.Title != "" && e.Action != store.LogTaskDone && e.Action != store.LogTaskUndone {
 			slot += " — " + e.Title
 		}
 	}

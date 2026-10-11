@@ -141,6 +141,11 @@ func (s *Server) poleSlots(r *http.Request, v *poleView, locations []*store.Loca
 		return err
 	}
 
+	tasks, err := s.store.ListEventTasks(ctx, v.Event.ID, v.Pole.ID)
+	if err != nil {
+		return err
+	}
+
 	var counts map[int64]int
 
 	if v.Manage {
@@ -175,6 +180,7 @@ func (s *Server) poleSlots(r *http.Request, v *poleView, locations []*store.Loca
 		days[len(days)-1].Cards = append(days[len(days)-1].Cards, &slotCardData{
 			Lang: lang, Slot: sl, Pole: v.Pole, Member: v.Member, Locked: v.Locked, Waiting: waiting[sl.ID], Back: back,
 			ShowPeople: showPeople, People: people[sl.ID], Manage: v.Manage, WaitCount: counts[sl.ID],
+			Tasks: tasks[sl.ID], CanTick: sl.Mine || v.Manage,
 		})
 	}
 
@@ -420,6 +426,10 @@ type slotCardData struct {
 	// WaitCount is the people waiting for a place, for whoever runs the
 	// pole: a slot with a queue is a slot worth enlarging.
 	WaitCount int
+	// Tasks is the checklist, folded on the card; CanTick lets the people
+	// on the slot and whoever runs the pole tick it from there.
+	Tasks   []*store.SlotTask
+	CanTick bool
 }
 
 func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting bool) *slotCardData {
@@ -440,6 +450,13 @@ func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting 
 		}
 
 		card.ShowPeople, card.People, card.Manage = true, people, v.Manage
+
+		tasks, err := s.store.ListTasks(r.Context(), sl.ID)
+		if err != nil {
+			slog.Error("slot card", "slot", sl.UID, "err", err)
+		}
+
+		card.Tasks, card.CanTick = tasks, sl.Mine || v.Manage
 
 		if v.Manage {
 			counts, err := s.store.WaitlistCounts(r.Context(), v.Pole.ID)
@@ -505,6 +522,8 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) error {
 		return s.respondSlot(w, r, card, "vol.err.invitation_only", "")
 	case v.Locked:
 		return s.respondSlot(w, r, card, "vol.err.locked", "")
+	case !sl.EndsAt.After(time.Now()):
+		return s.respondSlot(w, r, card, "vol.err.slot_over", "")
 	}
 
 	if r.FormValue("force") != "1" {
@@ -684,8 +703,20 @@ func (s *Server) taskToggle(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	// The history says who did what, and who took it back.
+	action := store.LogTaskDone
+	if task.Done() {
+		action = store.LogTaskUndone
+	}
+
+	entry := logSlot(action, v.Pole, sl, nil)
+	entry.Title = task.Label
+	s.logVol(r, entry)
+
+	back := safeRedirect(r.FormValue("back"), sl.URL())
+
 	if !isHX(r) {
-		http.Redirect(w, r, sl.URL(), http.StatusSeeOther)
+		http.Redirect(w, r, back, http.StatusSeeOther)
 
 		return nil
 	}
@@ -705,10 +736,19 @@ func (s *Server) taskToggle(w http.ResponseWriter, r *http.Request) error {
 
 	lang := rc(r).Lang
 
-	return s.fragment(w, "task_list", map[string]any{
+	data := map[string]any{
 		"Lang": lang, "Tasks": tasks, "CanTick": true, "Slot": sl,
 		"Announce": i18n.T(lang, "vol.tasks.announce", done, len(tasks)),
-	})
+	}
+
+	// On a card, the folded checklist comes back open, with its state.
+	if r.FormValue("view") == "card" {
+		data["View"], data["Back"], data["Open"] = "card", back, true
+
+		return s.fragment(w, "task_block", data)
+	}
+
+	return s.fragment(w, "task_list", data)
 }
 
 // --- notifications of withdrawals -----------------------------------------

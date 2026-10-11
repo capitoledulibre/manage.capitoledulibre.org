@@ -45,7 +45,7 @@
     {{end}}
   </section>
   {{else}}
-  <p class="text-sm text-gray-600">{{if eq $d.View "mine"}}{{t $l "vol.me.empty"}} <a class="link" href="{{$d.OpenURL}}">{{t $l "vol.home.open_link"}}</a>{{else if eq $d.View "open"}}{{t $l "vol.open.none"}}{{else}}{{t $l "vol.coord.no_slots"}}{{end}}</p>
+  <p class="text-sm text-gray-600">{{if eq $d.View "mine"}}{{t $l "vol.me.empty"}} <a class="link" href="{{$d.OpenURL}}">{{t $l "vol.home.open_link"}}</a>{{else if eq $d.View "late"}}{{t $l "vol.planning.no_late"}}{{else if eq $d.View "open"}}{{t $l "vol.open.none"}}{{else}}{{t $l "vol.coord.no_slots"}}{{end}}</p>
   {{end}}
 
   {{if eq $d.View "mine"}}

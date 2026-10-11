@@ -4,7 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{if .TitleText}}{{.TitleText}}{{else if eq .Area "admin"}}{{.Title}}{{else}}{{t .Lang .Title}}{{end}} · {{.Site.Name}}</title>
-  {{with .Site.LogoURL}}<link rel="icon" href="{{.}}">{{end}}
+  {{/* A tab icon, and one for a phone's home screen: a shortcut there
+       opens the site in the browser, logged in. */}}
+  <link rel="icon" href="{{or .Site.LogoURL "/icon.svg"}}">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="{{.Site.Name}}">
   <script src="{{asset "/static/js/theme.js"}}"></script>
   <link rel="stylesheet" href="{{asset "/static/css/app.css"}}">
   <script src="{{asset "/static/js/app.js"}}" defer></script>
