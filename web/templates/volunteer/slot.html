@@ -20,7 +20,7 @@
     <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.slot.volunteers" $s.Filled $s.Capacity}}</h2>
     {{with $d.Volunteers}}
     <ul class="space-y-2">
-      {{range .}}<li class="flex items-center gap-2 text-sm">{{template "person_initials" .}}<span>{{.Label}}{{if and $v.Manage .Phone}} <span class="text-gray-500">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
+      {{range .}}<li class="flex items-center gap-2 text-sm">{{template "person_avatar" .}}<span>{{.Label}}{{if and $v.Manage .Phone}} <span class="text-gray-500">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
     </ul>
     {{else}}<p class="text-sm text-gray-500">{{t $l "vol.slot.nobody"}}</p>{{end}}
     {{if gt $s.Missing 0}}<p class="help mt-2">{{tn $l "vol.slot.places_left" $s.Missing}}</p>{{end}}
@@ -37,7 +37,7 @@
   <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.slot.contacts"}}</h2>
   <ul class="space-y-3">
     {{range .}}
-    <li class="flex items-start gap-3 text-sm">{{template "person_initials" .}}
+    <li class="flex items-start gap-3 text-sm">{{template "person_avatar" .}}
       <span><strong>{{.Name}}</strong> <span class="text-gray-500">{{t $l "vol.slot.pole_manager"}}</span><br>
         <a class="link" href="mailto:{{.Email}}">{{.Email}}</a>{{if and .SharePhone .Phone}} · <a class="link" href="tel:{{telHref .Phone}}">{{phone .Phone}}</a>{{end}}</span>
     </li>

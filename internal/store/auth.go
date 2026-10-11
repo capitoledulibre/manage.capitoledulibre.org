@@ -254,9 +254,13 @@ func (s *Store) ListAdmins(ctx context.Context) ([]*Admin, error) {
 	return out, rows.Err()
 }
 
-// UpdateAdminProfile saves the name and avatar of an admin.
+// UpdateAdminProfile saves the name and avatar of an admin. A new picture
+// is an upload, a removed one an opt-out: either way the Gravatar fallback
+// leaves it alone.
 func (s *Store) UpdateAdminProfile(ctx context.Context, a *Admin) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE people SET name = ?, avatar_file = ? WHERE id = (SELECT person_id FROM admins WHERE id = ?)`,
+	_, err := s.db.ExecContext(ctx, `UPDATE people SET name = ?1, avatar_file = ?2,
+		avatar_source = CASE WHEN ?2 = avatar_file THEN avatar_source WHEN ?2 = '' THEN 'none' ELSE 'upload' END
+		WHERE id = (SELECT person_id FROM admins WHERE id = ?3)`,
 		a.Name, a.AvatarFile, a.ID)
 
 	return err

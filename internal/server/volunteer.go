@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"manage/internal/files"
 	"manage/internal/store"
 )
 
@@ -29,6 +30,9 @@ func (s *Server) volunteerRoutes(mux *http.ServeMux) {
 	vol("GET /volunteers/profile", s.volunteerProfile)
 	vol("POST /volunteers/profile", s.volunteerProfileSave)
 	vol("POST /volunteers/profile/delete", s.volunteerLeave)
+	vol("POST /volunteers/profile/photo", s.profilePhoto)
+	vol("POST /volunteers/profile/photo/delete", s.profilePhotoDelete)
+	vol("POST /volunteers/profile/gravatar", s.profileGravatar)
 
 	vol("GET /volunteers/{event}", s.eventHome)
 	vol("GET /volunteers/{event}/slots", s.openSlots)
@@ -66,6 +70,11 @@ func (s *Server) requireVolunteer(h handlerFunc) handlerFunc {
 			}
 
 			c.Person = p
+		}
+
+		if c.Person != nil {
+			// Fills in a missing profile picture, in the background.
+			s.gravatar.Refresh(c.Person)
 		}
 
 		if c.Person == nil {
@@ -675,7 +684,8 @@ func (s *Server) volunteerProfile(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	p := s.page(r, "vol.profile.title")
-	p.D = map[string]any{"Next": r.URL.Query().Get("next"), "PoleManager": manager, "OtherRoles": len(contacts) > 0 || c.Admin != nil}
+	p.D = map[string]any{"Next": r.URL.Query().Get("next"), "PoleManager": manager, "OtherRoles": len(contacts) > 0 || c.Admin != nil,
+		"Gravatar": s.gravatar.Enabled(), "MaxAvatar": maxAvatarSize}
 
 	return s.render(w, r, "volunteer/profile", p)
 }
@@ -727,6 +737,81 @@ func (s *Server) volunteerProfileSave(w http.ResponseWriter, r *http.Request) er
 	}
 
 	http.Redirect(w, r, next, http.StatusSeeOther)
+
+	return nil
+}
+
+// profilePhoto stores the picture a person uploaded. It wins over the
+// Gravatar fallback, which is what AvatarUpload records.
+func (s *Server) profilePhoto(w http.ResponseWriter, r *http.Request) error {
+	name, err := s.upload(w, r, "photo", files.KindLogo, maxAvatarSize)
+	if err != nil {
+		var ue uploadError
+		if errors.As(err, &ue) {
+			s.flash(w, string(ue))
+			http.Redirect(w, r, "/volunteers/profile", http.StatusSeeOther)
+
+			return nil
+		}
+
+		return err
+	}
+
+	old, err := s.store.SetPersonAvatar(r.Context(), rc(r).Person.ID, name, store.AvatarUpload)
+	if err != nil {
+		return err
+	}
+
+	s.dropFile(r, old)
+	s.flash(w, "flash.vol.photo_saved")
+	http.Redirect(w, r, "/volunteers/profile", http.StatusSeeOther)
+
+	return nil
+}
+
+// profilePhotoDelete removes the picture and remembers the choice, so the
+// Gravatar fallback does not hand a face back on the next page.
+func (s *Server) profilePhotoDelete(w http.ResponseWriter, r *http.Request) error {
+	old, err := s.store.SetPersonAvatar(r.Context(), rc(r).Person.ID, "", store.AvatarOptOut)
+	if err != nil {
+		return err
+	}
+
+	s.dropFile(r, old)
+	s.flash(w, "flash.vol.photo_removed")
+	http.Redirect(w, r, "/volunteers/profile", http.StatusSeeOther)
+
+	return nil
+}
+
+// profileGravatar turns the fallback back on and looks the address up at
+// once, so the person sees the outcome of their click.
+func (s *Server) profileGravatar(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	person := rc(r).Person
+
+	if !s.gravatar.Enabled() {
+		return errNotFound
+	}
+
+	old, err := s.store.SetPersonAvatar(ctx, person.ID, "", store.AvatarUnknown)
+	if err != nil {
+		return err
+	}
+
+	s.dropFile(r, old)
+
+	switch found, err := s.gravatar.Lookup(ctx, person.ID); {
+	case err != nil:
+		slog.Error("gravatar lookup", "person", person.UID, "err", err)
+		s.flash(w, "vol.err.gravatar_down")
+	case found:
+		s.flash(w, "flash.vol.gravatar_found")
+	default:
+		s.flash(w, "flash.vol.gravatar_none", person.Email)
+	}
+
+	http.Redirect(w, r, "/volunteers/profile", http.StatusSeeOther)
 
 	return nil
 }

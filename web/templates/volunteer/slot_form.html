@@ -53,7 +53,7 @@
     <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.slot.volunteers" $s.Filled $s.Capacity}}</h2>
     <ul class="mb-4 space-y-2">
       {{range $d.Volunteers}}
-      <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_initials" .}}
+      <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_avatar" .}}
         <span class="flex-1">{{.Label}} <span class="text-gray-500">{{.Email}}{{with .Phone}} · {{phone .}}{{end}}</span></span>
         <form method="post" action="{{$s.ManageURL}}/volunteers/{{.UID}}/delete" data-confirm="{{t $l "vol.slot_form.remove_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button></form>
       </li>

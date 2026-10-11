@@ -401,21 +401,30 @@ func (s *Server) publicLogo(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// avatar serves a staff avatar to the staff, and to partners whose
-// partnership is followed by that staff member.
+// avatar serves a profile picture: to the staff; a volunteer's to the
+// signed-in people, who meet them in poles and slots; a staff member's to
+// the partners whose partnership they follow.
 func (s *Server) avatar(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	file := r.PathValue("file")
 	c := rc(r)
 
-	a, err := s.store.AdminByAvatarFile(ctx, file)
+	owner, err := s.store.PersonByAvatarFile(ctx, file)
 	if err != nil {
 		return err
 	}
 
 	allowed := c.Admin != nil
 
-	if !allowed && c.Org != nil {
+	if !allowed && c.Person != nil {
+		if allowed, err = s.store.IsVolunteer(ctx, owner.ID); err != nil {
+			return err
+		}
+
+		allowed = allowed || owner.ID == c.Person.ID
+	}
+
+	if a, err := s.store.AdminByAvatarFile(ctx, file); !allowed && err == nil && c.Org != nil {
 		partnerships, err := s.store.ListOrgPartnerships(ctx, c.Org.ID)
 		if err != nil {
 			return err

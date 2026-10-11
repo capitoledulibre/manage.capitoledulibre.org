@@ -132,6 +132,8 @@ Everything is configured with environment variables; see
 | `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |
 | `MANAGE_ADMIN_EMAILS`, `MANAGE_ADMIN_GROUP` | Who may log in as staff |
 | `MANAGE_EXPORT_TOKEN` | Token for the JSON export, at least 32 characters (`openssl rand -hex 32`); empty disables token access |
+| `MANAGE_VOLUNTEER_REMINDER_HOUR` | Hour (event time, 0–23) at which volunteers get the recap of their slots of the next day (default: 18) |
+| `MANAGE_GRAVATAR` | `1` (default) looks missing profile pictures up on gravatar.com, from the server; `0` never does |
 
 ## JSON export for the website
 

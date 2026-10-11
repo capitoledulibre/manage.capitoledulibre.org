@@ -13,6 +13,7 @@ import (
 
 	"manage/internal/config"
 	"manage/internal/files"
+	"manage/internal/gravatar"
 	"manage/internal/i18n"
 	"manage/internal/mail"
 	"manage/internal/store"
@@ -28,6 +29,8 @@ type Server struct {
 	oidc   *oidcClient
 	logo   *brandLogo
 	site   Site
+	// gravatar fills in missing profile pictures.
+	gravatar *gravatar.Fetcher
 }
 
 func New(ctx context.Context, cfg *config.Config, st *store.Store, fs *files.Store, mailer mail.Sender) (*Server, error) {
@@ -48,6 +51,13 @@ func New(ctx context.Context, cfg *config.Config, st *store.Store, fs *files.Sto
 	i18n.SetSite(cfg.SiteName)
 
 	s := &Server{cfg: cfg, store: st, files: fs, mailer: mailer, tmpl: tmpl, logo: logo, site: newSite(cfg, logo)}
+
+	gravatarURL := cfg.GravatarURL
+	if gravatarURL == "" {
+		gravatarURL = gravatar.Endpoint
+	}
+
+	s.gravatar = gravatar.New(st, fs, cfg.Gravatar, gravatarURL)
 
 	if cfg.OIDCEnabled() {
 		s.oidc, err = newOIDCClient(ctx, cfg)

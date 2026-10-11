@@ -151,6 +151,15 @@ func (s *Store) GetPersonByUID(ctx context.Context, uid string) (*Person, error)
 	return scanPerson(s.db.QueryRowContext(ctx, `SELECT `+personCols+` FROM people WHERE uid = ?`, uid))
 }
 
+// PersonByAvatarFile finds the person whose picture a stored file is.
+func (s *Store) PersonByAvatarFile(ctx context.Context, file string) (*Person, error) {
+	if file == "" {
+		return nil, ErrNotFound
+	}
+
+	return scanPerson(s.db.QueryRowContext(ctx, `SELECT `+personCols+` FROM people WHERE avatar_file = ?`, file))
+}
+
 // PersonByEmail finds the person behind an address.
 func (s *Store) PersonByEmail(ctx context.Context, email string) (*Person, error) {
 	return scanPerson(s.db.QueryRowContext(ctx, `SELECT `+personCols+` FROM people WHERE email = ?`, NormalizeEmail(email)))

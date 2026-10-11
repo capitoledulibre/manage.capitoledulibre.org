@@ -63,6 +63,14 @@ type Config struct {
 
 	// ReminderInterval is how often the reminder job runs.
 	ReminderInterval time.Duration
+
+	// VolunteerReminderHour is the local hour at which volunteers get the
+	// recap of their slots of the next day.
+	VolunteerReminderHour int
+	// Gravatar looks missing profile pictures up on gravatar.com, from the
+	// server. GravatarURL is the service (a test server in tests).
+	Gravatar    bool
+	GravatarURL string
 }
 
 func Load() (*Config, error) {
@@ -86,6 +94,7 @@ func Load() (*Config, error) {
 		AdminEmails:       envList("MANAGE_ADMIN_EMAILS"),
 		AdminGroup:        env("MANAGE_ADMIN_GROUP", ""),
 		ExportToken:       env("MANAGE_EXPORT_TOKEN", ""),
+		Gravatar:          env("MANAGE_GRAVATAR", "1") == "1",
 	}
 
 	// The sender defaults to the event name and contact address.
@@ -100,6 +109,11 @@ func Load() (*Config, error) {
 	c.ReminderInterval, err = time.ParseDuration(env("MANAGE_REMINDER_INTERVAL", "6h"))
 	if err != nil {
 		return nil, fmt.Errorf("MANAGE_REMINDER_INTERVAL: %w", err)
+	}
+
+	c.VolunteerReminderHour, err = strconv.Atoi(env("MANAGE_VOLUNTEER_REMINDER_HOUR", "18"))
+	if err != nil || c.VolunteerReminderHour < 0 || c.VolunteerReminderHour > 23 {
+		return nil, fmt.Errorf("MANAGE_VOLUNTEER_REMINDER_HOUR must be an hour from 0 to 23")
 	}
 
 	switch c.SMTPTLS {

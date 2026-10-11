@@ -28,6 +28,27 @@
     <button class="btn">{{t .Lang "vol.save"}}</button>
   </form>
 </div>
+<section class="card mx-auto mt-6 max-w-lg">
+  <h2 class="card-title">{{t .Lang "vol.profile.photo"}}</h2>
+  <div class="flex flex-wrap items-center gap-4">
+    {{with .Person.AvatarFile}}<img src="/avatars/{{.}}" alt="" class="h-20 w-20 rounded-full object-cover ring-1 ring-gray-200">
+    {{else}}<span class="inline-flex h-20 w-20 items-center justify-center rounded-full bg-brand-50 text-2xl font-semibold text-brand-800" aria-hidden="true">{{.Person.Initials}}</span>{{end}}
+    <div class="flex flex-wrap items-center gap-2">
+      {{template "upload" (dict "Lang" .Lang "ID" "up-photo" "Action" "/volunteers/profile/photo" "Field" "photo"
+        "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "PNG, JPEG, WebP, SVG" "MaxBytes" $d.MaxAvatar
+        "Title" (t .Lang "vol.profile.photo") "Label" (t .Lang "vol.profile.photo_upload") "Image" true)}}
+      {{if .Person.AvatarFile}}<form method="post" action="/volunteers/profile/photo/delete"><button class="btn-danger btn-sm">{{t .Lang "vol.profile.photo_remove"}}</button></form>{{end}}
+      {{if and $d.Gravatar (ne .Person.AvatarSource "upload")}}
+      <form method="post" action="/volunteers/profile/gravatar"><button class="btn-secondary btn-sm">{{if eq .Person.AvatarSource "gravatar"}}{{t .Lang "vol.profile.gravatar_refresh"}}{{else}}{{t .Lang "vol.profile.gravatar_look"}}{{end}}</button></form>
+      {{end}}
+    </div>
+  </div>
+  <p class="help mt-3">{{t .Lang "vol.profile.photo_help"}}</p>
+  {{if $d.Gravatar}}
+  <p class="help mt-2">{{if eq .Person.AvatarSource "gravatar"}}{{t .Lang "vol.profile.gravatar_from"}}{{else if eq .Person.AvatarSource "none"}}{{t .Lang "vol.profile.gravatar_off"}}{{else if ne .Person.AvatarSource "upload"}}{{t .Lang "vol.profile.gravatar_auto"}}{{end}}
+    {{if ne .Person.AvatarSource "upload"}}{{t .Lang "vol.profile.gravatar_private"}}{{end}}</p>
+  {{end}}
+</section>
 <details class="mx-auto mt-8 max-w-lg">
   <summary class="cursor-pointer text-sm text-gray-500">{{t .Lang "vol.profile.leave_title"}}</summary>
   <div class="mt-3 rounded-lg p-4 ring-1 ring-red-200">

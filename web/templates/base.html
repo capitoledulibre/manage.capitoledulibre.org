@@ -46,7 +46,7 @@
             "ProfileURL" "/partners/managers#profile" "LogoutAction" "/logout" "Spaces" .Spaces)}}
         {{else if and (eq .Area "volunteer") .Person}}
           {{template "user_menu" (dict "Page" . "Name" .Person.Label "Email" .Person.Email "Initials" .Person.Initials
-            "ProfileURL" "/volunteers/profile" "LogoutAction" (or (and .StaffPerson "/admin/logout") "/logout") "Spaces" .Spaces "Poles" .Vol.Poles)}}
+            "ProfileURL" "/volunteers/profile" "LogoutAction" (or (and .StaffPerson "/admin/logout") "/logout") "Spaces" .Spaces "Poles" .Vol.Poles "Avatar" .Person.AvatarFile)}}
         {{else}}
           {{template "theme_switch" .}}
         {{end}}

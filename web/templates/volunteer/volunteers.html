@@ -34,7 +34,7 @@
   <tbody>
   {{range $d.Volunteers}}
   <tr>
-    <td><span class="inline-flex items-center gap-2">{{template "person_initials" .Person}}{{.Person.Label}}</span></td>
+    <td><span class="inline-flex items-center gap-2">{{template "person_avatar" .Person}}{{.Person.Label}}</span></td>
     <td><a class="link" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
     <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
     <td class="text-xs">{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</td>

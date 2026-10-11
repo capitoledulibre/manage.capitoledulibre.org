@@ -99,7 +99,7 @@
     <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.manage.leads"}}</h2>
     <ul class="space-y-2">
       {{range $d.Managers}}
-      <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_initials" .}}<span>{{.Label}} <span class="text-gray-500">{{.Email}}{{with .Phone}} · {{phone .}}{{end}}</span></span>
+      <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_avatar" .}}<span>{{.Label}} <span class="text-gray-500">{{.Email}}{{with .Phone}} · {{phone .}}{{end}}</span></span>
         {{if $d.Coordinator}}<form method="post" action="{{$pole.ManageURL}}/managers/{{.UID}}/delete" data-confirm="{{t $l "vol.manage.lead_remove_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button></form>{{end}}</li>
       {{else}}<li class="text-sm text-gray-500">{{t $l "vol.manage.no_leads"}}</li>{{end}}
     </ul>

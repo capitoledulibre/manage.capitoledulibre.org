@@ -142,6 +142,7 @@ func serve() error {
 	}
 
 	go srv.RunReminders(ctx)
+	go srv.RunVolunteerReminders(ctx)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Listen,

@@ -9,9 +9,10 @@
 {{else}}<span class="pole-icon {{if .Big}}h-14 w-14 text-lg{{else}}h-10 w-10 text-sm{{end}} font-bold" aria-hidden="true">{{.Pole.Initials}}</span>{{end}}
 {{end}}
 
-{{/* person_initials stands for a person in a list; the name is always
-     written next to it. Expects a *store.Person. */}}
-{{define "person_initials"}}<span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden="true">{{.Initials}}</span>{{end}}
+{{/* person_avatar stands for a person in a list: their picture, or their
+     initials. Decorative: the name is always written next to it. Expects a
+     *store.Person. */}}
+{{define "person_avatar"}}{{if .AvatarFile}}<img src="/avatars/{{.AvatarFile}}" alt="" loading="lazy" class="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-gray-200">{{else}}<span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden="true">{{.Initials}}</span>{{end}}{{end}}
 
 {{/* vol_messages lists notices. Expects Lang and Messages; with Manage
      (the management URL of the pole) and Back, each one can be deleted. */}}
@@ -74,7 +75,7 @@
   <tbody>
   {{range .Members}}
   <tr>
-    <td><span class="inline-flex items-center gap-2">{{template "person_initials" .Person}}{{.Person.Label}}</span>{{if .IsManager}} <span class="badge bg-brand-50 text-brand-800">{{t $l "vol.manage.lead"}}</span>{{end}}</td>
+    <td><span class="inline-flex items-center gap-2">{{template "person_avatar" .Person}}{{.Person.Label}}</span>{{if .IsManager}} <span class="badge bg-brand-50 text-brand-800">{{t $l "vol.manage.lead"}}</span>{{end}}</td>
     <td><a class="link" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
     <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
     <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0</span>{{else}}{{.SlotCount}}{{end}}</td>

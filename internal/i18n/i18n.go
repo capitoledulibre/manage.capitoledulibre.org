@@ -803,6 +803,22 @@ var messages = map[string][2]string{
 	"flash.vol.left_volunteering": {"Vous n'êtes plus bénévole. Votre compte reste pour votre autre rôle.", "You no longer volunteer. Your account stays for your other role."},
 	"flash.vol.account_deleted":   {"Votre compte a été supprimé. Merci pour votre aide\u00a0!", "Your account has been deleted. Thank you for your help!"},
 
+	"vol.profile.photo":            {"Photo de profil", "Profile picture"},
+	"vol.profile.photo_upload":     {"Envoyer une photo", "Upload a picture"},
+	"vol.profile.photo_remove":     {"Retirer ma photo", "Remove my picture"},
+	"vol.profile.photo_help":       {"Carrée de préférence. Elle est visible des autres bénévoles et des responsables de vos pôles.", "Square if possible. Other volunteers and the leads of your teams see it."},
+	"vol.profile.gravatar_look":    {"Chercher mon avatar Gravatar", "Look up my Gravatar"},
+	"vol.profile.gravatar_refresh": {"Actualiser depuis Gravatar", "Refresh from Gravatar"},
+	"vol.profile.gravatar_from":    {"Cette image vient de gravatar.com, où elle est associée à votre adresse.", "This picture comes from gravatar.com, where it is linked to your address."},
+	"vol.profile.gravatar_off":     {"La recherche automatique sur gravatar.com est désactivée pour votre compte.", "The automatic lookup on gravatar.com is off for your account."},
+	"vol.profile.gravatar_auto":    {"Sans photo, un avatar associé à votre adresse sur gravatar.com est cherché une fois.", "Without a picture, an avatar linked to your address on gravatar.com is looked up once."},
+	"vol.profile.gravatar_private": {"La recherche est faite par ce serveur et l'image recopiée ici\u00a0: votre navigateur, comme celui des autres, ne contacte jamais gravatar.com.", "The lookup is done by this server and the picture copied here: your browser, like everyone else's, never contacts gravatar.com."},
+	"vol.err.gravatar_down":        {"Gravatar est injoignable pour le moment. Réessayez plus tard.", "Gravatar cannot be reached right now. Try again later."},
+	"flash.vol.photo_saved":        {"Photo de profil enregistrée.", "Profile picture saved."},
+	"flash.vol.photo_removed":      {"Photo retirée\u00a0: vos initiales sont affichées à la place.", "Picture removed: your initials show instead."},
+	"flash.vol.gravatar_found":     {"Avatar Gravatar récupéré.", "Gravatar picture fetched."},
+	"flash.vol.gravatar_none":      {"Aucun avatar n'est associé à %s sur gravatar.com.", "No avatar is linked to %s on gravatar.com."},
+
 	// Emails. Bodies are plain text.
 	"mail.login.subject": {"Votre lien de connexion — {site}", "Your login link — {site}"},
 	"mail.login.body": {
@@ -862,4 +878,8 @@ var messages = map[string][2]string{
 	"mail.vol.scope_slot": {"le créneau du %s", "the slot of %s"},
 
 	"mail.vol.scope_event": {"les bénévoles de «\u00a0%s\u00a0»", "the volunteers of “%s”"},
+
+	"mail.vol.reminder.subject": {"Vos créneaux de %s", "Your slots on %s"},
+	"mail.vol.reminder.intro":   {"Voici vos créneaux de bénévolat pour %s\u00a0:", "Here are your volunteer slots for %s:"},
+	"mail.vol.reminder.contact": {"Contact\u00a0: %s", "Contact: %s"},
 }

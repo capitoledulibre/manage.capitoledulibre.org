@@ -140,7 +140,7 @@
       <p class="help mb-3">{{t $l "vol.coord.coordinators_help"}}</p>
       <ul class="mb-3 space-y-2">
         {{range $d.Coordinators}}
-        <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_initials" .}}<span class="flex-1">{{.Label}} <span class="text-gray-500">{{.Email}}</span></span>
+        <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_avatar" .}}<span class="flex-1">{{.Label}} <span class="text-gray-500">{{.Email}}</span></span>
           {{if $d.Staff}}<form method="post" action="{{$base}}/coordinators/{{.UID}}/delete" data-confirm="{{t $l "vol.coord.coordinator_remove_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button></form>{{end}}</li>
         {{else}}<li class="text-sm text-gray-500">{{t $l "vol.coord.no_coordinators"}}</li>{{end}}
       </ul>
