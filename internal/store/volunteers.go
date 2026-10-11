@@ -364,6 +364,95 @@ func (s *Store) VolunteerImageInUse(ctx context.Context, file string) (bool, err
 	return s.exists(ctx, `SELECT 1 FROM poles WHERE image_file = ?1 UNION ALL SELECT 1 FROM events WHERE logo_file = ?1`, file)
 }
 
+// Roles sums up what a person is on the site, for the staff's list.
+type Roles struct {
+	// Organizations are the partners the person is a contact of.
+	Organizations []string
+	Staff         bool
+	// Poles are the poles of the edition looked at the person joined, the
+	// default pole aside; Coordinator says they coordinate it.
+	Poles       []string
+	Volunteer   bool
+	Coordinator bool
+}
+
+// PersonRoles reads the roles of a person, the volunteer ones in an
+// edition (0 for none).
+func (s *Store) PersonRoles(ctx context.Context, personID, eventID int64) (*Roles, error) {
+	var (
+		r   Roles
+		err error
+	)
+
+	if r.Organizations, err = s.stringList(ctx, `SELECT o.name FROM managers m JOIN organizations o ON o.id = m.organization_id
+		WHERE m.person_id = ? ORDER BY o.name COLLATE NOCASE`, personID); err != nil {
+		return nil, err
+	}
+
+	if r.Staff, err = s.exists(ctx, `SELECT 1 FROM admins WHERE person_id = ?`, personID); err != nil {
+		return nil, err
+	}
+
+	if r.Volunteer, err = s.exists(ctx, `SELECT 1 FROM pole_members pm JOIN poles p ON p.id = pm.pole_id
+		WHERE pm.person_id = ? AND p.event_id = ?`, personID, eventID); err != nil {
+		return nil, err
+	}
+
+	if r.Poles, err = s.stringList(ctx, `SELECT p.name FROM pole_members pm JOIN poles p ON p.id = pm.pole_id
+		WHERE pm.person_id = ? AND p.event_id = ? AND p.is_default = 0 ORDER BY p.position, p.name`, personID, eventID); err != nil {
+		return nil, err
+	}
+
+	if r.Coordinator, err = s.IsEventCoordinator(ctx, eventID, personID); err != nil {
+		return nil, err
+	}
+
+	return &r, nil
+}
+
+// DeletePerson removes a person and everything attached to them: partner
+// contacts, sessions, volunteer sign-ups. Staff members are not deleted
+// here: their access comes from the staff login. It returns the slots the
+// person was signed up on, for the waiting lists.
+func (s *Store) DeletePerson(ctx context.Context, personID int64) ([]int64, error) {
+	staff, err := s.exists(ctx, `SELECT 1 FROM admins WHERE person_id = ?`, personID)
+	if err != nil {
+		return nil, err
+	}
+
+	if staff {
+		return nil, ErrBadInput
+	}
+
+	var freed []int64
+
+	err = s.tx(ctx, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT slot_id FROM signups WHERE person_id = ?`, personID)
+		if err != nil {
+			return err
+		}
+
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+
+				return err
+			}
+
+			freed = append(freed, id)
+		}
+
+		rows.Close()
+
+		_, err = tx.ExecContext(ctx, `DELETE FROM people WHERE id = ?`, personID)
+
+		return err
+	})
+
+	return freed, err
+}
+
 // SearchPeople returns one page of the people matching q on the name or the
 // address; an empty q matches everyone.
 func (s *Store) SearchPeople(ctx context.Context, q string, limit, offset int) ([]*Person, error) {

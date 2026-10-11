@@ -1024,5 +1024,9 @@ func (s *Server) spaces(r *http.Request, current string) []space {
 		}
 	}
 
+	if c.Admin != nil {
+		out = append(out, space{Label: "space.admin", URL: "/admin/"})
+	}
+
 	return out
 }

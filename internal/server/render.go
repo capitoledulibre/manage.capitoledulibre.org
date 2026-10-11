@@ -41,8 +41,8 @@ type Page struct {
 	EventQuery string
 	// Theme is "system", "light" or "dark".
 	Theme string
-	// Nav is the active admin section: "pipeline", "partners", "editions"
-	// or "profile".
+	// Nav is the active admin section: "pipeline", "partners", "people",
+	// "editions" or "profile".
 	Nav string
 	Dev bool
 
@@ -140,6 +140,8 @@ func adminNav(path string) string {
 		return "editions"
 	case strings.HasPrefix(path, "/admin/profile"):
 		return "profile"
+	case strings.HasPrefix(path, "/admin/people"):
+		return "people"
 	}
 
 	return ""
@@ -171,7 +173,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *
 // errorFlashes are the flash messages that report a failure.
 var errorFlashes = map[string]bool{
 	"flash.upload_bad_logo": true, "flash.upload_bad_pdf": true, "flash.upload_too_large": true, "flash.upload_missing": true,
-	"flash.last_manager": true, "flash.invalid_email": true, "flash.confirm_mismatch": true,
+	"flash.last_manager": true, "flash.invalid_email": true, "flash.confirm_mismatch": true, "flash.person_staff": true,
 }
 
 // errorFlash tells whether a flash key reports a failure: one of

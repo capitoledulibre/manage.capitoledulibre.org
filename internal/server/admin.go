@@ -27,6 +27,9 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 	// addressed by slug, a partnership by organization and edition, other
 	// rows by their random UUID.
 	h("GET /admin/{$}", s.adminHome)
+	h("GET /admin/volunteers", s.adminVolunteers)
+	h("GET /admin/people", s.adminPeople)
+	h("POST /admin/people/{person}/delete", s.adminPersonDelete)
 	h("GET /admin/events", s.adminEvents)
 	h("GET /admin/events/new", s.adminEventForm)
 	h("POST /admin/events/new", s.adminEventSubmit)
@@ -103,7 +106,26 @@ func (s *Server) adminLogout(w http.ResponseWriter, r *http.Request) error {
 func (s *Server) adminHome(w http.ResponseWriter, r *http.Request) error {
 	e, err := s.store.CurrentEvent(r.Context())
 	if errors.Is(err, store.ErrNotFound) {
-		http.Redirect(w, r, "/admin/events/new", http.StatusSeeOther)
+		// A fresh install: the steps, rather than a bare creation form.
+		return s.render(w, r, "admin/welcome", s.page(r, "Bienvenue"))
+	}
+
+	if err != nil {
+		return err
+	}
+
+	http.Redirect(w, r, eventURL(e), http.StatusSeeOther)
+
+	return nil
+}
+
+// adminVolunteers opens the coordination of the current edition: the
+// volunteer side of the staff administration lives with the coordinators'
+// pages, which coordinators who are not staff use too.
+func (s *Server) adminVolunteers(w http.ResponseWriter, r *http.Request) error {
+	e, err := s.store.CurrentEvent(r.Context())
+	if errors.Is(err, store.ErrNotFound) {
+		http.Redirect(w, r, "/admin/", http.StatusSeeOther)
 
 		return nil
 	}
@@ -112,7 +134,7 @@ func (s *Server) adminHome(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	http.Redirect(w, r, eventURL(e), http.StatusSeeOther)
+	http.Redirect(w, r, "/volunteers/"+e.Slug+"/coordination", http.StatusSeeOther)
 
 	return nil
 }

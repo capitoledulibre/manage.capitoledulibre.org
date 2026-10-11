@@ -1,6 +1,7 @@
 {{define "content"}}
 {{$e := .D.E}}
 {{$t := .D.Totals}}
+{{template "edition_tabs" (dict "Event" $e "Active" "partners")}}
 <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
   <div>
     <h1 class="text-2xl font-bold tracking-tight">{{$e.Name}}</h1>

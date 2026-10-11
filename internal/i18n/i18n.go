@@ -91,6 +91,8 @@ var messages = map[string][2]string{
 	"theme.dark":            {"Thème sombre", "Dark theme"},
 
 	// Flash messages.
+	"flash.person_deleted":   {"%s a été supprimé·e.", "%s was deleted."},
+	"flash.person_staff":     {"Un membre du staff ne se supprime pas ici : ses droits viennent de la connexion staff.", "A staff member is not deleted here: their access comes from the staff login."},
 	"flash.saved":            {"Modifications enregistrées.", "Changes saved."},
 	"flash.deleted":          {"Élément supprimé.", "Item deleted."},
 	"flash.logo_saved":       {"Logo enregistré, merci !", "Logo saved, thank you!"},
@@ -318,6 +320,7 @@ var messages = map[string][2]string{
 	// Spaces of a person, linked from their menu.
 	"space.partners":   {"Espace partenaire", "Partner area"},
 	"space.volunteers": {"Espace bénévole", "Volunteer area"},
+	"space.admin":      {"Administration", "Administration"},
 
 	// Volunteer space. French punctuation keeps a no-break space before
 	// ":", "!" and "?".

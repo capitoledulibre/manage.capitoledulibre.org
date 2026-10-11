@@ -20,9 +20,22 @@
 
 {{define "admin_nav"}}
   <a class="nav-link {{if eq .Nav "pipeline"}}nav-link-active{{end}}" href="/admin/">Pipeline</a>
+  <a class="nav-link" href="/admin/volunteers">Bénévoles</a>
   <a class="nav-link {{if eq .Nav "partners"}}nav-link-active{{end}}" href="/admin/organizations">Partenaires</a>
+  <a class="nav-link {{if eq .Nav "people"}}nav-link-active{{end}}" href="/admin/people">Personnes</a>
   <a class="nav-link {{if eq .Nav "editions"}}nav-link-active{{end}}" href="/admin/events">Éditions</a>
   <a class="nav-link" href="/jobs">Jobs publics</a>
+{{end}}
+
+{{/* edition_tabs puts the two sides of an edition side by side for the
+     staff: its partners (this administration) and its volunteers (the
+     coordination pages, shared with the coordinators). Expects Event and
+     Active ("partners" or "volunteers"). */}}
+{{define "edition_tabs"}}
+<nav class="mb-4 flex gap-1 border-b border-gray-200" aria-label="{{.Event.Name}}">
+  <a href="/admin/events/{{.Event.Slug}}" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq .Active "partners"}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq .Active "partners"}}aria-current="page"{{end}}>Partenaires</a>
+  <a href="/volunteers/{{.Event.Slug}}/coordination" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq .Active "volunteers"}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq .Active "volunteers"}}aria-current="page"{{end}}>Bénévoles</a>
+</nav>
 {{end}}
 
 {{define "status_dot"}}<span class="h-2 w-2 shrink-0 rounded-full {{if eq . "confirmed"}}bg-green-500{{else if eq . "negotiating"}}bg-amber-500{{else if eq . "contacted"}}bg-blue-500{{else if eq . "declined"}}bg-red-500{{else}}bg-gray-400{{end}}" aria-hidden="true"></span>{{end}}

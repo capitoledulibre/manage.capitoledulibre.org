@@ -1,5 +1,6 @@
 {{define "content"}}
 {{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/volunteers/%s/coordination" $e.Slug}}
+{{if $d.Staff}}{{template "edition_tabs" (dict "Event" $e "Active" "volunteers")}}{{end}}
 <div class="mb-6 flex flex-wrap items-center gap-4">
   {{with $e.LogoFile}}<img src="/volunteer-images/{{.}}" alt="" class="h-14 w-14 rounded-lg object-contain">{{end}}
   <div class="flex-1">
@@ -17,7 +18,7 @@
   <div class="card !p-4"><dt class="text-xs text-gray-500">{{t $l "vol.manage.stat_members"}}</dt><dd class="text-2xl font-bold">{{$d.Stats.Volunteers}}</dd></div>
   <div class="card !p-4"><dt class="text-xs text-gray-500">{{t $l "vol.coord.stat_poles"}}</dt><dd class="text-2xl font-bold">{{len $d.Coverage}}</dd></div>
   <div class="card !p-4"><dt class="text-xs text-gray-500">{{t $l "vol.manage.stat_slots"}}</dt><dd class="text-2xl font-bold">{{$d.Stats.Slots}}</dd></div>
-  <div class="card !p-4"><dt class="text-xs text-gray-500">{{t $l "vol.manage.stat_places"}}</dt><dd class="text-2xl font-bold">{{$d.Stats.Filled}}<span class="text-base font-normal text-gray-500">/{{$d.Stats.Capacity}} · {{pct $d.Stats.Filled $d.Stats.Capacity}}&nbsp;%</span></dd></div>
+  <div class="card !p-4"><dt class="text-xs text-gray-500">{{t $l "vol.manage.stat_places"}}</dt><dd class="text-2xl font-bold">{{$d.Stats.Filled}}<span class="text-base font-normal text-gray-500">/{{$d.Stats.Capacity}}{{if $d.Stats.Capacity}} · {{pct $d.Stats.Filled $d.Stats.Capacity}}&nbsp;%{{end}}</span></dd></div>
 </dl>
 
 <nav class="mb-6 flex flex-wrap gap-1 border-b border-gray-200" aria-label="{{t $l "vol.coord.sections"}}">

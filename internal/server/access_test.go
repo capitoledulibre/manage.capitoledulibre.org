@@ -904,7 +904,7 @@ func TestNoNumericIDsInPages(t *testing.T) {
 
 	for _, path := range []string{
 		"/admin/events", "/admin/events/new", eventURL(f.event), eventURL(f.event) + "/edit", eventURL(f.event) + "/levels",
-		"/admin/organizations", orgURL(f.acme), partnershipURL(f.acme, f.event), partnershipURL(f.prospect, f.event), "/admin/profile",
+		"/admin/organizations", orgURL(f.acme), partnershipURL(f.acme, f.event), partnershipURL(f.prospect, f.event), "/admin/profile", "/admin/people",
 	} {
 		check(admin, path)
 	}

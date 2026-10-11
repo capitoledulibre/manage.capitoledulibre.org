@@ -1,0 +1,26 @@
+{{define "content"}}
+{{/* A fresh install opened on a bare creation form, which told nothing of
+     what comes after. */}}
+<div class="mx-auto max-w-2xl">
+  <h1 class="text-2xl font-bold tracking-tight">Bienvenue sur {{.Site.Name}}</h1>
+  <p class="mt-2 text-gray-600">Tout part d'une édition&nbsp;: les partenaires et les bénévoles s'y rattachent. Trois étapes pour démarrer&nbsp;:</p>
+  <ol class="mt-6 space-y-4">
+    <li class="card flex gap-4">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600 font-bold text-white">1</span>
+      <div><h2 class="font-semibold">Créer l'édition</h2>
+        <p class="mt-1 text-sm text-gray-600">Son nom, son année et ses dates. Elle reçoit un pôle bénévole «&nbsp;Général&nbsp;» et reste invisible des bénévoles tant que vous n'ouvrez pas les inscriptions.</p></div>
+    </li>
+    <li class="card flex gap-4">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 font-bold text-gray-700">2</span>
+      <div><h2 class="font-semibold">Préparer les partenariats</h2>
+        <p class="mt-1 text-sm text-gray-600">Les niveaux et leurs contreparties, puis les organisations à démarcher, dans le pipeline de l'édition.</p></div>
+    </li>
+    <li class="card flex gap-4">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 font-bold text-gray-700">3</span>
+      <div><h2 class="font-semibold">Organiser les bénévoles</h2>
+        <p class="mt-1 text-sm text-gray-600">Dans l'onglet Bénévoles de l'édition&nbsp;: la coordination, les pôles et leurs responsables, les créneaux, puis l'ouverture des inscriptions.</p></div>
+    </li>
+  </ol>
+  <a class="btn mt-8" href="/admin/events/new">Créer la première édition</a>
+</div>
+{{end}}

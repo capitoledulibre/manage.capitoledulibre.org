@@ -5,13 +5,14 @@
 </div>
 <div class="card overflow-x-auto p-0">
   <table class="table">
-    <thead><tr><th>Nom</th><th>Année</th><th>Dates</th><th></th></tr></thead>
+    <thead><tr><th>Nom</th><th>Année</th><th>Dates</th><th>Bénévoles</th><th></th></tr></thead>
     <tbody>
       {{range .D}}
       <tr>
         <td><a class="link" href="/admin/events/{{.Slug}}">{{.Name}}</a> {{if .IsCurrent}}<span class="badge bg-brand-50 text-brand-800">courante</span>{{end}}</td>
         <td>{{.Year}}</td>
         <td>{{date "fr" .StartsOn}}{{with .EndsOn}} → {{date "fr" .}}{{end}}</td>
+        <td><span class="badge {{if eq .VolunteerStatus "open"}}bg-green-100 text-green-800{{else if eq .VolunteerStatus "frozen"}}bg-amber-100 text-amber-800{{else}}bg-gray-100 text-gray-700{{end}}">{{t "fr" (printf "vol.status.%s" .VolunteerStatus)}}</span></td>
         <td class="whitespace-nowrap text-right">
           <a class="btn-secondary btn-sm" href="/volunteers/{{.Slug}}/coordination">Bénévoles</a>
           <a class="btn-secondary btn-sm" href="/admin/events/{{.Slug}}/levels">Niveaux</a>
@@ -19,7 +20,7 @@
         </td>
       </tr>
       {{else}}
-      <tr><td colspan="4" class="text-center text-gray-500">Aucune édition pour l'instant.</td></tr>
+      <tr><td colspan="5" class="text-center text-gray-500">Aucune édition pour l'instant.</td></tr>
       {{end}}
     </tbody>
   </table>
