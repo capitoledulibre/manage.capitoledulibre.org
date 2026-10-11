@@ -34,6 +34,8 @@ type captureMailer struct {
 	msgs []mail.Message
 	// fail makes Send return an error, to simulate an SMTP outage.
 	fail bool
+	// malformed lists the subjects of messages with a formatting error.
+	malformed []string
 }
 
 func (c *captureMailer) Send(m mail.Message) error {
@@ -42,6 +44,12 @@ func (c *captureMailer) Send(m mail.Message) error {
 
 	if c.fail {
 		return errors.New("smtp down")
+	}
+
+	// A text formatted with the wrong number of arguments says so with
+	// "%!": no e-mail may go out like that.
+	if strings.Contains(m.Subject+m.Body, "%!") {
+		c.malformed = append(c.malformed, m.Subject)
 	}
 
 	c.msgs = append(c.msgs, m)
@@ -126,6 +134,15 @@ func newEnv(t *testing.T, opts ...func(*config.Config)) *env {
 	// The event name is package state in i18n: restore the default.
 	t.Cleanup(func() { i18n.SetSite(config.DefaultSiteName) })
 	m := &captureMailer{}
+
+	t.Cleanup(func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+
+		for _, s := range m.malformed {
+			t.Errorf("e-mail with a formatting error: %s", s)
+		}
+	})
 
 	app, err := New(ctx, cfg, st, fstore, m)
 	if err != nil {

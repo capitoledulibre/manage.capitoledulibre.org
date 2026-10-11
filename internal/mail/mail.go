@@ -23,6 +23,8 @@ type Message struct {
 	To      []string
 	Subject string
 	Body    string
+	// ReplyTo, when set, is where answers go instead of the sender.
+	ReplyTo string
 }
 
 type Sender interface {
@@ -119,6 +121,21 @@ func (s *smtpSender) Send(msg Message) error {
 	return c.Quit()
 }
 
+// replyTo keeps a Reply-To only when it is a plain address, so a setting
+// cannot smuggle another header in.
+func replyTo(v string) string {
+	if v == "" {
+		return ""
+	}
+
+	a, err := mail.ParseAddress(v)
+	if err != nil {
+		return ""
+	}
+
+	return a.String()
+}
+
 func build(from *mail.Address, msg Message) []byte {
 	var b bytes.Buffer
 
@@ -134,6 +151,7 @@ func build(from *mail.Address, msg Message) []byte {
 		{"From", from.String()},
 		{"To", strings.Join(msg.To, ", ")},
 		{"Subject", mime.QEncoding.Encode("utf-8", msg.Subject)},
+		{"Reply-To", replyTo(msg.ReplyTo)},
 		{"Date", time.Now().Format(time.RFC1123Z)},
 		{"Message-ID", fmt.Sprintf("<%s@%s>", hex.EncodeToString(id), domain)},
 		{"MIME-Version", "1.0"},
@@ -143,6 +161,10 @@ func build(from *mail.Address, msg Message) []byte {
 	}
 
 	for _, h := range headers {
+		if h[1] == "" {
+			continue
+		}
+
 		fmt.Fprintf(&b, "%s: %s\r\n", h[0], h[1])
 	}
 

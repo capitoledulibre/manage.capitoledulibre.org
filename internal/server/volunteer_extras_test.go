@@ -179,3 +179,43 @@ func TestStaffAvatarIsKept(t *testing.T) {
 		t.Fatalf("removed staff avatar: %+v", p)
 	}
 }
+
+func TestVolunteerContact(t *testing.T) {
+	e := newEnv(t, func(c *config.Config) {
+		c.ContactEmail, c.VolunteerContactEmail = "partenaires@conf.test", "benevoles@conf.test"
+	})
+	f := e.volFixture()
+
+	nina := e.volunteer("nina@example.org", "Nina", "/volunteers/")
+
+	// Volunteers see their own contact; partners keep theirs.
+	_, body := e.get(nina, "/volunteers/"+f.event.Slug)
+	mustContain(t, body, "mailto:benevoles@conf.test")
+
+	if strings.Contains(body, "partenaires@conf.test") {
+		t.Error("the partner contact is shown to volunteers")
+	}
+
+	_, body = e.get(e.client(), "/")
+	mustContain(t, body, "mailto:partenaires@conf.test")
+
+	// Their e-mails answer to it.
+	omar := e.volunteer("omar@example.org", "Omar", "/volunteers/")
+	e.post(omar, f.buvette.URL()+"/join", nil)
+	e.post(nina, f.morning.URL()+"/signup", nil)
+	e.post(omar, f.morning.URL()+"/waitlist", nil)
+	e.post(nina, f.morning.URL()+"/unsignup", nil)
+
+	waitFor(t, func() bool {
+		e.mailer.mu.Lock()
+		defer e.mailer.mu.Unlock()
+
+		for _, m := range e.mailer.msgs {
+			if m.To[0] == "omar@example.org" && m.ReplyTo == "benevoles@conf.test" && strings.Contains(m.Body, "Une question ? benevoles@conf.test") {
+				return true
+			}
+		}
+
+		return false
+	})
+}

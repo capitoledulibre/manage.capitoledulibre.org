@@ -31,6 +31,9 @@ type Config struct {
 	SiteURL string
 	// ContactEmail is shown to partners and used as the default sender.
 	ContactEmail string
+	// VolunteerContactEmail is shown to volunteers and answers their
+	// e-mails; ContactEmail when empty.
+	VolunteerContactEmail string
 	// SiteLogo is an optional path to the event logo (SVG, PNG, JPEG or
 	// WebP), displayed in the header and used as favicon.
 	SiteLogo string
@@ -81,26 +84,31 @@ type Config struct {
 
 func Load() (*Config, error) {
 	c := &Config{
-		Listen:            env("MANAGE_LISTEN", ":8080"),
-		BaseURL:           strings.TrimRight(env("MANAGE_BASE_URL", "http://localhost:8080"), "/"),
-		DataDir:           env("MANAGE_DATA_DIR", "./data"),
-		Dev:               envBool("MANAGE_DEV"),
-		SMTPHost:          env("MANAGE_SMTP_HOST", ""),
-		SMTPUser:          env("MANAGE_SMTP_USER", ""),
-		SMTPPassword:      env("MANAGE_SMTP_PASSWORD", ""),
-		SMTPTLS:           env("MANAGE_SMTP_TLS", "starttls"),
-		SiteName:          env("MANAGE_SITE_NAME", DefaultSiteName),
-		SiteURL:           strings.TrimRight(env("MANAGE_SITE_URL", "https://conf.example.org"), "/"),
-		ContactEmail:      env("MANAGE_CONTACT_EMAIL", "partners@example.org"),
-		SiteLogo:          env("MANAGE_SITE_LOGO", ""),
-		StaffNotifyEmails: envList("MANAGE_STAFF_NOTIFY_EMAILS"),
-		OIDCIssuer:        env("MANAGE_OIDC_ISSUER", ""),
-		OIDCClientID:      env("MANAGE_OIDC_CLIENT_ID", ""),
-		OIDCClientSecret:  env("MANAGE_OIDC_CLIENT_SECRET", ""),
-		AdminEmails:       envList("MANAGE_ADMIN_EMAILS"),
-		AdminGroup:        env("MANAGE_ADMIN_GROUP", ""),
-		ExportToken:       env("MANAGE_EXPORT_TOKEN", ""),
-		Gravatar:          env("MANAGE_GRAVATAR", "1") == "1",
+		Listen:                env("MANAGE_LISTEN", ":8080"),
+		BaseURL:               strings.TrimRight(env("MANAGE_BASE_URL", "http://localhost:8080"), "/"),
+		DataDir:               env("MANAGE_DATA_DIR", "./data"),
+		Dev:                   envBool("MANAGE_DEV"),
+		SMTPHost:              env("MANAGE_SMTP_HOST", ""),
+		SMTPUser:              env("MANAGE_SMTP_USER", ""),
+		SMTPPassword:          env("MANAGE_SMTP_PASSWORD", ""),
+		SMTPTLS:               env("MANAGE_SMTP_TLS", "starttls"),
+		SiteName:              env("MANAGE_SITE_NAME", DefaultSiteName),
+		SiteURL:               strings.TrimRight(env("MANAGE_SITE_URL", "https://conf.example.org"), "/"),
+		ContactEmail:          env("MANAGE_CONTACT_EMAIL", "partners@example.org"),
+		SiteLogo:              env("MANAGE_SITE_LOGO", ""),
+		VolunteerContactEmail: env("MANAGE_VOLUNTEER_CONTACT_EMAIL", ""),
+		StaffNotifyEmails:     envList("MANAGE_STAFF_NOTIFY_EMAILS"),
+		OIDCIssuer:            env("MANAGE_OIDC_ISSUER", ""),
+		OIDCClientID:          env("MANAGE_OIDC_CLIENT_ID", ""),
+		OIDCClientSecret:      env("MANAGE_OIDC_CLIENT_SECRET", ""),
+		AdminEmails:           envList("MANAGE_ADMIN_EMAILS"),
+		AdminGroup:            env("MANAGE_ADMIN_GROUP", ""),
+		ExportToken:           env("MANAGE_EXPORT_TOKEN", ""),
+		Gravatar:              env("MANAGE_GRAVATAR", "1") == "1",
+	}
+
+	if c.VolunteerContactEmail == "" {
+		c.VolunteerContactEmail = c.ContactEmail
 	}
 
 	// The sender defaults to the event name and contact address.

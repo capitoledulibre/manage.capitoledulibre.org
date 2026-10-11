@@ -885,7 +885,7 @@ var messages = map[string][2]string{
 	// Volunteer notifications. Bodies are plain text, wrapped by
 	// mail.vol.greeting and mail.vol.signature.
 	"mail.vol.greeting":                 {"Bonjour %s,", "Hello %s,"},
-	"mail.vol.signature":                {"Votre planning\u00a0: %s\n\nMerci pour votre aide\u00a0!\nL'équipe {site}\n", "Your schedule: %s\n\nThank you for your help!\nThe {site} team\n"},
+	"mail.vol.signature":                {"Votre planning\u00a0: %s\nUne question\u00a0? %s\n\nMerci pour votre aide\u00a0!\nL'équipe {site}\n", "Your schedule: %s\nA question? %s\n\nThank you for your help!\nThe {site} team\n"},
 	"mail.vol.freed.subject":            {"Une place s'est libérée\u00a0: %s", "A place freed up: %s"},
 	"mail.vol.freed.body":               {"Une place vient de se libérer sur un créneau que vous attendiez\u00a0:\n\n  %s\n\nPremier arrivé, premier servi\u00a0: %s\n\nSi vous ne le prenez pas, vous n'avez rien à faire\u00a0; nous vous préviendrons à la prochaine place libre.", "A place has just freed up on a slot you were waiting for:\n\n  %s\n\nFirst come, first served: %s\n\nIf you do not take it, there is nothing to do; we will tell you at the next free place."},
 	"mail.vol.late.subject":             {"Désistement de dernière minute\u00a0: %s", "Last-minute withdrawal: %s"},

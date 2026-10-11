@@ -164,6 +164,7 @@ Everything is configured with environment variables; see
 | `MANAGE_SITE_NAME` | Event name in pages and emails (default: Example Conf) |
 | `MANAGE_SITE_URL` | Event website, linked in the footer |
 | `MANAGE_CONTACT_EMAIL` | Contact address shown to partners, default sender |
+| `MANAGE_VOLUNTEER_CONTACT_EMAIL` | Contact address shown to volunteers and set as Reply-To of their e-mails (default: `MANAGE_CONTACT_EMAIL`) |
 | `MANAGE_SITE_LOGO` | Optional path to the event logo (SVG, PNG, JPEG, WebP), header and favicon; initials of the name otherwise |
 | `MANAGE_DATA_DIR` | Directory for `manage.db` (a `partners.db` left by the former partner application is renamed on start) and uploaded files |
 | `MANAGE_SMTP_*`, `MANAGE_MAIL_FROM` | Outgoing email |

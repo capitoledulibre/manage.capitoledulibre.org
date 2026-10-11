@@ -26,7 +26,7 @@ func (s *Server) notifyPeople(people []*store.Person, subject func(lang string) 
 			continue
 		}
 
-		msgs = append(msgs, mail.Message{To: []string{p.Email}, Subject: subject(p.Lang), Body: body(p)})
+		msgs = append(msgs, mail.Message{To: []string{p.Email}, Subject: subject(p.Lang), Body: body(p), ReplyTo: s.site.VolunteerContactEmail})
 	}
 
 	if len(msgs) == 0 {
@@ -70,7 +70,7 @@ func (s *Server) volMail(p *store.Person, eventSlug, body string) string {
 	}
 
 	return i18n.T(p.Lang, "mail.vol.greeting", p.Label()) + "\n\n" + body + "\n\n" +
-		i18n.T(p.Lang, "mail.vol.signature", planning)
+		i18n.T(p.Lang, "mail.vol.signature", planning, s.site.VolunteerContactEmail)
 }
 
 // notifyPlaceFreed tells everyone waiting for a slot that a place opened.

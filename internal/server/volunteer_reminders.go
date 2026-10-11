@@ -121,6 +121,7 @@ func (s *Server) sendVolunteerReminders(ctx context.Context, day time.Time) (int
 			To:      []string{p.Email},
 			Subject: volSubject(p.Lang, "mail.vol.reminder.subject", dayName(p.Lang, start)),
 			Body:    s.volMail(p, slots[0].EventSlug, s.reminderBody(p, start, slots, contacts)),
+			ReplyTo: s.site.VolunteerContactEmail,
 		}
 
 		if err := s.mailer.Send(msg); err != nil {

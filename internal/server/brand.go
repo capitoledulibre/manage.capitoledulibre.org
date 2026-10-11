@@ -19,6 +19,8 @@ type Site struct {
 	Name         string
 	URL          string
 	ContactEmail string
+	// VolunteerContactEmail is the address of the volunteer side.
+	VolunteerContactEmail string
 	// LogoURL is empty when no logo is configured; Initials are shown
 	// instead.
 	LogoURL  string
@@ -55,7 +57,11 @@ func loadBrandLogo(path string) (*brandLogo, error) {
 }
 
 func newSite(cfg *config.Config, logo *brandLogo) Site {
-	s := Site{Name: cfg.SiteName, URL: cfg.SiteURL, ContactEmail: cfg.ContactEmail, Initials: siteInitials(cfg.SiteName)}
+	s := Site{Name: cfg.SiteName, URL: cfg.SiteURL, ContactEmail: cfg.ContactEmail, Initials: siteInitials(cfg.SiteName),
+		VolunteerContactEmail: cfg.VolunteerContactEmail}
+	if s.VolunteerContactEmail == "" {
+		s.VolunteerContactEmail = s.ContactEmail
+	}
 
 	if logo != nil {
 		s.LogoURL = "/brand/logo?v=" + logo.version
