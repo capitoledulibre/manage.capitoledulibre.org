@@ -68,6 +68,17 @@ func openDB(path string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
+// BackupTo writes a consistent copy of the database to path, safe while the
+// server runs: VACUUM INTO takes its own read snapshot, so no writer has to
+// stop. The destination must not exist.
+func (s *Store) BackupTo(ctx context.Context, path string) error {
+	if _, err := s.db.ExecContext(ctx, `VACUUM INTO ?`, path); err != nil {
+		return fmt.Errorf("backup to %s: %w", path, err)
+	}
+
+	return nil
+}
+
 func (s *Store) migrate(ctx context.Context) error { return s.migrateTo(ctx, 0) }
 
 // foreignKeysOff marks a migration that rebuilds a table other tables

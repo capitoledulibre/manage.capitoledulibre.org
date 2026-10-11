@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"net/netip"
+	"testing"
+)
 
 func TestDevAdminLogin(t *testing.T) {
 	cases := []struct {
@@ -82,5 +85,41 @@ func TestExportTokenLength(t *testing.T) {
 	c.ExportToken = ""
 	if err := c.ValidateServe(); err != nil {
 		t.Errorf("no token (export disabled) refused: %v", err)
+	}
+}
+
+func TestParseProxies(t *testing.T) {
+	ps, err := ParseProxies("private, 203.0.113.7, 2001:db8::/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	contains := func(addr string) bool {
+		a := netip.MustParseAddr(addr)
+		for _, p := range ps {
+			if p.Contains(a) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	for addr, want := range map[string]bool{
+		"127.0.0.1": true, "::1": true, "172.17.0.1": true, "192.168.1.10": true,
+		"203.0.113.7": true, "2001:db8::1": true,
+		"203.0.113.8": false, "8.8.8.8": false,
+	} {
+		if got := contains(addr); got != want {
+			t.Errorf("%s trusted = %v, want %v", addr, got, want)
+		}
+	}
+
+	if ps, _ := ParseProxies("none"); len(ps) != 0 {
+		t.Errorf("none trusts nobody, got %v", ps)
+	}
+
+	if _, err := ParseProxies("not-an-ip"); err == nil {
+		t.Error("an invalid entry is refused")
 	}
 }

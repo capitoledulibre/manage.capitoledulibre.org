@@ -106,6 +106,13 @@ func (s *Store) GetSession(ctx context.Context, token, kind string) (*Session, e
 	return &sess, nil
 }
 
+// ExtendSession pushes the expiry of a session to ttl from now.
+func (s *Store) ExtendSession(ctx context.Context, token string, ttl time.Duration) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE sessions SET expires_at = ? WHERE token_hash = ?`, now().Add(ttl), HashToken(token))
+
+	return err
+}
+
 // SwitchSessionManager points a person session at another organization the
 // person manages.
 func (s *Store) SwitchSessionManager(ctx context.Context, token string, managerID int64) error {

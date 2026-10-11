@@ -16,6 +16,7 @@ import (
 	"manage/internal/gravatar"
 	"manage/internal/i18n"
 	"manage/internal/mail"
+	"manage/internal/ratelimit"
 	"manage/internal/store"
 	"manage/web"
 )
@@ -31,6 +32,8 @@ type Server struct {
 	site   Site
 	// gravatar fills in missing profile pictures.
 	gravatar *gravatar.Fetcher
+	// loginByIP limits the login links one client asks for.
+	loginByIP *ratelimit.Limiter
 }
 
 func New(ctx context.Context, cfg *config.Config, st *store.Store, fs *files.Store, mailer mail.Sender) (*Server, error) {
@@ -58,6 +61,7 @@ func New(ctx context.Context, cfg *config.Config, st *store.Store, fs *files.Sto
 	}
 
 	s.gravatar = gravatar.New(st, fs, cfg.Gravatar, gravatarURL)
+	s.loginByIP = ratelimit.New(loginsPerIP, 15*time.Minute)
 
 	if cfg.OIDCEnabled() {
 		s.oidc, err = newOIDCClient(ctx, cfg)

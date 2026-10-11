@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/mail"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -20,6 +21,9 @@ const (
 	inviteTokenTTL = 7 * 24 * time.Hour
 	// maxLoginEmails limits login emails per address and hour.
 	maxLoginEmails = 5
+	// loginsPerIP limits the login requests of one client per quarter of an
+	// hour: enough for a family or an office behind one address.
+	loginsPerIP = 30
 )
 
 func (s *Server) publicRoutes(mux *http.ServeMux) {
@@ -83,19 +87,32 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
 	next := safeRedirect(r.FormValue("next"), "")
 	p := s.page(r, "login.title")
 
-	if !validEmail(email) {
+	refuse := func(key string) error {
 		if strings.HasPrefix(next, "/volunteers/") {
 			p.Title = "vol.login.title"
 			d := s.loginContext(r, next)
-			d["Error"], d["Email"] = "login.invalid_email", email
+			d["Error"], d["Email"] = key, email
 			p.D = d
 
 			return s.render(w, r, "volunteer/login", p)
 		}
 
-		p.D = map[string]any{"Error": "login.invalid_email", "Email": email}
+		p.D = map[string]any{"Error": key, "Email": email}
 
 		return s.render(w, r, "public/login", p)
+	}
+
+	if !validEmail(email) {
+		return refuse("login.invalid_email")
+	}
+
+	// Anyone can ask for a link while an edition takes volunteers: one
+	// client cannot make the server send e-mails to many addresses.
+	if !s.loginByIP.Allow(s.clientIP(r)) {
+		slog.Warn("login requests rate limited", "ip", s.clientIP(r))
+		w.WriteHeader(http.StatusTooManyRequests)
+
+		return refuse("login.too_many")
 	}
 
 	// The response is identical whether the email is known or not, so the
@@ -159,6 +176,56 @@ func (s *Server) sendLoginLink(r *http.Request, email, lang, next string) error 
 		Subject: i18n.T(lang, "mail.login.subject"),
 		Body:    i18n.T(lang, "mail.login.body", link, int(loginTokenTTL.Minutes())),
 	})
+}
+
+// clientIP returns the address of the caller. X-Forwarded-For is only read
+// when the connection comes from a trusted proxy: from anyone else it is
+// whatever they chose to write. Each proxy appends the address it saw, so
+// the client is the rightmost entry that is not a trusted proxy; the
+// leftmost ones are the client's to forge.
+func (s *Server) clientIP(r *http.Request) string {
+	peer := r.RemoteAddr
+	if ap, err := netip.ParseAddrPort(peer); err == nil {
+		peer = ap.Addr().Unmap().String()
+	}
+
+	if !s.trustedProxy(peer) {
+		return peer
+	}
+
+	hops := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
+	for i := len(hops) - 1; i >= 0; i-- {
+		hop := strings.TrimSpace(hops[i])
+		if hop == "" {
+			continue
+		}
+
+		if !s.trustedProxy(hop) {
+			return hop
+		}
+
+		peer = hop
+	}
+
+	return peer
+}
+
+// trustedProxy tells whether an address belongs to MANAGE_TRUSTED_PROXIES.
+func (s *Server) trustedProxy(addr string) bool {
+	a, err := netip.ParseAddr(addr)
+	if err != nil {
+		return false
+	}
+
+	a = a.Unmap()
+
+	for _, p := range s.cfg.TrustedProxies {
+		if p.Contains(a) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // volunteerSpaceOpen tells whether the volunteer space has something for a

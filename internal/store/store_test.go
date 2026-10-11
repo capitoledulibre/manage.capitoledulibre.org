@@ -263,3 +263,48 @@ func TestVolunteerSettings(t *testing.T) {
 		t.Fatalf("an unknown status should be refused, got %v", err)
 	}
 }
+
+// TestBackupTo checks the snapshot is a usable database: the point is that a
+// copy taken during the event can be restored.
+func TestBackupTo(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+
+	s, err := Open(ctx, filepath.Join(dir, "db.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	if _, err := s.EnsureVolunteer(ctx, "vol@example.test", "", "", "fr"); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := filepath.Join(dir, "backup.db")
+	if err := s.BackupTo(ctx, dest); err != nil {
+		t.Fatal(err)
+	}
+
+	// Writing after the snapshot does not change what was captured.
+	if _, err := s.EnsureVolunteer(ctx, "late@example.test", "", "", "fr"); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := Open(ctx, dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+
+	if _, err := b.PersonByEmail(ctx, "vol@example.test"); err != nil {
+		t.Fatalf("backup lacks the person: %v", err)
+	}
+
+	if _, err := b.PersonByEmail(ctx, "late@example.test"); err != ErrNotFound {
+		t.Fatalf("backup has a later write: %v", err)
+	}
+
+	if err := s.BackupTo(ctx, dest); err == nil {
+		t.Fatal("an existing backup is overwritten")
+	}
+}

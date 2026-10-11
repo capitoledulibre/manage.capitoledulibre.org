@@ -6,9 +6,13 @@ together what used to be two applications:
 
 - **partners**: sponsors follow their partnership and the organizers manage
   the sponsor pipeline (described below);
-- **volunteers**: volunteers join poles and sign up on shifts, pole managers
-  and the event coordination run the planning. Being merged in from
+- **volunteers**: volunteers join poles (teams) and sign up on shifts, pole
+  leads and the coordination of each edition run the planning. It comes from
   benevoles.example.org, whose history this repository keeps.
+
+One person is one e-mail address, whatever they come for: a partner contact
+who also volunteers logs in once and goes from one space to the other from
+their menu.
 
 The event name, website, contact address and logo are configurable, so it
 can be used for another event.
@@ -18,7 +22,7 @@ by SQLite, with Tailwind CSS compiled at build time. No Node.js, no CGO.
 
 ## Features
 
-**Partners** (`/p/`, password-less login by magic link):
+**Partners** (`/partners/`, password-less login by magic link):
 
 - progress bar: quote received → quote signed → invoice received → invoice
   paid → details complete → logo provided → attendees registered, plus a
@@ -41,6 +45,35 @@ by SQLite, with Tailwind CSS compiled at build time. No Node.js, no CGO.
 - own profile (name, email language)
 - French and English interface and emails
 - system / light / dark theme (system by default), for staff too
+
+**Volunteers** (`/volunteers/`, same login; a newcomer's account is created
+when they first use their link, while an edition takes volunteers):
+
+- an invitation link names the pole and its leads on the login page; a
+  newcomer gives their name, then lands where they were heading
+- poles with four access modes: public, private (invitation link with a
+  key), on invitation (leads add people), restricted (only the coordination
+  adds people, hidden from others); a default pole holds the shifts of no
+  team in particular and includes everyone
+- one-click sign-up (a public pole is joined on the way), overlap warning,
+  waiting list on full shifts with an e-mail when a place frees up, task
+  checklists ticked on the day; shift cards are updated in place with htmx
+- "where am I needed?" across poles, personal schedule with a calendar
+  subscription link that follows changes, returning volunteers offered last
+  year's poles
+- pole leads: planning with who is on each shift, shifts created one by one
+  or as series (per place), members (search, add by address), messages,
+  settings, picture, places, freeze date
+- coordination per edition: coverage of every pole, global planning,
+  volunteer list with CSV export, messages to all, volunteer status (draft,
+  open, frozen, archived), coordinators, an edition prepared from another
+- nobody loses a shift silently: moving or deleting a shift, taking someone
+  off or out of a pole e-mails them; a withdrawal less than 48 hours ahead
+  warns the leads; a recap of the next day's shifts goes out every evening
+- profile: name, phone (shared with volunteers only if a lead chooses to),
+  photo, or the Gravatar of the address fetched by the server so browsers
+  never contact gravatar.com; a volunteer can stop volunteering, which
+  deletes their account unless they are also a partner contact or staff
 
 **Staff** (`/admin/`, OpenID Connect):
 
@@ -75,8 +108,10 @@ URLs and forms never expose integer ids, so identifiers cannot be guessed by
 counting: editions and organizations are addressed by slug
 (`/admin/events/example-conf-2026`), a partnership by organization and
 edition (`/admin/organizations/acme/editions/example-conf-2026`), and
-other rows (levels, perks, managers, attendees, job offers, posts, staff) by a
-random UUID. A test crawls the pages to enforce it.
+other rows (levels, perks, managers, attendees, job offers, posts, staff,
+shifts, tasks, places, messages, people) by a random UUID; poles are addressed
+by edition and slug (`/volunteers/example-conf-2026/buvette`). Tests
+crawl the pages to enforce it.
 
 ## Development
 
@@ -89,7 +124,7 @@ make css-watch      # in another terminal, rebuilds the CSS on template changes
 make test
 ```
 
-The test suite covers the full partner and staff flows, access control,
+The test suite covers the full partner, volunteer and staff flows, access control,
 the OIDC callback (against a fake provider), upload validation, reminders,
 migrations, the export format and French/English catalog parity.
 
@@ -114,6 +149,10 @@ the invitation link from the log.
 dialogs; it is loaded only when a PDF is picked. `make vendor-pdfjs` refreshes
 it (version in the Makefile, npm integrity hash checked).
 
+[htmx](https://htmx.org) (0BSD) is vendored in `web/static/vendor/htmx/` and
+loaded on the volunteer pages only. `make vendor-htmx` refreshes it the same
+way.
+
 ## Configuration
 
 Everything is configured with environment variables; see
@@ -132,6 +171,7 @@ Everything is configured with environment variables; see
 | `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |
 | `MANAGE_ADMIN_EMAILS`, `MANAGE_ADMIN_GROUP` | Who may log in as staff |
 | `MANAGE_EXPORT_TOKEN` | Token for the JSON export, at least 32 characters (`openssl rand -hex 32`); empty disables token access |
+| `MANAGE_TRUSTED_PROXIES` | Peers whose `X-Forwarded-For` is believed, to rate-limit login requests per client: addresses or CIDR ranges, `private` (default: loopback and private ranges) or `none` |
 | `MANAGE_VOLUNTEER_REMINDER_HOUR` | Hour (event time, 0–23) at which volunteers get the recap of their slots of the next day (default: 18) |
 | `MANAGE_GRAVATAR` | `1` (default) looks missing profile pictures up on gravatar.com, from the server; `0` never does |
 
@@ -215,17 +255,25 @@ avatars are set by each staff member on their profile page (`/admin/profile`).
 
 Put it behind a TLS reverse proxy. Cookies get the `Secure` flag when
 `MANAGE_BASE_URL` starts with `https://`. Back up the `/data` volume
-(SQLite database in WAL mode plus the `files/` directory).
+(SQLite database in WAL mode plus the `files/` directory). `manage backup
+[path]` writes a consistent copy of the database while the server runs, for
+a cron job during the event:
+
+```sh
+docker exec manage /manage backup /data/backup-$(date +%F).db
+```
 
 ## Layout
 
 ```
-cmd/manage/          entry point: serve, export
+cmd/manage/          entry point: serve, export, import-django, backup
 internal/config/     environment configuration
 internal/store/      SQLite schema (migrations/), models and queries
-internal/server/     HTTP handlers: public, partner, admin, OIDC, reminders
+internal/server/     HTTP handlers: public, partner, volunteer, admin, OIDC, reminders
 internal/export/     JSON export
 internal/files/      uploaded file storage and validation
+internal/gravatar/   server-side Gravatar lookup for profile pictures
+internal/ratelimit/  in-memory rate limiter (login requests)
 internal/i18n/       French / English strings
 internal/mail/       SMTP sender
 web/templates/       html/template pages

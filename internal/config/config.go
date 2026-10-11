@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/mail"
+	"net/netip"
 	"net/url"
 	"os"
 	"strconv"
@@ -71,6 +72,11 @@ type Config struct {
 	// server. GravatarURL is the service (a test server in tests).
 	Gravatar    bool
 	GravatarURL string
+
+	// TrustedProxies are the peers whose X-Forwarded-For header is believed,
+	// to rate-limit login requests per client. Anyone else could write any
+	// address in it.
+	TrustedProxies []netip.Prefix
 }
 
 func Load() (*Config, error) {
@@ -111,6 +117,10 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("MANAGE_REMINDER_INTERVAL: %w", err)
 	}
 
+	if c.TrustedProxies, err = ParseProxies(env("MANAGE_TRUSTED_PROXIES", "private")); err != nil {
+		return nil, err
+	}
+
 	c.VolunteerReminderHour, err = strconv.Atoi(env("MANAGE_VOLUNTEER_REMINDER_HOUR", "18"))
 	if err != nil || c.VolunteerReminderHour < 0 || c.VolunteerReminderHour > 23 {
 		return nil, fmt.Errorf("MANAGE_VOLUNTEER_REMINDER_HOUR must be an hour from 0 to 23")
@@ -123,6 +133,44 @@ func Load() (*Config, error) {
 	}
 
 	return c, nil
+}
+
+// privateNets are the loopback and private ranges: a reverse proxy on the
+// same host or in the same Docker network connects from one of them, and a
+// client on the Internet cannot.
+var privateNets = []string{"127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"}
+
+// ParseProxies reads MANAGE_TRUSTED_PROXIES: a comma-separated list of
+// addresses or CIDR ranges, where "private" stands for the loopback and
+// private ranges and "none" trusts nobody (the server faces the Internet
+// directly).
+func ParseProxies(v string) ([]netip.Prefix, error) {
+	var out []netip.Prefix
+
+	for item := range strings.SplitSeq(v, ",") {
+		item = strings.TrimSpace(item)
+
+		switch item {
+		case "", "none":
+			continue
+		case "private":
+			for _, n := range privateNets {
+				out = append(out, netip.MustParsePrefix(n))
+			}
+
+			continue
+		}
+
+		if p, err := netip.ParsePrefix(item); err == nil {
+			out = append(out, p.Masked())
+		} else if a, err := netip.ParseAddr(item); err == nil {
+			out = append(out, netip.PrefixFrom(a, a.BitLen()))
+		} else {
+			return nil, fmt.Errorf("invalid MANAGE_TRUSTED_PROXIES entry %q: expected an address, a CIDR range, \"private\" or \"none\"", item)
+		}
+	}
+
+	return out, nil
 }
 
 // MinExportTokenLength is the minimum length of MANAGE_EXPORT_TOKEN, so it

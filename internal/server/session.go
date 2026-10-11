@@ -21,8 +21,13 @@ const (
 	// the partner area as a partner.
 	returnCookie = "manage_admin_return"
 
-	personSessionTTL = 30 * 24 * time.Hour
-	adminSessionTTL  = 12 * time.Hour
+	// A person session slides: volunteers come back a few times a year,
+	// and a fixed expiry sent them through the e-mail link again right
+	// before the event. It is renewed at most once a day, so page views do
+	// not write to the database.
+	personSessionTTL  = 90 * 24 * time.Hour
+	sessionRenewEvery = 24 * time.Hour
+	adminSessionTTL   = 12 * time.Hour
 )
 
 // reqCtx holds the per-request identity and preferences.
@@ -32,6 +37,9 @@ type reqCtx struct {
 	// Person is who logged in with an e-mail link. Manager is set when that
 	// person is looking at one of the partner organizations they manage.
 	personToken string
+	// renewPerson is set when the person session was pushed back and its
+	// cookie must follow.
+	renewPerson bool
 	Person      *store.Person
 	Manager     *store.Manager
 
@@ -80,6 +88,10 @@ func (s *Server) withSession(next http.Handler) http.Handler {
 		}
 
 		c.Lang = detectLang(r, c.Person)
+
+		if c.renewPerson {
+			s.setCookie(w, personCookie, c.personToken, personSessionTTL)
+		}
 
 		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, ctxKey{}, c)))
 	})
@@ -130,6 +142,14 @@ func (s *Server) loadSessions(ctx context.Context, r *http.Request, c *reqCtx) e
 			}
 
 			c.Person, c.personToken = person, ck.Value
+
+			if time.Until(sess.ExpiresAt) < personSessionTTL-sessionRenewEvery {
+				if err := s.store.ExtendSession(ctx, ck.Value, personSessionTTL); err != nil {
+					return err
+				}
+
+				c.renewPerson = true
+			}
 
 			if sess.ManagerID == nil {
 				return nil

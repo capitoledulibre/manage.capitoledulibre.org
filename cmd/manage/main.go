@@ -1,5 +1,5 @@
-// Command partners runs the partner dashboard of an event (Example Conf
-// by default).
+// Command manage runs the management application of an event (Example du
+// Libre by default): partners, volunteers and the staff administration.
 package main
 
 import (
@@ -41,6 +41,8 @@ func main() {
 		err = exportCmd(os.Args[2:])
 	case "import-django":
 		err = importDjangoCmd(os.Args[2:])
+	case "backup":
+		err = backupCmd(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -60,6 +62,8 @@ func usage() {
   manage export [-event slug] [-o f]    write the partners JSON export
   manage import-django [-dry-run] db    import editions, levels, perks and
                                         partners from the old Django database
+  manage backup [path]                  write a consistent copy of the
+                                        database, safe while the server runs
 
 Configuration is read from MANAGE_* environment variables (see README).`)
 }
@@ -102,6 +106,45 @@ func databasePath(dir string) (string, error) {
 	slog.Info("database renamed", "from", legacy, "to", path)
 
 	return path, nil
+}
+
+// backupCmd snapshots the database without stopping the server, so it can
+// run from cron while the event is live.
+func backupCmd(args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	path := fmt.Sprintf("manage-%s.db", time.Now().Format("20060102-150405"))
+	if len(args) > 0 {
+		path = args[0]
+	}
+
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("%s already exists, refusing to overwrite it", path)
+	}
+
+	ctx := context.Background()
+
+	st, err := open(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+
+	if err := st.BackupTo(ctx, path); err != nil {
+		return err
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("backup written to %s (%.1f MiB)\n", path, float64(info.Size())/(1<<20))
+
+	return nil
 }
 
 func serve() error {
@@ -237,7 +280,7 @@ func importDjangoCmd(args []string) error {
 	}
 
 	if fl.NArg() != 1 {
-		return errors.New("usage: partners import-django [-dry-run] <path to the Django db.sqlite3>")
+		return errors.New("usage: manage import-django [-dry-run] <path to the Django db.sqlite3>")
 	}
 
 	cfg, err := config.Load()
