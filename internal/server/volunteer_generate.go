@@ -31,14 +31,29 @@ func (g genRange) Label() string {
 	return fmt.Sprintf("%02d:%02d – %02d:%02d", g.Start/60, g.Start%60, g.End/60, g.End%60)
 }
 
+// genHours are the hours of a day, as typed.
+type genHours struct {
+	Mode     string // "regular", "list", or "off" for a day without slots
+	DayStart string // HH:MM
+	DayEnd   string
+	Length   int // minutes
+	List     string
+}
+
+// genDayForm is a day of the form, with its own hours.
+type genDayForm struct {
+	Day   time.Time
+	Field string // prefix of its fields, "d2026-11-14."
+	Hours genHours
+}
+
 // genForm is the generator form, as typed.
 type genForm struct {
-	From, To     string // YYYY-MM-DD
-	Mode         string // "regular" or "list"
-	DayStart     string // HH:MM
-	DayEnd       string
-	Length       int // minutes
-	List         string
+	From, To string // YYYY-MM-DD
+	Hours    genHours
+	// PerDay gives each day its own hours, in Days, instead of Hours.
+	PerDay       bool
+	Days         []*genDayForm
 	Locations    []string // UIDs of the existing places chosen
 	NewLocations string   // one per line
 	Capacity     int
@@ -50,20 +65,42 @@ type genForm struct {
 type genDay struct {
 	Day     time.Time
 	Outside bool
+	Off     bool
 	Ranges  []genRange
+}
+
+// genMsg is an error or a warning of the preview, about one day when the
+// days have their own hours.
+type genMsg struct {
+	Key string // i18n key
+	Day *time.Time
 }
 
 // genPlan is what a form would create.
 type genPlan struct {
 	Days      []*genDay
-	Ranges    []genRange
 	Places    []string // names, existing and new
 	NewPlaces []string
 	Slots     int
 	Seats     int
 	Skipped   int
-	Errors    []string // i18n keys
-	Warnings  []string // i18n keys
+	Errors    []genMsg
+	Warnings  []genMsg
+}
+
+func (p *genPlan) fail(key string, day *time.Time) { p.Errors = appendMsg(p.Errors, genMsg{key, day}) }
+func (p *genPlan) warn(key string, day *time.Time) {
+	p.Warnings = appendMsg(p.Warnings, genMsg{key, day})
+}
+
+func appendMsg(list []genMsg, m genMsg) []genMsg {
+	for _, o := range list {
+		if o.Key == m.Key && (o.Day == nil) == (m.Day == nil) && (o.Day == nil || o.Day.Equal(*m.Day)) {
+			return list
+		}
+	}
+
+	return append(list, m)
 }
 
 var genLengths = []int{30, 60, 90, 120, 150, 180, 240, 360}
@@ -86,7 +123,7 @@ func (s *Server) generateForm(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	f := &genForm{Mode: "regular", DayStart: "09:00", DayEnd: "18:00", Length: 120, Capacity: 2, Tasks: v.Pole.DefaultTasks}
+	f := &genForm{Hours: genHours{Mode: "regular", DayStart: "09:00", DayEnd: "18:00", Length: 120}, Capacity: 2, Tasks: v.Pole.DefaultTasks}
 
 	day := time.Now().In(paris)
 	if v.Event.StartsOn != nil {
@@ -102,6 +139,8 @@ func (s *Server) generateForm(w http.ResponseWriter, r *http.Request) error {
 		f.Locations = append(f.Locations, l.UID)
 	}
 
+	f.fillDays(nil)
+
 	return s.renderGenerate(w, r, v, f, locations, nil)
 }
 
@@ -114,17 +153,108 @@ func (s *Server) renderGenerate(w http.ResponseWriter, r *http.Request, v *poleV
 
 func readGenForm(r *http.Request) *genForm {
 	f := &genForm{
-		From: r.FormValue("from"), To: r.FormValue("to"), Mode: r.FormValue("mode"),
-		DayStart: r.FormValue("day_start"), DayEnd: r.FormValue("day_end"), Length: formInt(r, "length"),
-		List: r.FormValue("list"), Locations: r.Form["location"], NewLocations: r.FormValue("new_locations"),
+		From: r.FormValue("from"), To: r.FormValue("to"), Hours: readGenHours(r, "", false),
+		PerDay: r.FormValue("per_day") != "", Locations: r.Form["location"], NewLocations: r.FormValue("new_locations"),
 		Capacity: formInt(r, "capacity"), Title: strings.TrimSpace(r.FormValue("title")), Tasks: r.FormValue("tasks"),
 	}
 
-	if f.Mode != "list" {
-		f.Mode = "regular"
-	}
+	f.fillDays(r)
 
 	return f
+}
+
+// readGenHours reads the hours whose fields start with prefix. Only a day
+// of its own can be off: the common hours always give slots.
+func readGenHours(r *http.Request, prefix string, offAllowed bool) genHours {
+	h := genHours{
+		Mode: r.FormValue(prefix + "mode"), DayStart: r.FormValue(prefix + "day_start"),
+		DayEnd: r.FormValue(prefix + "day_end"), Length: formInt(r, prefix+"length"), List: r.FormValue(prefix + "list"),
+	}
+
+	if h.Mode != "list" && (h.Mode != "off" || !offAllowed) {
+		h.Mode = "regular"
+	}
+
+	return h
+}
+
+// genDates reads the days of a form; ok is false when they make no sense.
+func (f *genForm) genDates() (from, to time.Time, ok bool) {
+	from, err1 := time.ParseInLocation(time.DateOnly, f.From, paris)
+	to, err2 := time.ParseInLocation(time.DateOnly, f.To, paris)
+
+	return from, to, err1 == nil && err2 == nil && !to.Before(from) && to.Sub(from) <= 31*24*time.Hour
+}
+
+// fillDays lists the days of the form with their hours: those typed for
+// the day when there are some, else the common ones. A day added by a
+// change of dates thus starts from the common hours. r is nil for a blank
+// form.
+func (f *genForm) fillDays(r *http.Request) {
+	from, to, ok := f.genDates()
+	if !ok {
+		return
+	}
+
+	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
+		day := &genDayForm{Day: d, Field: "d" + d.Format(time.DateOnly) + ".", Hours: f.Hours}
+
+		if r != nil && r.Form.Has(day.Field+"mode") {
+			day.Hours = readGenHours(r, day.Field, true)
+		}
+
+		f.Days = append(f.Days, day)
+	}
+}
+
+// ranges works out the slots of a day from its hours, with an error key
+// when they make no sense and the warnings they deserve.
+func (h genHours) ranges(capacity int) (out []genRange, errKey string, warnings []string) {
+	switch h.Mode {
+	case "off":
+		return nil, "", nil
+	case "list":
+		ranges, ok := parseRanges(h.List, capacity)
+		if !ok || len(ranges) == 0 {
+			return nil, "vol.gen.err_list", nil
+		}
+
+		out = ranges
+	default:
+		start, ok1 := parseClock(h.DayStart)
+		end, ok2 := parseClock(h.DayEnd)
+
+		if !ok1 || !ok2 || end <= start || !slices.Contains(genLengths, h.Length) {
+			return nil, "vol.gen.err_regular", nil
+		}
+
+		for t := start; t+h.Length <= end; t += h.Length {
+			out = append(out, genRange{Start: t, End: t + h.Length, Capacity: capacity})
+		}
+
+		if len(out) == 0 {
+			return nil, "vol.gen.err_regular", nil
+		}
+
+		if out[len(out)-1].End < end {
+			warnings = append(warnings, "vol.gen.warn_remainder")
+		}
+	}
+
+	// Ranges that overlap are allowed (two shifts covering a rush) but worth
+	// a word.
+	sorted := slices.Clone(out)
+	slices.SortFunc(sorted, func(a, b genRange) int { return a.Start - b.Start })
+
+	for i := 1; i < len(sorted); i++ {
+		if sorted[i].Start < sorted[i-1].End {
+			warnings = append(warnings, "vol.gen.warn_overlap")
+
+			break
+		}
+	}
+
+	return out, "", warnings
 }
 
 // parseClock reads "9:00", "09:00" or "9h30" as minutes since midnight;
@@ -198,58 +328,43 @@ func parseRanges(list string, capacity int) ([]genRange, bool) {
 func (s *Server) plan(r *http.Request, v *poleView, f *genForm, locations []*store.Location) (*genPlan, error) {
 	p := &genPlan{}
 
-	from, err1 := time.ParseInLocation(time.DateOnly, f.From, paris)
-	to, err2 := time.ParseInLocation(time.DateOnly, f.To, paris)
+	if _, _, ok := f.genDates(); !ok {
+		from, err1 := time.ParseInLocation(time.DateOnly, f.From, paris)
+		to, err2 := time.ParseInLocation(time.DateOnly, f.To, paris)
 
-	switch {
-	case err1 != nil || err2 != nil || to.Before(from):
-		p.Errors = append(p.Errors, "vol.gen.err_days")
-	case to.Sub(from) > 31*24*time.Hour:
-		p.Errors = append(p.Errors, "vol.gen.err_days_long")
+		if err1 != nil || err2 != nil || to.Before(from) {
+			p.fail("vol.gen.err_days", nil)
+		} else {
+			p.fail("vol.gen.err_days_long", nil)
+		}
 	}
 
 	if f.Capacity < 1 || f.Capacity > 500 {
-		p.Errors = append(p.Errors, "vol.err.slot_capacity")
+		p.fail("vol.err.slot_capacity", nil)
 		f.Capacity = 1
 	}
 
-	if f.Mode == "list" {
-		ranges, ok := parseRanges(f.List, f.Capacity)
-		if !ok || len(ranges) == 0 {
-			p.Errors = append(p.Errors, "vol.gen.err_list")
+	for _, d := range f.Days {
+		h, at := f.Hours, (*time.Time)(nil)
+		if f.PerDay {
+			h, at = d.Hours, &d.Day
 		}
 
-		p.Ranges = ranges
-	} else {
-		start, ok1 := parseClock(f.DayStart)
-		end, ok2 := parseClock(f.DayEnd)
-
-		if !ok1 || !ok2 || end <= start || !slices.Contains(genLengths, f.Length) {
-			p.Errors = append(p.Errors, "vol.gen.err_regular")
-		} else {
-			for t := start; t+f.Length <= end; t += f.Length {
-				p.Ranges = append(p.Ranges, genRange{Start: t, End: t + f.Length, Capacity: f.Capacity})
-			}
-
-			if len(p.Ranges) == 0 {
-				p.Errors = append(p.Errors, "vol.gen.err_regular")
-			} else if p.Ranges[len(p.Ranges)-1].End < end {
-				p.Warnings = append(p.Warnings, "vol.gen.warn_remainder")
-			}
+		ranges, errKey, warnings := h.ranges(f.Capacity)
+		if errKey != "" {
+			p.fail(errKey, at)
 		}
-	}
 
-	// Ranges that overlap are allowed (two shifts covering a rush) but worth
-	// a word.
-	sorted := slices.Clone(p.Ranges)
-	slices.SortFunc(sorted, func(a, b genRange) int { return a.Start - b.Start })
-
-	for i := 1; i < len(sorted); i++ {
-		if sorted[i].Start < sorted[i-1].End {
-			p.Warnings = append(p.Warnings, "vol.gen.warn_overlap")
-
-			break
+		for _, w := range warnings {
+			p.warn(w, at)
 		}
+
+		day := &genDay{Day: d.Day, Ranges: ranges, Off: h.Mode == "off", Outside: outsideDay(v.Event, d.Day)}
+		if day.Outside && !day.Off {
+			p.warn("vol.gen.warn_outside", nil)
+		}
+
+		p.Days = append(p.Days, day)
 	}
 
 	// Places: the existing ones chosen, then the new ones.
@@ -297,15 +412,10 @@ func (s *Server) plan(r *http.Request, v *poleView, f *genForm, locations []*sto
 		byName[l.Name] = l.ID
 	}
 
-	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
-		day := &genDay{Day: d, Ranges: p.Ranges, Outside: outsideDay(v.Event, d)}
-		if day.Outside {
-			p.Warnings = appendOnce(p.Warnings, "vol.gen.warn_outside")
-		}
+	for _, day := range p.Days {
+		d := day.Day
 
-		p.Days = append(p.Days, day)
-
-		for _, g := range p.Ranges {
+		for _, g := range day.Ranges {
 			for i := range places {
 				locID := int64(0)
 				if len(p.Places) > 0 {
@@ -328,18 +438,10 @@ func (s *Server) plan(r *http.Request, v *poleView, f *genForm, locations []*sto
 	}
 
 	if p.Slots > maxGenerated {
-		p.Errors = append(p.Errors, "vol.gen.err_too_many")
+		p.fail("vol.gen.err_too_many", nil)
 	}
 
 	return p, nil
-}
-
-func appendOnce(list []string, v string) []string {
-	if slices.Contains(list, v) {
-		return list
-	}
-
-	return append(list, v)
 }
 
 // outsideDay tells whether a day falls outside the dates of an edition.
@@ -442,7 +544,7 @@ func (s *Server) generateSubmit(w http.ResponseWriter, r *http.Request) error {
 	created := 0
 
 	for _, d := range plan.Days {
-		for _, g := range plan.Ranges {
+		for _, g := range d.Ranges {
 			for _, locID := range places {
 				start, end := genTimes(d.Day, g)
 				if have[slotKey(locID, start, end)] {

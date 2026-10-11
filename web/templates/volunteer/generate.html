@@ -13,28 +13,28 @@
     </div>
   </fieldset>
 
-  <fieldset class="card space-y-3">
+  {{/* The common hours, or each day its own: a CSS switch, so the hours
+       typed on either side survive a change of mind. */}}
+  <fieldset class="group card space-y-3">
     <legend class="card-title float-left w-full">2. {{t $l "vol.gen.hours"}}</legend>
-    <label class="clear-both flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-2 has-checked:ring-brand-600">
-      <input type="radio" name="mode" value="regular" class="mt-1 accent-brand-600" {{if eq $f.Mode "regular"}}checked{{end}}>
-      <span class="flex-1 text-sm">
-        <strong>{{t $l "vol.gen.regular"}}</strong>
-        <span class="mt-2 flex flex-wrap items-center gap-2">
-          {{t $l "vol.gen.from_time"}} <input class="input w-28" type="time" name="day_start" value="{{$f.DayStart}}" aria-label="{{t $l "vol.gen.day_start"}}">
-          {{t $l "vol.gen.to_time"}} <input class="input w-28" type="time" name="day_end" value="{{$f.DayEnd}}" aria-label="{{t $l "vol.gen.day_end"}}">
-          {{t $l "vol.gen.by"}}
-          <select class="input w-28" name="length" aria-label="{{t $l "vol.gen.length"}}">{{range $d.Lengths}}<option value="{{.}}" {{if eq . $f.Length}}selected{{end}}>{{minutes .}}</option>{{end}}</select>
-        </span>
-      </span>
+    <label class="clear-both flex cursor-pointer items-center gap-2 text-sm">
+      <input id="g-per-day" type="checkbox" name="per_day" value="1" class="accent-brand-600" {{if $f.PerDay}}checked{{end}}>
+      {{t $l "vol.gen.per_day"}}
     </label>
-    <label class="flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-2 has-checked:ring-brand-600">
-      <input type="radio" name="mode" value="list" class="mt-1 accent-brand-600" {{if eq $f.Mode "list"}}checked{{end}}>
-      <span class="flex-1 text-sm">
-        <strong>{{t $l "vol.gen.list"}}</strong>
-        <textarea class="input mt-2 font-mono" name="list" rows="4" placeholder="09:00-12:00&#10;12:00-14:00 4&#10;14:00-18:00" aria-label="{{t $l "vol.gen.list"}}">{{$f.List}}</textarea>
-        <span class="help block">{{t $l "vol.gen.list_help"}}</span>
-      </span>
-    </label>
+    <div class="space-y-3 group-has-[#g-per-day:checked]:hidden">
+      {{template "gen_hours" dict "L" $l "P" "" "H" $f.Hours "Lengths" $d.Lengths}}
+    </div>
+    <div class="hidden space-y-4 group-has-[#g-per-day:checked]:block">
+      <p class="help">{{t $l "vol.gen.per_day_help"}}</p>
+      {{range $f.Days}}
+      <div class="space-y-2 rounded-md p-3 ring-1 ring-gray-200">
+        <h3 class="text-sm font-semibold first-letter:uppercase">{{dayName $l .Day}}</h3>
+        {{template "gen_hours" dict "L" $l "P" .Field "H" .Hours "Lengths" $d.Lengths "Off" true}}
+      </div>
+      {{else}}
+      <p class="text-sm text-gray-600">{{t $l "vol.gen.no_days"}}</p>
+      {{end}}
+    </div>
   </fieldset>
 
   <fieldset class="card space-y-3">
@@ -43,7 +43,7 @@
     {{if $d.Locations}}
     <div class="flex flex-wrap gap-2">
       {{range $d.Locations}}
-      <label class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-brand-600">
+      <label class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-200 has-[>input:checked]:bg-brand-50 has-[>input:checked]:ring-brand-600">
         <input type="checkbox" name="location" value="{{.UID}}" class="accent-brand-600" {{if in $f.Locations .UID}}checked{{end}}> {{.Name}}
       </label>
       {{end}}
@@ -70,11 +70,11 @@
   {{with $p}}
   <section class="card space-y-4" aria-labelledby="preview-title" id="preview">
     <h2 id="preview-title" class="card-title !mb-0">{{t $l "vol.gen.preview"}}</h2>
-    {{with .Errors}}<ul class="alert list-disc space-y-1 bg-red-50 pl-8 text-red-800" role="alert">{{range .}}<li>{{t $l .}}</li>{{end}}</ul>{{end}}
+    {{with .Errors}}<ul class="alert list-disc space-y-1 bg-red-50 pl-8 text-red-800" role="alert">{{range .}}<li>{{template "gen_msg" dict "L" $l "M" .}}</li>{{end}}</ul>{{end}}
     {{if not .Errors}}
     <p class="text-lg font-semibold">{{tn $l "vol.gen.total" .Slots .Seats}}</p>
     {{if .Skipped}}<p class="text-sm text-gray-600">{{tn $l "vol.gen.skipped" .Skipped}}</p>{{end}}
-    {{with .Warnings}}<ul class="list-disc space-y-1 rounded-md bg-amber-50 py-3 pr-3 pl-8 text-sm text-amber-900">{{range .}}<li>{{t $l .}}</li>{{end}}</ul>{{end}}
+    {{with .Warnings}}<ul class="list-disc space-y-1 rounded-md bg-amber-50 py-3 pr-3 pl-8 text-sm text-amber-900">{{range .}}<li>{{template "gen_msg" dict "L" $l "M" .}}</li>{{end}}</ul>{{end}}
     <p class="text-sm text-gray-700"><strong>{{t $l "vol.gen.places"}}</strong>&nbsp;: {{range $i, $n := .Places}}{{if $i}}, {{end}}{{$n}}{{if in $p.NewPlaces $n}} <span class="badge bg-green-100 text-green-800">{{t $l "vol.gen.new"}}</span>{{end}}{{else}}{{t $l "vol.slot_form.whole_pole"}}{{end}}</p>
     <div class="overflow-x-auto rounded-md ring-1 ring-gray-200">
       <table class="table">
@@ -83,7 +83,7 @@
         {{range .Days}}
         <tr>
           <td class="whitespace-nowrap align-top"><span class="inline-block first-letter:uppercase">{{dayName $l .Day}}</span>{{if .Outside}} <span class="badge bg-amber-100 text-amber-800">{{t $l "vol.gen.outside"}}</span>{{end}}</td>
-          <td><div class="flex flex-wrap gap-1.5">{{range .Ranges}}<span class="badge bg-gray-100 py-1 text-gray-800 tabular-nums">{{.Label}} · {{.Capacity}}</span>{{end}}</div></td>
+          <td>{{if .Off}}<span class="text-sm text-gray-500">{{t $l "vol.gen.off"}}</span>{{end}}<div class="flex flex-wrap gap-1.5">{{range .Ranges}}<span class="badge bg-gray-100 py-1 text-gray-800 tabular-nums">{{.Label}} · {{.Capacity}}</span>{{end}}</div></td>
         </tr>
         {{end}}
         </tbody>
@@ -100,3 +100,38 @@
   </div>
 </form>
 {{end}}
+
+{{/* The hours of the common case or of one day. Only the input of the
+     option counts as its choice: a bare has-checked would also match the
+     selected <option> of the length list, and light up the first option
+     whatever the radio says. */}}
+{{define "gen_hours"}}{{$l := .L}}{{$h := .H}}{{$p := .P}}
+<label class="flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-[>input:checked]:bg-brand-50 has-[>input:checked]:ring-2 has-[>input:checked]:ring-brand-600">
+  <input type="radio" name="{{$p}}mode" value="regular" class="mt-1 accent-brand-600" {{if eq $h.Mode "regular"}}checked{{end}}>
+  <span class="flex-1 text-sm">
+    <strong>{{t $l "vol.gen.regular"}}</strong>
+    <span class="mt-2 flex flex-wrap items-center gap-2">
+      {{t $l "vol.gen.from_time"}} <input class="input w-28" type="time" name="{{$p}}day_start" value="{{$h.DayStart}}" aria-label="{{t $l "vol.gen.day_start"}}">
+      {{t $l "vol.gen.to_time"}} <input class="input w-28" type="time" name="{{$p}}day_end" value="{{$h.DayEnd}}" aria-label="{{t $l "vol.gen.day_end"}}">
+      {{t $l "vol.gen.by"}}
+      <select class="input w-28" name="{{$p}}length" aria-label="{{t $l "vol.gen.length"}}">{{range .Lengths}}<option value="{{.}}" {{if eq . $h.Length}}selected{{end}}>{{minutes .}}</option>{{end}}</select>
+    </span>
+  </span>
+</label>
+<label class="flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-[>input:checked]:bg-brand-50 has-[>input:checked]:ring-2 has-[>input:checked]:ring-brand-600">
+  <input type="radio" name="{{$p}}mode" value="list" class="mt-1 accent-brand-600" {{if eq $h.Mode "list"}}checked{{end}}>
+  <span class="flex-1 text-sm">
+    <strong>{{t $l "vol.gen.list"}}</strong>
+    <textarea class="input mt-2 font-mono" name="{{$p}}list" rows="4" placeholder="09:00-12:00&#10;12:00-14:00 4&#10;14:00-18:00" aria-label="{{t $l "vol.gen.list"}}">{{$h.List}}</textarea>
+    <span class="help block">{{t $l "vol.gen.list_help"}}</span>
+  </span>
+</label>
+{{if .Off}}
+<label class="flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-[>input:checked]:bg-brand-50 has-[>input:checked]:ring-2 has-[>input:checked]:ring-brand-600">
+  <input type="radio" name="{{$p}}mode" value="off" class="mt-1 accent-brand-600" {{if eq $h.Mode "off"}}checked{{end}}>
+  <strong class="flex-1 text-sm">{{t $l "vol.gen.off"}}</strong>
+</label>
+{{end}}
+{{end}}
+
+{{define "gen_msg"}}{{with .M.Day}}<span class="inline-block first-letter:uppercase">{{dayName $.L .}}</span>&nbsp;: {{end}}{{t .L .M.Key}}{{end}}

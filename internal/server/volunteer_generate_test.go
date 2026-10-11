@@ -126,6 +126,39 @@ func TestSlotGenerator(t *testing.T) {
 	})
 	mustContain(t, body, "le dernier bout de journée reste sans créneau", "en dehors des dates de l&#39;édition", "4 créneaux, 4 places")
 
+	// Each day its own hours: a short Saturday, no Sunday, a list on Monday;
+	// a mistake names its day. The common hours, sent along, are ignored.
+	perDay := url.Values{
+		"from": {"2026-11-14"}, "to": {"2026-11-16"}, "per_day": {"1"}, "mode": {"regular"},
+		"day_start": {"09:00"}, "day_end": {"18:00"}, "length": {"60"},
+		"d2026-11-14.mode": {"regular"}, "d2026-11-14.day_start": {"19:00"}, "d2026-11-14.day_end": {"21:00"}, "d2026-11-14.length": {"60"},
+		"d2026-11-15.mode": {"off"},
+		"d2026-11-16.mode": {"list"}, "d2026-11-16.list": {"07:00-08:00 3"},
+		"location": {locations[0].UID}, "capacity": {"1"}, "action": {"preview"},
+	}
+
+	_, body = e.post(lead, gen, perDay)
+	mustContain(t, body, "3 créneaux, 5 places", "19:00 – 20:00 · 1", "07:00 – 08:00 · 3", "Pas de créneau ce jour-là", `name="d2026-11-15.mode" value="off" class="mt-1 accent-brand-600" checked`)
+
+	perDay.Set("d2026-11-16.list", "le matin")
+
+	_, body = e.post(lead, gen, perDay)
+	mustContain(t, body, `first-letter:uppercase">lundi 16 novembre</span>&nbsp;: Une ligne`)
+
+	perDay.Set("d2026-11-16.list", "07:00-08:00 3")
+	perDay.Set("action", "create")
+
+	_, body = e.post(lead, gen, perDay)
+	mustContain(t, body, "3 créneaux créés.")
+
+	// Without the switch, the hours of the days are only kept for later.
+	perDay.Del("per_day")
+	perDay.Set("action", "preview")
+	perDay.Del("location")
+
+	_, body = e.post(lead, gen, perDay)
+	mustContain(t, body, "27 créneaux, 27 places")
+
 	// No integer id on the page.
 	numeric := regexp.MustCompile(`(?:href|action)="[^"]*/[0-9]+(?:[/"?#])|value="[0-9]+" name="location"|name="location" value="[0-9]+"`)
 
