@@ -4,7 +4,9 @@
 {{/* pole_icon shows a pole's image, emoji or initials. Expects Pole and
      Big (larger, for page headings). */}}
 {{define "pole_icon"}}
-{{if .Pole.ImageFile}}<img src="/volunteer-images/{{.Pole.ImageFile}}" alt="" class="pole-icon {{if .Big}}h-14 w-14{{else}}h-10 w-10{{end}} object-cover">
+{{/* A picture is often a logo: shown whole, without the pole's tint
+     behind it. */}}
+{{if .Pole.ImageFile}}<img src="/volunteer-images/{{.Pole.ImageFile}}" alt="" class="pole-image {{if .Big}}h-14 w-14{{else}}h-10 w-10{{end}}">
 {{else if .Pole.Icon}}<span class="pole-icon {{if .Big}}h-14 w-14 text-3xl{{else}}h-10 w-10 text-xl{{end}}" aria-hidden="true">{{.Pole.Icon}}</span>
 {{else}}<span class="pole-icon {{if .Big}}h-14 w-14 text-lg{{else}}h-10 w-10 text-sm{{end}} font-bold" aria-hidden="true">{{.Pole.Initials}}</span>{{end}}
 {{end}}
