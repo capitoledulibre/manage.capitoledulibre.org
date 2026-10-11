@@ -464,6 +464,7 @@ var messages = map[string][2]string{
 	"vol.slot.title":             {"Créneau", "Slot"},
 	"vol.slot.wait_count.one":    {"%d en attente", "%d waiting"},
 	"vol.slot.wait_count.other":  {"%d en attente", "%d waiting"},
+	"vol.unnamed":                {"Bénévole", "Volunteer"},
 	"vol.slot.signed_up":         {"Inscrit·e", "Signed up"},
 	"vol.slot.signup":            {"Je m'inscris", "Sign me up"},
 	"vol.slot.unsignup":          {"Me désinscrire", "Cancel my sign-up"},

@@ -18,11 +18,13 @@
 <div class="mt-8 grid gap-8 md:grid-cols-2">
   <section>
     <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.slot.volunteers" $s.Filled $s.Capacity}}</h2>
+    {{if $d.ShowPeople}}
     {{with $d.Volunteers}}
     <ul class="space-y-2">
-      {{range .}}<li class="flex items-center gap-2 text-sm">{{template "person_avatar" .}}<span>{{.Label}}{{if and $v.Manage .Phone}} <span class="text-gray-500">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
+      {{range .}}<li class="flex items-center gap-2 text-sm">{{template "person_avatar" .}}<span>{{template "person_name" (dict "Lang" $l "Person" . "Manage" $v.Manage)}}{{if and $v.Manage .Phone}} <span class="text-gray-500">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
     </ul>
     {{else}}<p class="text-sm text-gray-500">{{t $l "vol.slot.nobody"}}</p>{{end}}
+    {{end}}
     {{if gt $s.Missing 0}}<p class="help mt-2">{{tn $l "vol.slot.places_left" $s.Missing}}</p>{{end}}
   </section>
   <section>

@@ -4,8 +4,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"manage/internal/store"
 )
@@ -117,4 +119,106 @@ func TestAttendeesCSVIsSafe(t *testing.T) {
 
 	_, body := e.get(e.adminClient(), "/admin/events/"+f.event.Slug+"/attendees.csv")
 	mustContain(t, body, `'=HYPERLINK`, "'+1", "'@SUM")
+}
+
+func TestSlotPageOfAClosedPole(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+
+	// A slot of the private pole, with someone on it and a message.
+	start := f.morning.StartsAt
+	badges := &store.Slot{PoleID: f.accueil.ID, StartsAt: start, EndsAt: start.Add(time.Hour), Capacity: 2, Title: "Badges"}
+	mustOK(t, e.st.CreateSlot(ctx, badges))
+
+	paul, err := e.st.EnsureVolunteer(ctx, "paul@example.org", "Paul Insider", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.accueil.ID, paul.ID))
+	mustOK(t, e.st.ForceSignup(ctx, badges.ID, paul.ID))
+	mustOK(t, e.st.CreateMessage(ctx, &store.Message{EventID: f.event.ID, PoleID: f.accueil.ID, SlotID: badges.ID, Body: "Code du local : 1234"}, paul.ID))
+
+	badges, _ = e.st.GetSlot(ctx, badges.ID, 0)
+
+	// A volunteer outside the pole sees the slot, not who is on it.
+	nina := e.volunteer("nina@example.org", "Nina", "/volunteers/")
+	_, body := e.get(nina, badges.URL())
+
+	for _, hidden := range []string{"Paul Insider", "Code du local"} {
+		if strings.Contains(body, hidden) {
+			t.Errorf("a non-member sees %q", hidden)
+		}
+	}
+
+	_, body = e.get(e.loginAs("paul@example.org"), badges.URL())
+	mustContain(t, body, "Paul Insider", "Code du local")
+}
+
+func TestUnnamedVolunteerKeepsTheirAddress(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+
+	// Added by address by the lead, never logged in: no name yet.
+	quiet, err := e.st.EnsureVolunteer(ctx, "quiet@example.org", "", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, quiet.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.overlap.ID, quiet.ID))
+
+	planning := "/volunteers/" + f.event.Slug + "/planning?day=all"
+
+	nina := e.volunteer("nina@example.org", "Nina", "/volunteers/")
+	for _, path := range []string{planning, f.overlap.URL(), f.buvette.URL()} {
+		if _, body := e.get(nina, path); strings.Contains(body, "quiet@example.org") {
+			t.Errorf("%s shows the address of an unnamed volunteer", path)
+		}
+	}
+
+	_, body := e.get(e.loginAs(f.leadEmail), planning)
+	mustContain(t, body, "quiet@example.org")
+}
+
+func TestLeadAddsAndRemovesOnlyTheirPeople(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+
+	// The lead of a restricted pole may sign up its members, not bring in
+	// new people: only the coordination does.
+	mustOK(t, e.st.AddPoleManager(ctx, f.secret.ID, f.lead.ID))
+
+	start := f.morning.StartsAt
+	coffre := &store.Slot{PoleID: f.secret.ID, StartsAt: start, EndsAt: start.Add(time.Hour), Capacity: 3, Title: "Coffre"}
+	mustOK(t, e.st.CreateSlot(ctx, coffre))
+	coffre, _ = e.st.GetSlot(ctx, coffre.ID, 0)
+
+	lead := e.loginAs(f.leadEmail)
+
+	if code, _ := e.post(lead, coffre.ManageURL()+"/volunteers", url.Values{"email": {"stranger@example.org"}}); code != http.StatusForbidden {
+		t.Errorf("a restricted pole's lead brings in a new person: %d", code)
+	}
+
+	member, err := e.st.EnsureVolunteer(ctx, "member@example.org", "Member", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.secret.ID, member.ID))
+
+	if code, _ := e.post(lead, coffre.ManageURL()+"/volunteers", url.Values{"person": {member.UID}}); code != http.StatusOK {
+		t.Errorf("signing up a member: %d", code)
+	}
+
+	// Removing someone who is not there: no e-mail, no name revealed.
+	outsider, err := e.st.EnsureVolunteer(ctx, "outsider@example.org", "Outsider", "", "fr")
+	mustOK(t, err)
+
+	for _, path := range []string{
+		f.buvette.ManageURL() + "/members/" + outsider.UID + "/delete",
+		f.morning.ManageURL() + "/volunteers/" + outsider.UID + "/delete",
+	} {
+		if code, _ := e.post(lead, path, nil); code != http.StatusNotFound {
+			t.Errorf("%s: %d", path, code)
+		}
+	}
+
+	if n := e.mailer.count("outsider@example.org"); n != 0 {
+		t.Errorf("the outsider got %d e-mails", n)
+	}
 }

@@ -354,6 +354,14 @@ func (s *Server) manageMemberRemove(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
+	// Only a member can be taken out: anyone else would get an e-mail about
+	// a pole they are not in, and the flash would name them.
+	if member, err := s.store.IsPoleMember(ctx, v.Pole.ID, who.ID); err != nil {
+		return err
+	} else if !member {
+		return errNotFound
+	}
+
 	// Read the sign-ups before they go, so the e-mail says what is lost.
 	freed, err := s.store.PersonSlotsInPole(ctx, v.Pole.ID, who.ID)
 	if err != nil {
@@ -876,8 +884,14 @@ func (s *Server) slotEditExtras(r *http.Request, v *poleView, sl *store.Slot) (m
 		}
 	}
 
+	coordinator, err := s.coordinates(r, v.Event.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]any{
 		"Tasks": tasks, "Volunteers": volunteers, "Messages": messages, "Available": available, "Waiting": waiting,
+		"CanAddMembers": coordinator || v.Pole.ManagersCanAdd(),
 	}, nil
 }
 
@@ -1119,8 +1133,26 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	if err := s.store.JoinPole(ctx, v.Pole.ID, who.ID); err != nil {
+	// Signing someone up makes them a member: on a restricted pole, only the
+	// coordination brings in new people, as in the members tab.
+	member, err := s.store.IsPoleMember(ctx, v.Pole.ID, who.ID)
+	if err != nil {
 		return err
+	}
+
+	if !member {
+		coordinator, err := s.coordinates(r, v.Event.ID)
+		if err != nil {
+			return err
+		}
+
+		if !coordinator && !v.Pole.ManagersCanAdd() {
+			return errForbidden
+		}
+
+		if err := s.store.JoinPole(ctx, v.Pole.ID, who.ID); err != nil {
+			return err
+		}
 	}
 
 	if err := s.store.ForceSignup(ctx, sl.ID, who.ID); err != nil {
@@ -1144,6 +1176,12 @@ func (s *Server) manageSlotRemoveVolunteer(w http.ResponseWriter, r *http.Reques
 	who, err := s.pathPerson(r)
 	if err != nil {
 		return err
+	}
+
+	if on, err := s.store.IsSignedUp(r.Context(), sl.ID, who.ID); err != nil {
+		return err
+	} else if !on {
+		return errNotFound
 	}
 
 	if err := s.store.Unsignup(r.Context(), sl.ID, who.ID); err != nil {

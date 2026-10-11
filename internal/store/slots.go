@@ -224,6 +224,11 @@ func (s *Store) Unsignup(ctx context.Context, slotID, personID int64) error {
 	return err
 }
 
+// IsSignedUp tells whether the person is on the slot.
+func (s *Store) IsSignedUp(ctx context.Context, slotID, personID int64) (bool, error) {
+	return s.exists(ctx, `SELECT 1 FROM signups WHERE slot_id = ? AND person_id = ?`, slotID, personID)
+}
+
 // ListSlotVolunteers returns the people signed up on a slot, first come
 // first.
 func (s *Store) ListSlotVolunteers(ctx context.Context, slotID int64) ([]*Person, error) {

@@ -92,7 +92,7 @@
         </td>
         <td class="!align-top">
           <ul class="space-y-1.5">
-            {{range .People}}<li class="flex items-center gap-2"><span class="roster-box" aria-hidden="true"></span><span><span class="font-medium text-gray-900">{{.Label}}</span>{{if and $manage .Phone}} <span class="text-gray-600 tabular-nums">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
+            {{range .People}}<li class="flex items-center gap-2"><span class="roster-box" aria-hidden="true"></span><span><span class="font-medium text-gray-900">{{template "person_name" (dict "Lang" $l "Person" . "Manage" $manage)}}</span>{{if and $manage .Phone}} <span class="text-gray-600 tabular-nums">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
             {{range seq .Free}}<li class="flex items-center gap-2" aria-hidden="true"><span class="roster-box"></span><span class="roster-blank"></span></li>{{end}}
           </ul>
         </td>

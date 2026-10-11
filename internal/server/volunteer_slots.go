@@ -344,17 +344,27 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	volunteers, err := s.store.ListSlotVolunteers(ctx, sl.ID)
-	if err != nil {
-		return err
+	// Who is on the slot, and its messages, show to those who may take it,
+	// as on the pole's page: not to a visitor of a private or invitation
+	// pole.
+	var (
+		volunteers []*store.Person
+		messages   []*store.Message
+	)
+
+	showPeople := v.Member || v.Pole.IsOpen() || v.Manage
+
+	if showPeople {
+		if volunteers, err = s.store.ListSlotVolunteers(ctx, sl.ID); err != nil {
+			return err
+		}
+
+		if messages, err = s.store.ListSlotMessages(ctx, sl.ID); err != nil {
+			return err
+		}
 	}
 
 	tasks, err := s.store.ListTasks(ctx, sl.ID)
-	if err != nil {
-		return err
-	}
-
-	messages, err := s.store.ListSlotMessages(ctx, sl.ID)
 	if err != nil {
 		return err
 	}
@@ -378,7 +388,7 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) error {
 
 	p := s.page(r, "vol.slot.title")
 	p.D = map[string]any{
-		"V": v, "Slot": sl, "Volunteers": volunteers, "Tasks": tasks, "Messages": messages, "Contacts": contacts,
+		"V": v, "Slot": sl, "Volunteers": volunteers, "ShowPeople": showPeople, "Tasks": tasks, "Messages": messages, "Contacts": contacts,
 		"Card":    s.slotCard(r, v, sl, waiting),
 		"CanTick": sl.Mine || v.Manage,
 	}
