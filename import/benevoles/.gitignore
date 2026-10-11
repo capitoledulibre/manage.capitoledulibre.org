@@ -1,6 +1,0 @@
-/benevoles
-*.db
-*.db-wal
-*.db-shm
-.env
-/uploads/

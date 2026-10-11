@@ -1,8 +1,0 @@
-{{define "title"}}{{.Title}} – {{.Org}}{{end}}
-{{define "content"}}
-<article class="login-box">
-  <h1>{{.Title}}</h1>
-  <p>{{.Message}}</p>
-  {{if .ShowLogin}}<a href="/login" role="button">Se connecter</a>{{else}}<a href="/">Retour à l'accueil</a>{{end}}
-</article>
-{{end}}
