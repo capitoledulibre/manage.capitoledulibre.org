@@ -28,4 +28,14 @@
     <button class="btn">{{t .Lang "vol.save"}}</button>
   </form>
 </div>
+<details class="mx-auto mt-8 max-w-lg">
+  <summary class="cursor-pointer text-sm text-gray-500">{{t .Lang "vol.profile.leave_title"}}</summary>
+  <div class="mt-3 rounded-lg p-4 ring-1 ring-red-200">
+    <p class="text-sm text-gray-700">{{if $d.OtherRoles}}{{t .Lang "vol.profile.leave_help_keep"}}{{else}}{{t .Lang "vol.profile.leave_help"}}{{end}}</p>
+    <form method="post" action="/volunteers/profile/delete" class="mt-3" data-confirm="{{t .Lang "vol.profile.leave_confirm"}}">
+      <input type="hidden" name="confirm" value="yes">
+      <button class="btn-danger">{{if $d.OtherRoles}}{{t .Lang "vol.profile.leave_keep"}}{{else}}{{t .Lang "vol.profile.leave"}}{{end}}</button>
+    </form>
+  </div>
+</details>
 {{end}}

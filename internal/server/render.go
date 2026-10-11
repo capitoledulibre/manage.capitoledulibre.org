@@ -356,6 +356,7 @@ var funcs = template.FuncMap{
 	"slotWhen":   slotWhen,
 	"tn":         plural,
 	"named":      named,
+	"hasPrefix":  strings.HasPrefix,
 	// inputDT renders a time for a datetime-local field, in the event's
 	// time zone.
 	"inputDT": func(v any) string {

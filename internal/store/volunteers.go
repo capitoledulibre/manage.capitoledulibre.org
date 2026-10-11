@@ -386,6 +386,64 @@ func (s *Store) CountPeople(ctx context.Context, q string) (int, error) {
 	return n, err
 }
 
+// LeaveVolunteering removes the volunteer side of a person: sign-ups,
+// waiting lists, poles, leads and coordination, phone and calendar feed.
+// The person goes too, unless they are a partner contact or staff, who
+// still need it. It returns the slots the person was signed up on, so the
+// waiting lists can be told, and whether the person was deleted.
+func (s *Store) LeaveVolunteering(ctx context.Context, personID int64) (freed []int64, deleted bool, err error) {
+	err = s.tx(ctx, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT slot_id FROM signups WHERE person_id = ?`, personID)
+		if err != nil {
+			return err
+		}
+
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+
+				return err
+			}
+
+			freed = append(freed, id)
+		}
+
+		rows.Close()
+
+		var other bool
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM managers WHERE person_id = ?1)
+			OR EXISTS (SELECT 1 FROM admins WHERE person_id = ?1)`, personID).Scan(&other); err != nil {
+			return err
+		}
+
+		if !other {
+			deleted = true
+			_, err := tx.ExecContext(ctx, `DELETE FROM people WHERE id = ?`, personID)
+
+			return err
+		}
+
+		for _, q := range []string{
+			`DELETE FROM signups WHERE person_id = ?`,
+			`DELETE FROM waitlist WHERE person_id = ?`,
+			`DELETE FROM pole_members WHERE person_id = ?`,
+			`DELETE FROM pole_managers WHERE person_id = ?`,
+			`DELETE FROM event_coordinators WHERE person_id = ?`,
+			`DELETE FROM volunteer_reminders WHERE person_id = ?`,
+			`UPDATE people SET phone = '', share_phone = 0, calendar_token = NULL WHERE id = ?`,
+		} {
+			if _, err := tx.ExecContext(ctx, q, personID); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return freed, deleted, err
+}
+
 // --- calendar subscription ------------------------------------------------
 
 // CalendarToken returns the secret of the person's calendar feed, creating

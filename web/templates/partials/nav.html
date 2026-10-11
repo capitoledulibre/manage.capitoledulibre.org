@@ -14,6 +14,7 @@
   <a class="nav-link {{if eq $p $base}}nav-link-active{{end}}" href="{{$base}}">{{t $.Lang "vol.nav.poles"}}</a>
   <a class="nav-link {{if eq $p (printf "%s/slots" $base)}}nav-link-active{{end}}" href="{{$base}}/slots">{{t $.Lang "vol.nav.open"}}</a>
   <a class="nav-link {{if eq $p (printf "%s/me" $base)}}nav-link-active{{end}}" href="{{$base}}/me">{{t $.Lang "vol.nav.me"}}</a>
+  {{if $.Vol.Coordinator}}<a class="nav-link {{if hasPrefix $p (printf "%s/coordination" $base)}}nav-link-active{{end}}" href="{{$base}}/coordination">{{t $.Lang "vol.nav.coordination"}}</a>{{end}}
   {{end}}
 {{end}}
 

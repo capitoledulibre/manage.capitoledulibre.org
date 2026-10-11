@@ -28,6 +28,7 @@ func (s *Server) volunteerRoutes(mux *http.ServeMux) {
 	vol("GET /volunteers/welcome", s.volunteerWelcome)
 	vol("GET /volunteers/profile", s.volunteerProfile)
 	vol("POST /volunteers/profile", s.volunteerProfileSave)
+	vol("POST /volunteers/profile/delete", s.volunteerLeave)
 
 	vol("GET /volunteers/{event}", s.eventHome)
 	vol("GET /volunteers/{event}/slots", s.openSlots)
@@ -48,6 +49,7 @@ func (s *Server) volunteerRoutes(mux *http.ServeMux) {
 	vol("POST /volunteers/{event}/{pole}/tasks/{task}/toggle", s.taskToggle)
 
 	s.poleManageRoutes(mux)
+	s.coordinationRoutes(mux)
 }
 
 // requireVolunteer lets in a signed-in person. A staff member signed in
@@ -657,13 +659,23 @@ func (s *Server) volunteerWelcome(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *Server) volunteerProfile(w http.ResponseWriter, r *http.Request) error {
-	manager, err := s.store.ManagesAnyPole(r.Context(), rc(r).Person.ID)
+	ctx := r.Context()
+	c := rc(r)
+
+	manager, err := s.store.ManagesAnyPole(ctx, c.Person.ID)
+	if err != nil {
+		return err
+	}
+
+	// A partner contact or a staff member keeps their account when they
+	// stop volunteering.
+	contacts, err := s.store.ManagersByEmail(ctx, c.Person.Email)
 	if err != nil {
 		return err
 	}
 
 	p := s.page(r, "vol.profile.title")
-	p.D = map[string]any{"Next": r.URL.Query().Get("next"), "PoleManager": manager}
+	p.D = map[string]any{"Next": r.URL.Query().Get("next"), "PoleManager": manager, "OtherRoles": len(contacts) > 0 || c.Admin != nil}
 
 	return s.render(w, r, "volunteer/profile", p)
 }
@@ -715,6 +727,51 @@ func (s *Server) volunteerProfileSave(w http.ResponseWriter, r *http.Request) er
 	}
 
 	http.Redirect(w, r, next, http.StatusSeeOther)
+
+	return nil
+}
+
+// volunteerLeave ends the volunteer side of a person. Someone who is only
+// a volunteer leaves altogether, logged out; a partner contact or a staff
+// member keeps their account for that.
+func (s *Server) volunteerLeave(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	c := rc(r)
+	person := c.Person
+
+	if r.FormValue("confirm") != "yes" {
+		return errBadInput
+	}
+
+	ids, deleted, err := s.store.LeaveVolunteering(ctx, person.ID)
+	if err != nil {
+		return err
+	}
+
+	// Every place freed goes to the waiting list.
+	for _, id := range ids {
+		// The slot is still there; only the sign-up went.
+		sl, err := s.store.GetSlot(ctx, id, 0)
+		if err != nil {
+			continue
+		}
+
+		if p, err := s.store.GetPole(ctx, sl.PoleID); err == nil {
+			s.announceFreePlace(r, p, sl.ID)
+		}
+	}
+
+	if !deleted {
+		s.flash(w, "flash.vol.left_volunteering")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+
+		return nil
+	}
+
+	s.dropFile(r, person.AvatarFile)
+	s.clearCookie(w, personCookie)
+	s.flash(w, "flash.vol.account_deleted")
+	http.Redirect(w, r, "/volunteers/login", http.StatusSeeOther)
 
 	return nil
 }
@@ -818,8 +875,9 @@ func (s *Server) volunteerImage(w http.ResponseWriter, r *http.Request) error {
 // volunteerNav is the menu of the volunteer space: the edition being
 // looked at, and the poles the person runs in it.
 type volunteerNav struct {
-	Event *store.Event
-	Poles []*store.Pole
+	Event       *store.Event
+	Poles       []*store.Pole
+	Coordinator bool
 }
 
 func (s *Server) volunteerNav(r *http.Request) *volunteerNav {
@@ -842,6 +900,10 @@ func (s *Server) volunteerNav(r *http.Request) *volunteerNav {
 	}
 
 	if nav.Poles, err = s.store.ListManagedPoles(r.Context(), nav.Event.ID, rc(r).Person.ID); err != nil {
+		slog.Error("volunteer menu", "err", err)
+	}
+
+	if nav.Coordinator, err = s.coordinates(r, nav.Event.ID); err != nil {
 		slog.Error("volunteer menu", "err", err)
 	}
 

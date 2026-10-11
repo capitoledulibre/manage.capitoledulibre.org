@@ -320,3 +320,24 @@
     if (next) next.focus({ preventScroll: true });
   });
 })();
+
+// A search field filtering the rows of a table (data-filter: the table),
+// with a live count (data-filter-count, data-one / data-other with %d).
+(() => {
+  document.addEventListener("input", (event) => {
+    const input = event.target;
+    if (!input.matches || !input.matches("[data-filter]")) return;
+
+    const needle = input.value.toLowerCase();
+    let shown = 0;
+
+    document.querySelectorAll(`${input.dataset.filter} tbody tr`).forEach((row) => {
+      const match = row.textContent.toLowerCase().includes(needle);
+      row.hidden = !match;
+      if (match) shown++;
+    });
+
+    const count = document.querySelector(input.dataset.filterCount || "");
+    if (count) count.textContent = (shown === 1 ? input.dataset.one : input.dataset.other).replace("%d", shown);
+  });
+})();

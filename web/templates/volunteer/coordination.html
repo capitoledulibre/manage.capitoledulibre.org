@@ -1,0 +1,169 @@
+{{define "content"}}
+{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/volunteers/%s/coordination" $e.Slug}}
+<div class="mb-6 flex flex-wrap items-center gap-4">
+  {{with $e.LogoFile}}<img src="/volunteer-images/{{.}}" alt="" class="h-14 w-14 rounded-lg object-contain">{{end}}
+  <div class="flex-1">
+    <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.coord.title_event" $e.Name}}</h1>
+    <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">{{with dateSpan $l $e.StartsOn $e.EndsOn}}{{.}}{{end}}
+      <span class="badge {{if eq $e.VolunteerStatus "open"}}bg-green-100 text-green-800{{else if eq $e.VolunteerStatus "frozen"}}bg-amber-100 text-amber-800{{else}}bg-gray-100 text-gray-700{{end}}">{{t $l (printf "vol.status.%s" $e.VolunteerStatus)}}</span></p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{{$base}}/planning" class="btn">{{t $l "vol.coord.planning"}}</a>
+    <a href="{{$base}}/volunteers" class="btn-secondary">{{t $l "vol.coord.volunteers"}}</a>
+  </div>
+</div>
+
+<dl class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+  <div class="card !p-4"><dt class="text-xs text-gray-500">{{t $l "vol.manage.stat_members"}}</dt><dd class="text-2xl font-bold">{{$d.Stats.Volunteers}}</dd></div>
+  <div class="card !p-4"><dt class="text-xs text-gray-500">{{t $l "vol.coord.stat_poles"}}</dt><dd class="text-2xl font-bold">{{len $d.Coverage}}</dd></div>
+  <div class="card !p-4"><dt class="text-xs text-gray-500">{{t $l "vol.manage.stat_slots"}}</dt><dd class="text-2xl font-bold">{{$d.Stats.Slots}}</dd></div>
+  <div class="card !p-4"><dt class="text-xs text-gray-500">{{t $l "vol.manage.stat_places"}}</dt><dd class="text-2xl font-bold">{{$d.Stats.Filled}}<span class="text-base font-normal text-gray-500">/{{$d.Stats.Capacity}} · {{pct $d.Stats.Filled $d.Stats.Capacity}}&nbsp;%</span></dd></div>
+</dl>
+
+<nav class="mb-6 flex flex-wrap gap-1 border-b border-gray-200" aria-label="{{t $l "vol.coord.sections"}}">
+  {{range $tab := list "poles" "messages" "settings"}}
+  <a href="?tab={{$tab}}" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq $tab $d.Tab}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq $tab $d.Tab}}aria-current="page"{{end}}>{{t $l (printf "vol.coord.tab_%s" $tab)}}</a>
+  {{end}}
+</nav>
+
+{{if eq $d.Tab "poles"}}
+<div class="mb-8 overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{t $l "vol.coord.coverage"}}">
+<table class="table">
+  <thead><tr><th>{{t $l "vol.coord.col_pole"}}</th><th>{{t $l "vol.manage.leads"}}</th><th>{{t $l "vol.manage.stat_members"}}</th><th>{{t $l "vol.manage.stat_slots"}}</th><th>{{t $l "vol.coord.col_coverage"}}</th><th>{{t $l "vol.manage.stat_short"}}</th><th><span class="sr-only">{{t $l "vol.manage.col_actions"}}</span></th></tr></thead>
+  <tbody>
+  {{range $d.Coverage}}
+  <tr>
+    <td><span class="pole-c{{.Pole.Color}} inline-flex items-center gap-2">{{template "pole_icon" (dict "Pole" .Pole)}}<a class="link" href="{{.Pole.ManageURL}}">{{.Pole.Name}}</a></span>
+      {{if .Pole.IsDefault}}<span class="badge bg-gray-100 text-gray-700">{{t $l "vol.coord.default"}}</span>{{else if not .Pole.IsOpen}}<span class="badge bg-blue-100 text-blue-800">{{t $l (printf "vol.mode.%s" .Pole.AccessMode)}}</span>{{end}}</td>
+    <td class="text-xs">{{range $i, $m := .Managers}}{{if $i}}, {{end}}{{$m.Label}}{{else}}<span class="text-gray-400">{{t $l "vol.coord.none"}}</span>{{end}}</td>
+    <td>{{.Members}}</td>
+    <td>{{.Slots}}</td>
+    {{/* A pole with no slot has nothing to cover: a full green bar would
+         read as "all done". */}}
+    {{if .Slots}}
+    <td class="pole-c{{.Pole.Color}} whitespace-nowrap"><span class="inline-flex items-center gap-2"><span class="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200" aria-hidden="true"><i class="slot-bar block h-1.5" style="width: {{.Percent}}%"></i></span>{{.Filled}}/{{.Capacity}}</span></td>
+    <td>{{if .Short}}<span class="badge bg-amber-100 text-amber-800">{{.Short}}</span>{{else}}<span class="badge bg-green-100 text-green-800">0</span>{{end}}</td>
+    {{else}}
+    <td class="text-xs text-gray-400">{{t $l "vol.coord.no_slot"}}</td><td class="text-gray-400">—</td>
+    {{end}}
+    <td class="whitespace-nowrap text-right">
+      <a class="btn-secondary btn-sm" href="{{.Pole.ManageURL}}">{{t $l "vol.manage.manage"}}</a>
+      <details class="relative inline-block text-left" data-menu>
+        <summary class="btn-secondary btn-sm list-none">{{t $l "vol.coord.more"}}</summary>
+        <div class="absolute right-0 z-20 mt-2 w-72 space-y-3 rounded-lg bg-surface p-4 text-left shadow-lg ring-1 ring-gray-200">
+          <form method="post" action="{{$base}}/poles/{{.Pole.Slug}}/copy" class="space-y-2">
+            <label class="label" for="copy-{{.Pole.UID}}">{{t $l "vol.coord.copy_to"}}</label>
+            <select id="copy-{{.Pole.UID}}" class="input" name="to">{{range $d.Targets}}<option value="{{.Slug}}" {{if eq .ID $e.ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+            <button class="btn-secondary btn-sm">{{t $l "vol.coord.copy"}}</button>
+            <p class="help">{{t $l "vol.coord.copy_help"}}</p>
+          </form>
+          {{if not .Pole.IsDefault}}
+          <form method="post" action="{{$base}}/poles/{{.Pole.Slug}}/delete" data-confirm="{{tn $l "vol.coord.delete_confirm" .Slots .Pole.Name}}">
+            <button class="btn-danger btn-sm">{{t $l "vol.coord.delete_pole"}}</button>
+          </form>
+          {{end}}
+        </div>
+      </details>
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+
+<form method="post" action="{{$base}}/poles" class="card max-w-2xl space-y-4">
+  <h2 class="card-title">{{t $l "vol.coord.new_pole"}}</h2>
+  <div class="grid grid-cols-[5rem_1fr] gap-3">
+    <div><label class="label" for="np-icon">{{t $l "vol.manage.icon"}}</label><input id="np-icon" class="input text-center" name="icon" placeholder="🍻" maxlength="8"></div>
+    <div><label class="label" for="np-name">{{t $l "vol.manage.name"}}</label><input id="np-name" class="input" name="name" required maxlength="100" placeholder="{{t $l "vol.coord.pole_placeholder"}}"></div>
+  </div>
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div>
+      <label class="label" for="np-mode">{{t $l "vol.manage.who_joins"}}</label>
+      <select id="np-mode" class="input" name="access_mode">{{range $d.Modes}}<option value="{{.}}">{{t $l (printf "vol.mode.%s" .)}}</option>{{end}}</select>
+    </div>
+    <div>
+      <label class="label" for="np-lead">{{t $l "vol.coord.lead_email"}}</label>
+      <input id="np-lead" class="input" type="email" name="lead" autocomplete="off">
+    </div>
+  </div>
+  <button class="btn">{{t $l "vol.coord.create_pole"}}</button>
+</form>
+
+{{else if eq $d.Tab "messages"}}
+<p class="help mb-4">{{t $l "vol.coord.messages_help"}}</p>
+<form method="post" action="{{$base}}/messages" class="card mb-6 max-w-2xl space-y-3">
+  <label for="ev-msg" class="label">{{t $l "vol.manage.message_label"}}</label>
+  <textarea id="ev-msg" class="input" name="body" rows="3" required placeholder="{{t $l "vol.coord.message_placeholder"}}"></textarea>
+  <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="notify" value="1" class="h-4 w-4 accent-brand-600"> {{t $l "vol.coord.message_notify"}}</label>
+  <div><button class="btn">{{t $l "vol.manage.publish"}}</button></div>
+</form>
+{{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages "Manage" $base "Back" (printf "%s?tab=messages" $base))}}
+
+{{else if eq $d.Tab "settings"}}
+<div class="grid gap-6 lg:grid-cols-2">
+  <form method="post" action="{{$base}}/settings" class="card space-y-4">
+    <h2 class="card-title">{{t $l "vol.coord.signups"}}</h2>
+    <fieldset>
+      <legend class="label">{{t $l "vol.coord.status"}}</legend>
+      <div class="space-y-2">
+        {{range $st := $d.Statuses}}
+        <label class="flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-2 has-checked:ring-brand-600">
+          <input type="radio" name="status" value="{{$st}}" class="mt-0.5 accent-brand-600" {{if eq $st $e.VolunteerStatus}}checked{{end}}>
+          <span class="text-sm"><strong>{{t $l (printf "vol.status.%s" $st)}}</strong><br><span class="text-gray-600">{{t $l (printf "vol.status.%s.help" $st)}}</span></span>
+        </label>
+        {{end}}
+      </div>
+    </fieldset>
+    <div>
+      <label class="label" for="ev-freeze">{{t $l "vol.coord.freeze"}}</label>
+      <input id="ev-freeze" class="input max-w-xs" type="datetime-local" name="freeze_at" value="{{inputDT $e.VolunteerFreezeAt}}">
+      <p class="help">{{t $l "vol.coord.freeze_help"}}</p>
+    </div>
+    <button class="btn">{{t $l "vol.save"}}</button>
+    <p class="help">{{t $l "vol.coord.edition_help"}}</p>
+  </form>
+  <div class="space-y-6">
+    <section class="card">
+      <h2 class="card-title">{{t $l "vol.coord.logo"}}</h2>
+      <p class="help mb-3">{{t $l "vol.coord.logo_help"}}</p>
+      <div class="flex flex-wrap items-center gap-3">
+        {{with $e.LogoFile}}<img src="/volunteer-images/{{.}}" alt="" class="h-14 w-14 rounded-lg object-contain ring-1 ring-gray-200">{{end}}
+        {{template "upload" (dict "Lang" $l "ID" "up-event-logo" "Action" (printf "%s/logo" $base) "Field" "logo"
+          "Accept" "image/png,image/jpeg,image/webp,image/svg+xml,.svg" "Formats" "PNG, JPEG, WebP, SVG" "MaxBytes" $d.MaxImage
+          "Title" (t $l "vol.coord.logo") "Label" (t $l "vol.manage.image_upload") "Image" true)}}
+        {{if $e.LogoFile}}<form method="post" action="{{$base}}/logo/delete" data-confirm="{{t $l "vol.coord.logo_remove_confirm"}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.image_remove"}}</button></form>{{end}}
+      </div>
+    </section>
+    <section class="card">
+      <h2 class="card-title">{{t $l "vol.coord.coordinators"}}</h2>
+      <p class="help mb-3">{{t $l "vol.coord.coordinators_help"}}</p>
+      <ul class="mb-3 space-y-2">
+        {{range $d.Coordinators}}
+        <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_initials" .}}<span class="flex-1">{{.Label}} <span class="text-gray-500">{{.Email}}</span></span>
+          {{if $d.Staff}}<form method="post" action="{{$base}}/coordinators/{{.UID}}/delete" data-confirm="{{t $l "vol.coord.coordinator_remove_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button></form>{{end}}</li>
+        {{else}}<li class="text-sm text-gray-500">{{t $l "vol.coord.no_coordinators"}}</li>{{end}}
+      </ul>
+      {{if $d.Staff}}
+      <form method="post" action="{{$base}}/coordinators" class="flex flex-wrap gap-2">
+        <label for="new-coordinator" class="sr-only">{{t $l "login.email"}}</label>
+        <input id="new-coordinator" class="input max-w-xs" type="email" name="email" placeholder="{{t $l "login.email"}}" required autocomplete="off">
+        <button class="btn-secondary btn-sm">{{t $l "vol.coord.coordinator_add"}}</button>
+      </form>
+      {{end}}
+    </section>
+    {{if and $d.Staff $d.Others}}
+    <section class="card">
+      <h2 class="card-title">{{t $l "vol.coord.copy_title"}}</h2>
+      <p class="help mb-3">{{t $l "vol.coord.copy_edition_help"}}</p>
+      <form method="post" action="{{$base}}/copy" class="flex flex-wrap gap-2" data-confirm="{{t $l "vol.coord.copy_confirm"}}">
+        <label for="copy-from" class="sr-only">{{t $l "vol.coord.copy_from"}}</label>
+        <select id="copy-from" class="input max-w-xs" name="from">{{range $d.Others}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}</select>
+        <button class="btn-secondary btn-sm">{{t $l "vol.coord.copy_submit"}}</button>
+      </form>
+    </section>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{end}}
