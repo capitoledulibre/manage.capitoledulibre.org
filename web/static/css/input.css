@@ -25,45 +25,48 @@
  * tints and dark shades (700-900) become light, so "bg-green-50 text-green-800"
  * stays readable in both themes. Mid shades (500-600, used for buttons and
  * bars) are unchanged. The .dark class is set on <html> by the server
- * (explicit choice) or by theme.js (system preference).
+ * (explicit choice) or by theme.js (system preference). Printing keeps the
+ * light theme: paper is white.
  */
-:root.dark {
-  color-scheme: dark;
+@media screen {
+  :root.dark {
+    color-scheme: dark;
 
-  --color-surface: oklch(21% 0.034 264.665);
+    --color-surface: oklch(21% 0.034 264.665);
 
-  --color-gray-50: oklch(14% 0.028 261.692);
-  --color-gray-100: oklch(26% 0.032 262);
-  --color-gray-200: oklch(31% 0.033 257);
-  --color-gray-300: oklch(40% 0.034 259.733);
-  --color-gray-400: oklch(58% 0.027 264.364);
-  --color-gray-500: oklch(70.7% 0.022 261.325);
-  --color-gray-600: oklch(78% 0.015 260);
-  --color-gray-700: oklch(87.2% 0.01 258.338);
-  --color-gray-900: oklch(96.7% 0.003 264.542);
+    --color-gray-50: oklch(14% 0.028 261.692);
+    --color-gray-100: oklch(26% 0.032 262);
+    --color-gray-200: oklch(31% 0.033 257);
+    --color-gray-300: oklch(40% 0.034 259.733);
+    --color-gray-400: oklch(58% 0.027 264.364);
+    --color-gray-500: oklch(70.7% 0.022 261.325);
+    --color-gray-600: oklch(78% 0.015 260);
+    --color-gray-700: oklch(87.2% 0.01 258.338);
+    --color-gray-900: oklch(96.7% 0.003 264.542);
 
-  --color-red-50: oklch(26% 0.05 20);
-  --color-red-100: oklch(31% 0.07 20);
-  --color-red-200: oklch(40% 0.09 22);
-  --color-red-700: oklch(74% 0.14 25);
-  --color-red-800: oklch(80% 0.12 25);
+    --color-red-50: oklch(26% 0.05 20);
+    --color-red-100: oklch(31% 0.07 20);
+    --color-red-200: oklch(40% 0.09 22);
+    --color-red-700: oklch(74% 0.14 25);
+    --color-red-800: oklch(80% 0.12 25);
 
-  --color-amber-50: oklch(26% 0.04 70);
-  --color-amber-100: oklch(32% 0.06 70);
-  --color-amber-800: oklch(84% 0.12 75);
-  --color-amber-900: oklch(88% 0.1 80);
+    --color-amber-50: oklch(26% 0.04 70);
+    --color-amber-100: oklch(32% 0.06 70);
+    --color-amber-800: oklch(84% 0.12 75);
+    --color-amber-900: oklch(88% 0.1 80);
 
-  --color-green-50: oklch(26% 0.045 155);
-  --color-green-100: oklch(31% 0.065 155);
-  --color-green-700: oklch(76% 0.15 150);
-  --color-green-800: oklch(82% 0.13 150);
+    --color-green-50: oklch(26% 0.045 155);
+    --color-green-100: oklch(31% 0.065 155);
+    --color-green-700: oklch(76% 0.15 150);
+    --color-green-800: oklch(82% 0.13 150);
 
-  --color-blue-100: oklch(31% 0.07 260);
-  --color-blue-800: oklch(82% 0.1 260);
+    --color-blue-100: oklch(31% 0.07 260);
+    --color-blue-800: oklch(82% 0.1 260);
 
-  --color-brand-50: oklch(28% 0.06 45);
-  --color-brand-700: oklch(76% 0.15 50);
-  --color-brand-800: oklch(82% 0.13 55);
+    --color-brand-50: oklch(28% 0.06 45);
+    --color-brand-700: oklch(76% 0.15 50);
+    --color-brand-800: oklch(82% 0.13 55);
+  }
 }
 
 @layer components {
@@ -212,4 +215,22 @@
     background-size: 16px 16px;
     background-position: 0 0, 0 8px, 8px -8px, -8px 0;
   }
+}
+
+/*
+ * Printing (rosters): the page without its header, footer and menus, on
+ * white, with boxes to tick and lines to fill in by hand.
+ */
+@layer components {
+  .roster-box {
+    @apply inline-block h-3.5 w-3.5 shrink-0 rounded-sm border border-gray-400;
+  }
+  .roster-blank {
+    @apply inline-block h-4 w-48 border-b border-gray-300;
+  }
+}
+
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff; }
 }

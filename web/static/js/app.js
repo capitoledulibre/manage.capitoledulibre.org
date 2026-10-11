@@ -329,6 +329,12 @@
     if (event.target.matches && event.target.matches("[data-select-on-focus]")) event.target.select();
   });
 
+  // A button printing the page (printed rosters), which the browser can
+  // also save as a PDF.
+  document.addEventListener("click", (event) => {
+    if (event.target.closest && event.target.closest("[data-print]")) window.print();
+  });
+
   // A "Copy" button copying the value of the field data-copy points at.
   document.addEventListener("click", (event) => {
     const btn = event.target.closest && event.target.closest("[data-copy]");

@@ -492,3 +492,57 @@ func (s *Store) PersonWaitlistInPole(ctx context.Context, poleID, personID int64
 	return s.idSet(ctx, `SELECT w.slot_id FROM waitlist w JOIN slots s ON s.id = w.slot_id
 		WHERE s.pole_id = ? AND w.person_id = ?`, poleID, personID)
 }
+
+// --- roster -----------------------------------------------------------------
+
+// ListEventSignups returns the people signed up on the slots of an edition,
+// or of one of its poles when poleID is not 0, by slot, first come first.
+// It reads them in one query, for the printed rosters.
+func (s *Store) ListEventSignups(ctx context.Context, eventID, poleID int64) (map[int64][]*Person, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+peCols+`, sg.slot_id FROM signups sg
+		JOIN people pe ON pe.id = sg.person_id JOIN slots s ON s.id = sg.slot_id JOIN poles p ON p.id = s.pole_id
+		WHERE p.event_id = ? AND (? = 0 OR s.pole_id = ?) ORDER BY sg.created_at, pe.id`, eventID, poleID, poleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[int64][]*Person{}
+
+	for rows.Next() {
+		var slotID int64
+
+		p, err := scanPerson(rows, &slotID)
+		if err != nil {
+			return nil, err
+		}
+
+		out[slotID] = append(out[slotID], p)
+	}
+
+	return out, rows.Err()
+}
+
+// ListEventTasks returns the checklists of the slots of an edition, or of
+// one of its poles when poleID is not 0, by slot.
+func (s *Store) ListEventTasks(ctx context.Context, eventID, poleID int64) (map[int64][]*SlotTask, error) {
+	rows, err := s.db.QueryContext(ctx, taskSelect+`JOIN slots s ON s.id = t.slot_id JOIN poles p ON p.id = s.pole_id
+		WHERE p.event_id = ? AND (? = 0 OR s.pole_id = ?) ORDER BY t.position, t.id`, eventID, poleID, poleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[int64][]*SlotTask{}
+
+	for rows.Next() {
+		t, err := scanTask(rows)
+		if err != nil {
+			return nil, err
+		}
+
+		out[t.SlotID] = append(out[t.SlotID], t)
+	}
+
+	return out, rows.Err()
+}

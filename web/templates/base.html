@@ -10,16 +10,16 @@
   <script src="{{asset "/static/js/app.js"}}" defer></script>
   {{if eq .Area "volunteer"}}<script src="{{asset "/static/vendor/htmx/htmx.min.js"}}" defer></script>{{end}}
 </head>
-<body class="flex min-h-full flex-col text-gray-900{{if and (eq .Area "volunteer") .Vol .Vol.Event}} pb-16 sm:pb-0{{end}}">
+<body class="flex min-h-full flex-col text-gray-900{{if and (eq .Area "volunteer") .Vol .Vol.Event}} pb-16 sm:pb-0 print:pb-0{{end}}">
   {{if .Impersonating}}
-  <div class="bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">
+  <div class="bg-amber-100 px-4 py-2 text-center text-sm text-amber-900 print:hidden">
     <form method="post" action="/admin/stop-impersonate" class="inline-flex flex-wrap items-center justify-center gap-3">
       <span>👁 Vue partenaire de <strong>{{.Org.Name}}</strong> : vous voyez ce que voit le partenaire et vos modifications sont enregistrées en tant que staff.</span>
       <button class="btn-secondary btn-sm">← Revenir à la fiche</button>
     </form>
   </div>
   {{end}}
-  <header class="border-b border-gray-200 bg-surface">
+  <header class="border-b border-gray-200 bg-surface print:hidden">
     <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
       <a href="{{if eq .Area "admin"}}/admin/{{else if eq .Area "partner"}}/partners/{{else if eq .Area "volunteer"}}/volunteers/{{else}}/{{end}}" class="flex items-center gap-2 font-bold text-gray-900">
         {{if .Site.LogoURL}}
@@ -53,9 +53,9 @@
       </div>
     </div>
   </header>
-  <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+  <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8 print:max-w-none print:p-0">
     {{if .FlashText}}
-    <div class="alert mb-6 {{if .FlashError}}bg-red-50 text-red-800{{else}}bg-green-50 text-green-800{{end}}" role="status">
+    <div class="alert mb-6 print:hidden {{if .FlashError}}bg-red-50 text-red-800{{else}}bg-green-50 text-green-800{{end}}" role="status">
       {{.FlashText}}
     </div>
     {{end}}
@@ -77,7 +77,7 @@
     </form>
   </dialog>
   {{if eq .Area "volunteer"}}{{template "volunteer_tabs" .}}{{end}}
-  <footer class="border-t border-gray-200 bg-surface">
+  <footer class="border-t border-gray-200 bg-surface print:hidden">
     <div class="mx-auto flex max-w-6xl flex-wrap justify-between gap-2 px-4 py-4 text-xs text-gray-500">
       <span>{{.Site.Name}}{{with .Site.URL}} · <a class="hover:underline" href="{{.}}">{{trimScheme .}}</a>{{end}}</span>
       {{if eq .Area "volunteer"}}<span>{{with .Site.VolunteerContactEmail}}<a class="hover:underline" href="mailto:{{.}}">{{.}}</a>{{end}}</span>

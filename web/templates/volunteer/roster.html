@@ -1,0 +1,69 @@
+{{define "content"}}
+{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$poleQ := ""}}{{if and $d.Global $d.Pole}}{{$poleQ = $d.Pole.Slug}}{{end}}
+{{$scope := t $l "vol.roster.all_poles"}}{{with $d.Pole}}{{$scope = .Name}}{{end}}
+<div class="print:hidden">
+  <nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="{{$d.Base}}">← {{if $d.Global}}{{t $l "vol.coord.title_event" $e.Name}}{{else}}{{t $l "vol.manage.title_pole" $d.Pole.Name}}{{end}}</a></nav>
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.roster.title"}} <span class="font-normal text-gray-500">· {{$scope}}</span></h1>
+      <p class="mt-1 max-w-2xl text-sm text-gray-600">{{t $l "vol.roster.intro"}}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="btn" data-print>{{t $l "vol.roster.print"}}</button>
+      <a class="btn-secondary" href="{{$d.Base}}/signups.csv">{{t $l "vol.roster.csv"}}</a>
+    </div>
+  </div>
+  {{if $d.Global}}
+  <nav class="mb-2 flex flex-wrap gap-2 text-sm" aria-label="{{t $l "vol.roster.filter_poles"}}">
+    <a href="?{{with $d.Day}}day={{.}}{{end}}" class="filter {{if not $d.Pole}}filter-on{{end}}" {{if not $d.Pole}}aria-current="true"{{end}}>{{t $l "vol.roster.all_poles"}}</a>
+    {{range $d.Poles}}<a href="?pole={{.Slug}}{{with $d.Day}}&amp;day={{.}}{{end}}" class="filter {{if and $d.Pole (eq $d.Pole.ID .ID)}}filter-on{{end}}" {{if and $d.Pole (eq $d.Pole.ID .ID)}}aria-current="true"{{end}}>{{.Name}}</a>{{end}}
+  </nav>
+  {{end}}
+  {{if gt (len $d.AllDays) 1}}
+  <nav class="mb-6 flex flex-wrap gap-2 text-sm" aria-label="{{t $l "vol.roster.filter_days"}}">
+    <a href="?{{with $poleQ}}pole={{.}}{{end}}" class="filter {{if not $d.Day}}filter-on{{end}}" {{if not $d.Day}}aria-current="true"{{end}}>{{t $l "vol.roster.all_days"}}</a>
+    {{range $d.AllDays}}<a href="?{{with $poleQ}}pole={{.}}&amp;{{end}}day={{.}}" class="filter first-letter:uppercase {{if eq $d.Day .}}filter-on{{end}}" {{if eq $d.Day .}}aria-current="true"{{end}}>{{dayKeyName $l .}}</a>{{end}}
+  </nav>
+  {{end}}
+</div>
+
+{{/* On paper, a day per page, each headed with what it is. */}}
+{{range $i, $day := $d.Days}}
+<section class="mb-10 {{if $i}}print:break-before-page{{end}}">
+  <p class="mb-1 hidden justify-between gap-4 text-xs text-gray-500 print:flex"><span>{{$e.Name}} · {{t $l "vol.roster.title"}} · {{$scope}}</span><span>{{t $l "vol.roster.internal_short"}} · {{t $l "vol.roster.printed_short" (dayName $l $d.Printed) (clock $d.Printed)}}</span></p>
+  <h2 class="mb-3 text-lg font-semibold"><span class="inline-block first-letter:uppercase">{{dayKeyName $l .Day}}</span> <span class="text-sm font-normal text-gray-500">· {{t $l "vol.coord.day_filled" .Filled .Capacity}}</span></h2>
+  {{range .Poles}}
+  <div class="pole-c{{.Pole.Color}} mb-6">
+    {{if not $d.Pole}}<h3 class="mb-2 break-after-avoid border-l-4 pl-2 font-semibold" style="border-color: var(--pole)">{{.Pole.Name}}</h3>{{end}}
+    <div class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200 print:overflow-visible print:rounded-none print:shadow-none print:ring-0" tabindex="0" role="region" aria-label="{{dayKeyName $l $day.Day}} · {{.Pole.Name}}">
+    <table class="table">
+      <thead><tr><th class="w-28">{{t $l "vol.roster.col_time"}}</th><th class="w-2/5">{{t $l "vol.roster.col_slot"}}</th><th>{{t $l "vol.roster.col_people"}}</th></tr></thead>
+      <tbody>
+      {{range .Slots}}{{$sl := .Slot}}
+      <tr class="break-inside-avoid">
+        <td class="!align-top font-semibold whitespace-nowrap tabular-nums">{{clock $sl.StartsAt}}–{{clock $sl.EndsAt}}</td>
+        <td class="!align-top">
+          {{with $sl.LocationName}}<strong>{{.}}</strong>{{end}}{{with $sl.Title}}{{if $sl.LocationName}} · {{end}}{{.}}{{end}}{{if not (or $sl.LocationName $sl.Title)}}<span class="text-gray-400">{{t $l "vol.slot_form.whole_pole"}}</span>{{end}}
+          {{with .Tasks}}<ul class="mt-1 list-disc pl-4 text-xs text-gray-600">{{range .}}<li>{{.Label}}</li>{{end}}</ul>{{end}}
+        </td>
+        <td class="!align-top">
+          <ul class="space-y-1.5">
+            {{range .People}}<li class="flex items-center gap-2"><span class="roster-box" aria-hidden="true"></span><span><span class="font-medium text-gray-900">{{.Label}}</span>{{with .Phone}} <span class="text-gray-600 tabular-nums">· {{phone .}}</span>{{end}}</span></li>{{end}}
+            {{range seq .Free}}<li class="hidden items-center gap-2 print:flex" aria-hidden="true"><span class="roster-box"></span><span class="roster-blank"></span></li>{{end}}
+          </ul>
+          {{if .Free}}<p class="{{if .People}}mt-1.5 {{end}}text-xs font-medium text-amber-800 print:hidden">{{tn $l "vol.roster.free" .Free}}</p>{{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  {{end}}
+</section>
+{{else}}
+<p class="text-sm text-gray-600">{{t $l "vol.coord.no_slots"}}</p>
+{{end}}
+
+<p class="mt-8 text-xs text-gray-500 print:hidden">{{t $l "vol.roster.internal"}} {{t $l "vol.roster.printed" (dayName $l $d.Printed) (clock $d.Printed)}}</p>
+{{end}}

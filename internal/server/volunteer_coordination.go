@@ -40,6 +40,8 @@ func (s *Server) coordinationRoutes(mux *http.ServeMux) {
 	c("GET "+base+"/planning", s.coordinationPlanning)
 	c("GET "+base+"/volunteers", s.coordinationVolunteers)
 	c("GET "+base+"/volunteers.csv", s.coordinationVolunteersCSV)
+	c("GET "+base+"/roster", s.coordinationRoster)
+	c("GET "+base+"/signups.csv", s.coordinationSignupsCSV)
 	c("POST "+base+"/volunteers", s.coordinationVolunteerAdd)
 	c("POST "+base+"/volunteers/{person}/join", s.coordinationVolunteerJoin)
 }
