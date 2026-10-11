@@ -40,7 +40,7 @@ func TestSlotGenerator(t *testing.T) {
 	_, body := e.get(lead, gen)
 	mustContain(t, body, `value="2026-11-14"`, `value="2026-11-15"`, "Voir l&#39;aperçu")
 
-	_, body = e.get(lead, salles.ManageURL())
+	_, body = e.get(lead, salles.URL())
 	mustContain(t, body, `href="`+gen+`"`)
 
 	// Eight rooms, two days, 9:00 to 18:00 in three-hour slots.

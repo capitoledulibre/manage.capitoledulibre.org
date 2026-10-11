@@ -93,35 +93,6 @@ func TestPlanning(t *testing.T) {
 	// On paper: a day per page, boxes to tick, a line per free place.
 	mustContain(t, body, "hidden print:block", "break-before-page", "roster-box", "roster-blank", "Document interne")
 
-	// The pages the planning replaced lead to it.
-	for from, to := range map[string]string{
-		"/volunteers/" + f.event.Slug + "/slots?day=2026-11-14":             planning + "?day=2026-11-14&view=open",
-		"/volunteers/" + f.event.Slug + "/me":                               planning + "?view=mine",
-		"/volunteers/" + f.event.Slug + "/coordination/planning?short=1":    planning + "?view=open",
-		f.buvette.ManageURL() + "/roster":                                   planning + "?pole=" + f.buvette.Slug,
-		"/volunteers/" + f.event.Slug + "/coordination/roster?pole=buvette": planning + "?pole=buvette",
-	} {
-		// The coordination's pages for the staff, the others for the lead;
-		// copies, so as to stop at the redirect.
-		c := *lead
-		if strings.Contains(from, "/coordination/") {
-			c = *admin
-		}
-
-		c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-
-		resp, err := c.Get(e.srv.URL + from)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		resp.Body.Close()
-
-		if resp.StatusCode != http.StatusMovedPermanently || resp.Header.Get("Location") != to {
-			t.Errorf("%s: %d to %s, want %s", from, resp.StatusCode, resp.Header.Get("Location"), to)
-		}
-	}
-
 	// The CSV: a line per volunteer and slot, and the empty slots; for the
 	// leads of the pole and the coordination only.
 	csvURL := f.buvette.ManageURL() + "/signups.csv"

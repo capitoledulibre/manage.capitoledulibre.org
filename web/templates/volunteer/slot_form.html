@@ -1,6 +1,6 @@
 {{define "content"}}
 {{$d := .D}}{{$l := .Lang}}{{$f := $d.F}}{{$pole := $f.V.Pole}}{{$s := $f.Slot}}
-<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="{{$pole.ManageURL}}">← {{t $l "vol.manage.title_pole" $pole.Name}}</a></nav>
+<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="{{$pole.URL}}">← {{$pole.Name}}</a></nav>
 <h1 class="text-2xl font-bold tracking-tight">{{if $f.New}}{{t $l "vol.slot_form.new"}}{{else}}{{t $l "vol.slot_form.edit"}}{{end}}</h1>
 {{if not $f.New}}<p class="mt-1 text-sm text-gray-600"><span class="inline-block first-letter:uppercase">{{dayName $l $s.StartsAt}}</span> · {{clock $s.StartsAt}} – {{clock $s.EndsAt}}{{with $s.LocationName}} · {{.}}{{end}} · <a class="link" href="{{$s.URL}}">{{t $l "vol.slot_form.public_page"}}</a></p>{{end}}
 

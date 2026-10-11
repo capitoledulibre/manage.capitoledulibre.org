@@ -39,7 +39,7 @@
       {{range .}}
       <li class="flex flex-wrap items-center gap-2">
         <span class="text-gray-500">{{.EventName}}</span>
-        <a class="link" href="{{.Pole.ManageURL}}">{{.Pole.Name}}</a>
+        <a class="link" href="{{.Pole.URL}}">{{.Pole.Name}}</a>
         {{if .Lead}}<span class="badge bg-brand-50 text-brand-800">responsable</span>{{end}}
       </li>
       {{end}}

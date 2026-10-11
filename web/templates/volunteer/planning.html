@@ -39,7 +39,6 @@
       <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold">
         <span class="h-4 w-1 rounded-full" style="background: var(--pole)" aria-hidden="true"></span>
         <a class="text-gray-900 hover:underline" href="{{.Pole.URL}}">{{.Pole.Name}}</a>
-        {{if .Manage}}<a class="link text-xs font-normal" href="{{.Pole.ManageURL}}">{{t $l "vol.planning.manage"}}</a>{{end}}
       </h3>
       <div class="space-y-2">{{range .Slots}}{{template "slot_card" .Card}}{{end}}</div>
     </div>

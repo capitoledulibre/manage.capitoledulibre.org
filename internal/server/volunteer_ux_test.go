@@ -64,10 +64,10 @@ func TestVolunteerUX(t *testing.T) {
 	acc := time.Now().Add(96 * time.Hour)
 	mustOK(t, e.st.CreateSlot(ctx, &store.Slot{PoleID: f.accueil.ID, StartsAt: acc, EndsAt: acc.Add(time.Hour), Capacity: 1, Title: "Badges"}))
 
-	_, body = e.get(nina, home+"/slots")
+	_, body = e.get(nina, home+"/planning?view=open&day=all")
 	mustContain(t, body, "Tous les pôles", "?pole=accueil", "bientôt")
 
-	_, body = e.get(nina, home+"/slots?pole=accueil")
+	_, body = e.get(nina, home+"/planning?view=open&day=all&pole=accueil")
 	mustContain(t, body, ">Accueil</a>", "Badges")
 
 	if strings.Contains(body, "Buvette") && strings.Contains(body, `href="`+f.tomorrow.URL()+`"`) {

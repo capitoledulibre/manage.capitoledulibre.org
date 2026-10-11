@@ -42,24 +42,35 @@ func TestPoleManagement(t *testing.T) {
 	lead := e.loginAs(f.leadEmail)
 	nina := e.volunteer("nina@example.org", "Nina", "/volunteers/")
 
-	// Only the people who run the pole get in.
-	if code, _ := e.get(nina, manage); code != http.StatusForbidden {
-		t.Fatalf("a volunteer opens the management: %d", code)
+	// Only the people who run the pole get in: a volunteer has the slots of
+	// the pole's page, and no tab.
+
+	for _, tab := range []string{"", "?tab=members", "?tab=settings"} {
+		_, body := e.get(nina, f.buvette.URL()+tab)
+		if strings.Contains(body, "Sections du pôle") || strings.Contains(body, "Réglages") {
+			t.Fatalf("a volunteer sees the management tabs on %q", tab)
+		}
 	}
 
 	if code, _ := e.post(nina, manage+"/slots", url.Values{}); code != http.StatusForbidden {
 		t.Fatalf("a volunteer creates a slot: %d", code)
 	}
 
-	for _, tab := range []string{"", "?tab=members", "?tab=messages", "?tab=settings"} {
-		if code, body := e.get(lead, manage+tab); code != 200 || !strings.Contains(body, "Gestion de Buvette") {
+	// The management is tabs of the pole's page.
+	for _, tab := range []string{"", "?tab=members", "?tab=messages", "?tab=settings", "?tab=history"} {
+		code, body := e.get(lead, f.buvette.URL()+tab)
+		if code != 200 || !strings.Contains(body, `aria-current="page">`) || !strings.Contains(body, "Générer des créneaux") {
 			t.Fatalf("tab %q: %d", tab, code)
 		}
 	}
 
-	// The lead finds the management from the menu and the pole page.
-	_, body := e.get(lead, f.buvette.URL())
-	mustContain(t, body, `href="`+manage+`"`, "Gérer : Buvette", "Gérer ce pôle")
+	_, body := e.get(lead, f.buvette.URL()+"?tab=settings")
+	mustContain(t, body, `aria-current="page">Réglages`)
+
+	// The lead finds their pole from the menu; its slots show the links to
+	// edit them, its tabs the management.
+	_, body = e.get(lead, f.buvette.URL())
+	mustContain(t, body, `href="`+f.buvette.URL()+`"`, "Gérer : Buvette", "Modifier le créneau", "?tab=members")
 
 	// Places, then a series of slots on each of them.
 	e.post(lead, manage+"/locations", url.Values{"names": {"Bar\nTerrasse\n"}})
@@ -108,8 +119,8 @@ func TestPoleManagement(t *testing.T) {
 	e.post(omar, f.buvette.URL()+"/join", nil)
 	e.post(omar, f.morning.URL()+"/waitlist", nil)
 
-	_, body = e.get(lead, manage)
-	mustContain(t, body, `title="En liste d&#39;attente">1</span>`)
+	_, body = e.get(lead, f.buvette.URL())
+	mustContain(t, body, "1 en attente")
 
 	e.post(lead, f.morning.ManageURL(), url.Values{"starts_at": {start}, "ends_at": {end}, "capacity": {"2"}, "title": {"Café"}})
 	e.mailed("omar@example.org", "Une place s'est libérée")
@@ -251,7 +262,9 @@ func TestPoleManagement(t *testing.T) {
 
 	slots, _ = e.st.ListSlots(ctx, f.buvette.ID, 0)
 
-	for _, path := range []string{manage, manage + "?tab=members", manage + "?tab=messages", manage + "?tab=settings", manage + "/slots/new", slots[0].ManageURL()} {
+	page := p.URL()
+
+	for _, path := range []string{page, page + "?tab=members", page + "?tab=messages", page + "?tab=settings", manage + "/slots/new", slots[0].ManageURL()} {
 		code, body := e.get(lead, path)
 		if code != 200 {
 			t.Errorf("%s: %d", path, code)

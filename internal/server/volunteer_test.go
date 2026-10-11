@@ -283,12 +283,10 @@ func TestVolunteerSignupFlow(t *testing.T) {
 	_, body = e.get(omar, f.morning.URL())
 	mustContain(t, body, "Allumer la machine", "Lou Lead", "Une question, un empêchement")
 
-	// The old addresses of "my schedule" and "open slots" lead to the views
-	// of the planning.
-	_, body = e.get(omar, "/volunteers/"+f.event.Slug+"/me")
+	_, body = e.get(omar, "/volunteers/"+f.event.Slug+"/planning?view=mine&day=all")
 	mustContain(t, body, `aria-current="page">Mes créneaux`, "Buvette", "Café", "/calendar/")
 
-	_, body = e.get(nina, "/volunteers/"+f.event.Slug+"/slots")
+	_, body = e.get(nina, "/volunteers/"+f.event.Slug+"/planning?view=open&day=all")
 	mustContain(t, body, `aria-current="page">À pourvoir`, "Buvette")
 
 	omarP, _ := e.st.PersonByEmail(ctx, "omar@example.org")
@@ -451,7 +449,7 @@ func TestNoNumericIDsInVolunteerPages(t *testing.T) {
 		`|type="(?:hidden|checkbox|radio)" name="[^"]*" value="[0-9]+"`)
 
 	for _, path := range []string{
-		"/volunteers/" + f.event.Slug, "/volunteers/" + f.event.Slug + "/slots", "/volunteers/" + f.event.Slug + "/me",
+		"/volunteers/" + f.event.Slug, "/volunteers/" + f.event.Slug + "/planning", "/volunteers/" + f.event.Slug + "/planning?view=mine",
 		f.buvette.URL(), f.accueil.URL(), f.morning.URL(), f.defaultURL, "/volunteers/profile",
 	} {
 		code, body := e.get(nina, path)

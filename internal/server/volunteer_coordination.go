@@ -36,10 +36,8 @@ func (s *Server) coordinationRoutes(mux *http.ServeMux) {
 	c("POST "+base+"/poles/{pole}/copy", s.coordinationPoleCopy)
 	c("POST "+base+"/messages", s.coordinationMessage)
 	c("POST "+base+"/messages/{message}/delete", s.coordinationMessageDelete)
-	c("GET "+base+"/planning", s.redirectPlanning(""))
 	c("GET "+base+"/volunteers", s.coordinationVolunteers)
 	c("GET "+base+"/volunteers.csv", s.coordinationVolunteersCSV)
-	c("GET "+base+"/roster", s.redirectPlanning(""))
 	c("GET "+base+"/signups.csv", s.coordinationSignupsCSV)
 	c("POST "+base+"/volunteers", s.coordinationVolunteerAdd)
 	c("POST "+base+"/volunteers/{person}/join", s.coordinationVolunteerJoin)
@@ -381,7 +379,7 @@ func (s *Server) coordinationPoleCreate(w http.ResponseWriter, r *http.Request) 
 
 	s.logVol(r, logPole(store.LogPoleCreated, p, nil))
 	s.flash(w, "flash.vol.pole_created", p.Name)
-	http.Redirect(w, r, p.ManageURL()+"?tab=settings", http.StatusSeeOther)
+	http.Redirect(w, r, p.URL()+"?tab=settings", http.StatusSeeOther)
 
 	return nil
 }
@@ -451,7 +449,7 @@ func (s *Server) coordinationPoleCopy(w http.ResponseWriter, r *http.Request) er
 
 	s.logVol(r, logPole(store.LogPoleCreated, copied, nil))
 	s.flash(w, "flash.vol.pole_copied", p.Name)
-	http.Redirect(w, r, copied.ManageURL()+"?tab=settings", http.StatusSeeOther)
+	http.Redirect(w, r, copied.URL()+"?tab=settings", http.StatusSeeOther)
 
 	return nil
 }

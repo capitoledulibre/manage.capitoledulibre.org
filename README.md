@@ -166,7 +166,7 @@ Everything is configured with environment variables; see
 | `MANAGE_CONTACT_EMAIL` | Contact address shown to partners, default sender |
 | `MANAGE_VOLUNTEER_CONTACT_EMAIL` | Contact address shown to volunteers and set as Reply-To of their e-mails (default: `MANAGE_CONTACT_EMAIL`) |
 | `MANAGE_SITE_LOGO` | Optional path to the event logo (SVG, PNG, JPEG, WebP), header and favicon; initials of the name otherwise |
-| `MANAGE_DATA_DIR` | Directory for `manage.db` (a `partners.db` left by the former partner application is renamed on start) and uploaded files |
+| `MANAGE_DATA_DIR` | Directory for `manage.db` and uploaded files |
 | `MANAGE_SMTP_*`, `MANAGE_MAIL_FROM` | Outgoing email |
 | `MANAGE_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
 | `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |
@@ -241,18 +241,6 @@ avatars are set by each staff member on their profile page (`/admin/profile`).
 
 Dates and times are shown, and volunteer reminders sent, in the Europe/Paris
 time zone.
-
-### Coming from the two former applications
-
-- **the partner application**: point `MANAGE_DATA_DIR` at its data
-  directory (or copy it). Its `partners.db` is renamed `manage.db` on the
-  first start and migrated in place: each manager and staff member becomes a
-  person, editions get their volunteer side (in draft) and a default pole.
-  Sessions are reset, so everyone logs in again. Take a copy first.
-- **the volunteer application**: its database is not imported (nothing
-  to keep). Rename its environment variables to the `MANAGE_` ones above;
-  the staff OIDC client and its redirect URL `…/admin/callback` stay the
-  same, only the host changes.
 
 Put it behind a TLS reverse proxy. Cookies get the `Secure` flag when
 `MANAGE_BASE_URL` starts with `https://`. Back up the `/data` volume

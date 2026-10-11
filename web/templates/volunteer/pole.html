@@ -1,19 +1,38 @@
 {{define "content"}}
-{{$d := .D}}{{$l := .Lang}}{{$v := $d.V}}{{$pole := $v.Pole}}
-<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="/volunteers/{{$v.Event.Slug}}">← {{t $l "vol.nav.poles"}}</a></nav>
+{{$d := .D}}{{$l := .Lang}}{{$v := $d.V}}{{$pole := $v.Pole}}{{$e := $v.Event}}
+<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="/volunteers/{{$e.Slug}}">← {{t $l "vol.nav.poles"}}</a></nav>
 <div class="pole-c{{$pole.Color}} mb-4 flex flex-wrap items-center gap-4">
   {{template "pole_icon" (dict "Pole" $pole "Big" true)}}
   <div class="flex-1">
     <h1 class="text-2xl font-bold tracking-tight">{{$pole.Name}}</h1>
-    {{with $d.Managers}}<p class="text-sm text-gray-600">{{tn $l "vol.managers" (len .)}} {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+    {{with $d.Leads}}<p class="text-sm text-gray-600">{{tn $l "vol.managers" (len .)}} {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+    {{if $v.Manage}}<p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+      <span class="badge bg-blue-100 text-blue-800">{{t $l (printf "vol.mode.%s" $pole.AccessMode)}}</span>
+      {{if $pole.IsDefault}}<span class="badge bg-gray-100 text-gray-700">{{t $l "vol.manage.default_pole"}}</span>{{end}}</p>{{end}}
   </div>
-  {{if $v.Manage}}<a href="{{$pole.ManageURL}}" class="btn-secondary">{{t $l "vol.manage.manage_pole"}}</a>{{end}}
+  {{if $v.Manage}}
+  <div class="flex flex-wrap gap-2">
+    <a href="{{$pole.ManageURL}}/generate" class="btn">{{t $l "vol.gen.title"}}</a>
+    <a href="{{$pole.ManageURL}}/slots/new" class="btn-secondary">+ {{t $l "vol.manage.new_slot"}}</a>
+  </div>
+  {{end}}
 </div>
 {{with $pole.Description}}<p class="mb-6 text-sm text-gray-700">{{nl2br .}}</p>{{end}}
 
+{{/* Whoever runs the pole finds its management in tabs of the same page;
+     a volunteer only has the slots, so no tab bar. */}}
+{{if $v.Manage}}
+<nav class="mb-6 flex flex-wrap gap-1 border-b border-gray-200" aria-label="{{t $l "vol.manage.sections"}}">
+  {{range $tab := $d.Tabs}}
+  <a href="{{$pole.URL}}{{if ne $tab "slots"}}?tab={{$tab}}{{end}}" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq $tab $d.Tab}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq $tab $d.Tab}}aria-current="page"{{end}}>{{t $l (printf "vol.manage.tab_%s" $tab)}}</a>
+  {{end}}
+</nav>
+{{end}}
+
+{{if eq $d.Tab "slots"}}
 {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages)}}
 
-{{if and (not $v.Member) (not $pole.IsDefault)}}
+{{if and (not $v.Member) (not $pole.IsDefault) (not $v.Manage)}}
 <section class="card mb-6">
   <h2 class="card-title">{{t $l "vol.pole.not_member"}}</h2>
   {{if $pole.IsOpen}}
@@ -26,15 +45,16 @@
   {{end}}
 </section>
 {{else}}
-{{/* One sentence, not a row of figures: a volunteer wants to know whether
-     help is needed here, and the slots are what they came for. */}}
+{{/* One sentence, not a row of figures: is help needed here, and how much
+     of it is mine. */}}
 {{if $d.Total}}<p class="mb-4 text-sm">{{if $d.Missing}}<strong class="text-amber-800">{{tn $l "vol.pole.summary_missing" $d.Missing}}</strong>{{else}}<strong class="text-green-800">{{t $l "vol.pole.summary_full"}}</strong>{{end}}{{if $d.Mine}} · {{tn $l "vol.pole.summary_mine" $d.Mine}}{{end}}</p>{{end}}
 {{if $v.Locked}}<div class="alert mb-4 bg-red-50 text-red-800" role="alert">{{t $l "vol.pole.locked"}}</div>{{end}}
 {{end}}
 {{if and $d.Deadline (not $v.Locked)}}<p class="help mb-4">{{t $l "vol.pole.deadline" (deadline $l $d.Deadline)}}</p>{{end}}
 
 {{if or $d.Locations $d.Total}}
-<nav class="mb-6 flex flex-wrap items-center gap-2 text-sm" aria-label="{{t $l "vol.pole.filters"}}">
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+<nav class="flex flex-wrap items-center gap-2 text-sm" aria-label="{{t $l "vol.pole.filters"}}">
   {{if $d.Locations}}
   <a href="{{$pole.URL}}{{if $d.OnlyOpen}}?open=1{{end}}" class="filter {{if not $d.Filter}}filter-on{{end}}" {{if not $d.Filter}}aria-current="true"{{end}}>{{t $l "vol.pole.all_locations"}}</a>
   {{range $d.Locations}}<a href="{{$pole.URL}}?location={{.UID}}{{if $d.OnlyOpen}}&amp;open=1{{end}}" class="filter {{if eq .UID $d.Filter}}filter-on{{end}}" {{if eq .UID $d.Filter}}aria-current="true"{{end}}>{{.Name}}</a>{{end}}
@@ -42,17 +62,32 @@
   {{end}}
   <a href="{{$pole.URL}}?{{with $d.Filter}}location={{.}}&amp;{{end}}{{if not $d.OnlyOpen}}open=1{{end}}" class="filter {{if $d.OnlyOpen}}filter-on{{end}}" {{if $d.OnlyOpen}}aria-current="true"{{end}}>{{t $l "vol.pole.only_open"}}</a>
 </nav>
+{{if and $v.Manage $d.Total}}<p class="flex flex-wrap gap-x-4 gap-y-1 text-sm"><a class="link" href="/volunteers/{{$e.Slug}}/planning?pole={{$pole.Slug}}&amp;day=all">{{t $l "vol.planning.link_pole"}}</a><a class="link" href="{{$pole.ManageURL}}/signups.csv">{{t $l "vol.planning.csv"}}</a></p>{{end}}
+</div>
 {{end}}
 
 {{range $d.Days}}
 <section class="mb-6">
-  <h2 class="mb-2 text-sm font-semibold text-gray-700 first-letter:uppercase">{{dayKeyName $l .Day}}</h2>
-  <div class="space-y-2">
-    {{range .Slots}}{{template "slot_card" (dict "Lang" $l "Slot" . "Pole" $pole "Member" $v.Member "Locked" $v.Locked "Back" $d.Back "Waiting" (index $d.Waiting .ID))}}{{end}}
+  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <h2 class="text-sm font-semibold text-gray-700 first-letter:uppercase">{{dayKeyName $l .Day}}</h2>
+    {{if $v.Manage}}
+    <details class="relative" data-menu>
+      <summary class="btn-secondary btn-sm list-none">{{t $l "vol.manage.copy_day"}}</summary>
+      <form method="post" action="{{$pole.ManageURL}}/days/copy" class="absolute right-0 z-20 mt-2 w-72 space-y-2 rounded-lg bg-surface p-4 shadow-lg ring-1 ring-gray-200">
+        <input type="hidden" name="from" value="{{.Day}}">
+        <label class="label" for="copy-{{.Day}}">{{t $l "vol.manage.copy_day_to"}}</label>
+        <input id="copy-{{.Day}}" class="input" type="date" name="to" required>
+        <p class="help">{{t $l "vol.manage.copy_day_help"}}</p>
+        <button class="btn btn-sm">{{t $l "vol.coord.copy"}}</button>
+      </form>
+    </details>
+    {{end}}
   </div>
+  <div class="space-y-2">{{range .Cards}}{{template "slot_card" .}}{{end}}</div>
 </section>
 {{else}}
-<p class="text-sm text-gray-600">{{if $d.OnlyOpen}}{{t $l "vol.pole.all_filled"}}{{else}}{{t $l "vol.pole.none_yet"}}{{end}}</p>
+{{if and $v.Manage (not $d.Total)}}<div class="card text-sm text-gray-700">{{t $l "vol.manage.no_slots"}} <a class="link" href="{{$pole.ManageURL}}/generate">{{t $l "vol.gen.first"}}</a></div>
+{{else}}<p class="text-sm text-gray-600">{{if $d.OnlyOpen}}{{t $l "vol.pole.all_filled"}}{{else}}{{t $l "vol.pole.none_yet"}}{{end}}</p>{{end}}
 {{end}}
 
 {{if and $v.Member (not $pole.IsDefault) (not $v.Locked)}}
@@ -61,5 +96,154 @@
   <p class="help">{{if $d.Mine}}{{tn $l "vol.pole.leave_help_mine" $d.Mine}}{{else}}{{t $l "vol.pole.leave_help"}}{{end}}</p>
   <form method="post" action="{{$pole.URL}}/leave" class="mt-2" data-confirm="{{t $l "vol.pole.leave_confirm"}}"><button class="btn-danger">{{t $l "vol.pole.leave"}}</button></form>
 </details>
+{{end}}
+
+{{else if eq $d.Tab "members"}}
+  <div class="mb-8 grid gap-6 md:grid-cols-2">
+    <section class="card">
+      <h2 class="card-title">{{t $l "vol.manage.add_title"}}</h2>
+      {{if $d.CanAddMembers}}
+      <p class="help mb-3">{{t $l "vol.manage.add_help"}}</p>
+      <label class="label" for="member-q">{{t $l "vol.manage.search_label"}}</label>
+      <input id="member-q" class="input" type="search" name="q" placeholder="{{t $l "vol.manage.search_placeholder"}}" autocomplete="off"
+        hx-get="{{$pole.ManageURL}}/people" hx-trigger="input changed delay:250ms, search" hx-target="#member-search-results" hx-swap="outerHTML">
+      <div id="member-search-results"></div>
+      <details class="mt-4">
+        <summary class="cursor-pointer text-sm text-gray-600">{{t $l "vol.manage.invite_title"}}</summary>
+        <p class="help">{{t $l "vol.manage.invite_help"}}</p>
+        <form method="post" action="{{$pole.ManageURL}}/members" class="mt-2 space-y-2">
+          <label for="member-emails" class="sr-only">{{t $l "vol.manage.invite_label"}}</label>
+          <textarea id="member-emails" class="input" name="emails" rows="3" placeholder="Alice Martin &lt;alice@exemple.org&gt;&#10;bob@exemple.org" required></textarea>
+          <button class="btn-secondary btn-sm">{{t $l "vol.manage.invite_submit"}}</button>
+        </form>
+      </details>
+      {{else}}
+      <p class="text-sm text-gray-700">{{t $l "vol.manage.restricted_add"}}</p>
+      {{end}}
+    </section>
+    <section class="card">
+      <h2 class="card-title">{{t $l "vol.manage.join_title"}}</h2>
+      <p class="text-sm"><span class="badge bg-blue-100 text-blue-800">{{t $l (printf "vol.mode.%s" $pole.AccessMode)}}</span> <span class="text-gray-600">{{t $l (printf "vol.mode.%s.help" $pole.AccessMode)}}</span></p>
+      {{if $pole.IsPrivate}}
+      <p class="help mt-3">{{t $l "vol.manage.invite_link_help"}}</p>
+      <div class="mt-2 flex gap-2">
+        <label for="invite-url" class="sr-only">{{t $l "vol.manage.invite_link"}}</label>
+        <input id="invite-url" class="input font-mono text-xs" type="text" readonly value="{{$d.InviteURL}}" data-select-on-focus>
+        <button type="button" class="btn-secondary btn-sm shrink-0" data-copy="#invite-url" data-copied="{{t $l "vol.copied"}}">{{t $l "vol.copy"}}</button>
+      </div>
+      <form method="post" action="{{$pole.ManageURL}}/key" class="mt-2" data-confirm="{{t $l "vol.manage.key_confirm"}}"><button class="link text-sm">{{t $l "vol.manage.key_regenerate"}}</button></form>
+      {{end}}
+      <p class="help mt-3">{{t $l "vol.manage.join_settings"}}</p>
+    </section>
+  </div>
+
+  <section class="mb-8">
+    <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.manage.leads"}}</h2>
+    <ul class="space-y-2">
+      {{range $d.Managers}}
+      <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_avatar" .}}<span>{{.Label}} <span class="text-gray-500">{{.Email}}{{with .Phone}} · {{phone .}}{{end}}</span></span>
+        {{if $d.Coordinator}}<form method="post" action="{{$pole.ManageURL}}/managers/{{.UID}}/delete" data-confirm="{{t $l "vol.manage.lead_remove_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button></form>{{end}}</li>
+      {{else}}<li class="text-sm text-gray-500">{{t $l "vol.manage.no_leads"}}</li>{{end}}
+    </ul>
+    {{if $d.Coordinator}}
+    <form method="post" action="{{$pole.ManageURL}}/managers" class="mt-3 flex flex-wrap gap-2">
+      <label for="new-lead" class="sr-only">{{t $l "vol.manage.lead_email"}}</label>
+      <input id="new-lead" class="input max-w-xs" type="email" name="email" placeholder="{{t $l "vol.manage.lead_email"}}" required autocomplete="off">
+      <button class="btn-secondary btn-sm">{{t $l "vol.manage.lead_add"}}</button>
+    </form>
+    {{end}}
+  </section>
+
+  <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.manage.members" (len $d.Members)}}</h2>
+  {{template "members_table" (dict "Lang" $l "Pole" $pole "Members" $d.Members)}}
+
+{{else if eq $d.Tab "messages"}}
+  <p class="help mb-4">{{t $l "vol.manage.messages_help"}}</p>
+  <form method="post" action="{{$pole.ManageURL}}/messages" class="card mb-6 max-w-2xl space-y-3">
+    <label for="pole-msg" class="label">{{t $l "vol.manage.message_label"}}</label>
+    <textarea id="pole-msg" class="input" name="body" rows="3" placeholder="{{t $l "vol.manage.message_placeholder"}}" required></textarea>
+    <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="notify" value="1" class="h-4 w-4 accent-brand-600"> {{t $l "vol.manage.message_notify"}}</label>
+    <div><button class="btn">{{t $l "vol.manage.publish"}}</button></div>
+  </form>
+  {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages "Manage" $pole.ManageURL "Back" (printf "%s?tab=messages" $pole.URL))}}
+
+{{else if eq $d.Tab "history"}}
+  {{template "vol_log" (dict "Lang" $l "Entries" $d.History)}}
+
+{{else if eq $d.Tab "settings"}}
+  <div class="grid gap-6 lg:grid-cols-2">
+    <form method="post" action="{{$pole.ManageURL}}" class="card space-y-4">
+      <h2 class="card-title">{{t $l "vol.manage.pole"}}</h2>
+      <div class="grid grid-cols-[5rem_1fr] gap-3">
+        <div><label class="label" for="p-icon">{{t $l "vol.manage.icon"}}</label><input id="p-icon" class="input text-center" name="icon" value="{{$pole.Icon}}" placeholder="{{$pole.Initials}}" maxlength="8"></div>
+        <div><label class="label" for="p-name">{{t $l "vol.manage.name"}}</label><input id="p-name" class="input" name="name" value="{{$pole.Name}}" required maxlength="100"></div>
+      </div>
+      {{if not $pole.IsDefault}}
+      <div>
+        <label class="label" for="p-slug">{{t $l "vol.manage.slug"}}</label>
+        <input id="p-slug" class="input font-mono" name="slug" value="{{$pole.Slug}}" pattern="[a-z0-9-]+" required>
+        <p class="help">{{t $l "vol.manage.slug_help" (printf "/volunteers/%s/…" $e.Slug)}}</p>
+      </div>
+      {{end}}
+      <div>
+        <label class="label" for="p-desc">{{t $l "vol.manage.description"}}</label>
+        <textarea id="p-desc" class="input" name="description" rows="3">{{$pole.Description}}</textarea>
+      </div>
+      {{if not $pole.IsDefault}}
+      <fieldset>
+        <legend class="label">{{t $l "vol.manage.who_joins"}}</legend>
+        <div class="space-y-2">
+        {{range $m := $d.Modes}}
+        {{if or (ne $m "restricted") $d.Coordinator (eq $pole.AccessMode "restricted")}}
+        <label class="flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-2 has-checked:ring-brand-600">
+          <input type="radio" name="access_mode" value="{{$m}}" class="mt-0.5 accent-brand-600" {{if eq $m $pole.AccessMode}}checked{{end}}>
+          <span class="text-sm"><strong>{{t $l (printf "vol.mode.%s" $m)}}</strong><br><span class="text-gray-600">{{t $l (printf "vol.mode.%s.help" $m)}}</span></span>
+        </label>
+        {{end}}
+        {{end}}
+        </div>
+      </fieldset>
+      {{end}}
+      <div>
+        <label class="label" for="p-tasks">{{t $l "vol.manage.default_tasks"}}</label>
+        <textarea id="p-tasks" class="input" name="default_tasks" rows="4" placeholder="{{t $l "vol.manage.tasks_placeholder"}}">{{$pole.DefaultTasks}}</textarea>
+        <p class="help">{{t $l "vol.manage.default_tasks_help"}}</p>
+      </div>
+      <div>
+        <label class="label" for="p-freeze">{{t $l "vol.manage.freeze"}}</label>
+        <input id="p-freeze" class="input max-w-xs" type="datetime-local" name="freeze_at" value="{{inputDT $pole.FreezeAt}}">
+        <p class="help">{{with $e.VolunteerFreezeAt}}{{t $l "vol.manage.freeze_help_event" (datetime $l .)}}{{else}}{{t $l "vol.manage.freeze_help"}}{{end}}</p>
+      </div>
+      <button class="btn">{{t $l "vol.manage.save_pole"}}</button>
+    </form>
+    <div class="space-y-6">
+      <section class="card">
+        <h2 class="card-title">{{t $l "vol.manage.image"}}</h2>
+        <p class="help mb-3">{{t $l "vol.manage.image_help"}}</p>
+        <div class="flex flex-wrap items-end gap-3">
+          {{template "upload_target" (dict "Lang" $l "ID" "up-pole-image" "Label" (t $l "vol.manage.image") "Src" (and $pole.ImageFile (printf "/volunteer-images/%s" $pole.ImageFile)) "Class" "h-32 w-32 rounded-lg")}}
+          {{template "upload" (dict "Lang" $l "ID" "up-pole-image" "Action" (printf "%s/image" $pole.ManageURL) "Field" "image"
+            "Accept" "image/png,image/jpeg,image/webp,image/svg+xml,.svg" "Formats" "PNG, JPEG, WebP, SVG" "MaxBytes" $d.MaxImage
+            "Title" (t $l "vol.manage.image") "Image" true "NoButton" true)}}
+          {{if $pole.ImageFile}}<form method="post" action="{{$pole.ManageURL}}/image/delete" data-confirm="{{t $l "vol.manage.image_remove_confirm"}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.image_remove"}}</button></form>{{end}}
+        </div>
+      </section>
+      <section class="card">
+        <h2 class="card-title">{{t $l "vol.manage.locations"}}</h2>
+        <p class="help mb-3">{{t $l "vol.manage.locations_help"}}</p>
+        <ul class="mb-3 space-y-2">
+          {{range $d.Locations}}
+          <li class="flex items-center justify-between gap-2 text-sm">{{.Name}}
+            <form method="post" action="{{$pole.ManageURL}}/locations/{{.UID}}/delete" data-confirm="{{t $l "vol.manage.location_delete_confirm" .Name}}"><button class="btn-danger btn-sm">{{t $l "vol.delete"}}</button></form></li>
+          {{else}}<li class="text-sm text-gray-500">{{t $l "vol.manage.no_locations"}}</li>{{end}}
+        </ul>
+        <form method="post" action="{{$pole.ManageURL}}/locations" class="space-y-2">
+          <label for="p-locations" class="sr-only">{{t $l "vol.manage.locations_label"}}</label>
+          <textarea id="p-locations" class="input" name="names" rows="3" placeholder="{{t $l "vol.manage.locations_placeholder"}}" required></textarea>
+          <button class="btn-secondary btn-sm">{{t $l "vol.manage.add"}}</button>
+        </form>
+      </section>
+    </div>
+  </div>
 {{end}}
 {{end}}

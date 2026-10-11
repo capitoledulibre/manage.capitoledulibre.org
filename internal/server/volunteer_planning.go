@@ -361,41 +361,6 @@ func planURLQuery(view string, pole *store.Pole, day string) string {
 	return v.Encode()
 }
 
-// redirectPlanning sends the pages the planning replaced to the matching
-// view, keeping their filters.
-func (s *Server) redirectPlanning(view string) handlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		v := url.Values{}
-
-		if view != "" {
-			v.Set("view", view)
-		}
-
-		if r.URL.Query().Get("short") == "1" {
-			v.Set("view", "open")
-		}
-
-		for _, k := range []string{"pole", "day"} {
-			if x := r.URL.Query().Get(k); x != "" {
-				v.Set(k, x)
-			}
-		}
-
-		if pole := r.PathValue("pole"); pole != "" {
-			v.Set("pole", pole)
-		}
-
-		to := "/volunteers/" + r.PathValue("event") + "/planning"
-		if len(v) > 0 {
-			to += "?" + v.Encode()
-		}
-
-		http.Redirect(w, r, to, http.StatusMovedPermanently)
-
-		return nil
-	}
-}
-
 func (s *Server) coordinationSignupsCSV(w http.ResponseWriter, r *http.Request) error {
 	e, err := s.coordinationEvent(r)
 	if err != nil {

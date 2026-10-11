@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -13,21 +15,95 @@ import (
 
 // --- poles ----------------------------------------------------------------
 
+// poleTabs are the sections of a pole's page: its slots for everyone, the
+// rest for whoever runs it.
+var poleTabs = []string{"slots", "members", "messages", "settings", "history"}
+
+// polePage is the one page of a pole. A volunteer sees its slots, with who
+// is on them, and joins or leaves it; whoever runs it finds the same slots
+// with the phone numbers and the links to edit them, and the members,
+// messages, settings and history in tabs of the same page.
 func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	person := rc(r).Person
 
 	v, err := s.volunteerPole(r)
 	if err != nil {
 		return err
 	}
 
-	slots, err := s.store.ListSlots(ctx, v.Pole.ID, person.ID)
+	tab := r.URL.Query().Get("tab")
+	if !v.Manage || !slices.Contains(poleTabs, tab) {
+		tab = "slots"
+	}
+
+	messages, err := s.store.ListPoleMessages(ctx, v.Pole.ID)
+	if err != nil {
+		return err
+	}
+
+	managers, err := s.store.ListPoleManagers(ctx, v.Pole.ID)
 	if err != nil {
 		return err
 	}
 
 	locations, err := s.store.ListLocations(ctx, v.Pole.ID)
+	if err != nil {
+		return err
+	}
+
+	p := s.page(r, "vol.pole.title")
+	p.TitleText = v.Pole.Name
+	d := map[string]any{
+		"V": v, "Tab": tab, "Tabs": poleTabs, "Messages": messages, "Managers": managers, "Leads": named(managers),
+		"Locations": locations,
+	}
+	p.D = d
+
+	switch tab {
+	case "slots":
+		if err := s.poleSlots(r, v, locations, d); err != nil {
+			return err
+		}
+	case "members":
+		members, err := s.store.ListPoleMembers(ctx, v.Pole.ID)
+		if err != nil {
+			return err
+		}
+
+		coordinator, err := s.coordinates(r, v.Event.ID)
+		if err != nil {
+			return err
+		}
+
+		d["Members"], d["Coordinator"] = members, coordinator
+		d["CanAddMembers"] = coordinator || v.Pole.ManagersCanAdd()
+		d["InviteURL"] = s.cfg.BaseURL + v.Pole.URL() + "/join?key=" + url.QueryEscape(v.Pole.AccessKey)
+	case "settings":
+		coordinator, err := s.coordinates(r, v.Event.ID)
+		if err != nil {
+			return err
+		}
+
+		d["Coordinator"], d["Modes"], d["MaxImage"] = coordinator, store.PoleModes, maxPoleImageSize
+	case "history":
+		history, err := s.store.ListPoleLog(ctx, v.Pole.ID)
+		if err != nil {
+			return err
+		}
+
+		d["History"] = history
+	}
+
+	return s.render(w, r, "volunteer/pole", p)
+}
+
+// poleSlots fills in the slots tab: the cards, filtered by place or to the
+// slots still to fill, grouped by day.
+func (s *Server) poleSlots(r *http.Request, v *poleView, locations []*store.Location, d map[string]any) error {
+	ctx := r.Context()
+	person := rc(r).Person
+
+	slots, err := s.store.ListSlots(ctx, v.Pole.ID, person.ID)
 	if err != nil {
 		return err
 	}
@@ -43,15 +119,6 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	onlyOpen := r.URL.Query().Get("open") == "1"
-	total := len(slots)
-
-	var kept []*store.Slot
-
-	for _, sl := range slots {
-		if (filter == nil || sl.LocationID == filter.ID) && (!onlyOpen || !sl.IsFull() || sl.Mine) {
-			kept = append(kept, sl)
-		}
-	}
 
 	var mine, missing int
 
@@ -63,20 +130,52 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 		missing += sl.Missing()
 	}
 
-	messages, err := s.store.ListPoleMessages(ctx, v.Pole.ID)
-	if err != nil {
-		return err
-	}
-
-	managers, err := s.store.ListPoleManagers(ctx, v.Pole.ID)
-	if err != nil {
-		return err
-	}
-
-	// One query for the whole page rather than one per card.
+	// One query each for the whole page rather than one per card.
 	waiting, err := s.store.PersonWaitlistInPole(ctx, v.Pole.ID, person.ID)
 	if err != nil {
 		return err
+	}
+
+	people, err := s.store.ListEventSignups(ctx, v.Event.ID, v.Pole.ID)
+	if err != nil {
+		return err
+	}
+
+	var counts map[int64]int
+
+	if v.Manage {
+		if counts, err = s.store.WaitlistCounts(ctx, v.Pole.ID); err != nil {
+			return err
+		}
+	}
+
+	// Who is on a slot shows to those who may take one: the members, anyone
+	// on an open pole, and whoever runs it.
+	showPeople := v.Member || v.Pole.IsOpen() || v.Manage
+	back := r.URL.RequestURI()
+	lang := rc(r).Lang
+
+	type day struct {
+		Day   string
+		Cards []*slotCardData
+	}
+
+	var days []*day
+
+	for _, sl := range slots {
+		if (filter != nil && sl.LocationID != filter.ID) || (onlyOpen && sl.IsFull() && !sl.Mine) {
+			continue
+		}
+
+		key := dayKey(sl.StartsAt)
+		if len(days) == 0 || days[len(days)-1].Day != key {
+			days = append(days, &day{Day: key})
+		}
+
+		days[len(days)-1].Cards = append(days[len(days)-1].Cards, &slotCardData{
+			Lang: lang, Slot: sl, Pole: v.Pole, Member: v.Member, Locked: v.Locked, Waiting: waiting[sl.ID], Back: back,
+			ShowPeople: showPeople, People: people[sl.ID], Manage: v.Manage, WaitCount: counts[sl.ID],
+		})
 	}
 
 	filterUID := ""
@@ -84,14 +183,11 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 		filterUID = filter.UID
 	}
 
-	p := s.page(r, "vol.pole.title")
-	p.D = map[string]any{
-		"V": v, "Days": groupByDay(kept), "Locations": locations, "Filter": filterUID, "OnlyOpen": onlyOpen,
-		"Messages": messages, "Managers": named(managers), "Mine": mine, "Missing": missing, "Total": total,
-		"Deadline": v.Event.SignupDeadline(v.Pole.FreezeAt), "Waiting": waiting, "Back": r.URL.RequestURI(),
-	}
+	d["Days"], d["Filter"], d["OnlyOpen"] = days, filterUID, onlyOpen
+	d["Mine"], d["Missing"], d["Total"] = mine, missing, len(slots)
+	d["Deadline"] = v.Event.SignupDeadline(v.Pole.FreezeAt)
 
-	return s.render(w, r, "volunteer/pole", p)
+	return nil
 }
 
 // poleInvite is the page an invitation link of a private pole leads to.
@@ -311,6 +407,9 @@ type slotCardData struct {
 	ShowPeople bool
 	People     []*store.Person
 	Manage     bool
+	// WaitCount is the people waiting for a place, for whoever runs the
+	// pole: a slot with a queue is a slot worth enlarging.
+	WaitCount int
 }
 
 func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting bool) *slotCardData {
@@ -321,15 +420,25 @@ func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting 
 		Compact: back == sl.URL(),
 	}
 
-	// A card of the planning shows who is on the slot, which an action
-	// on it has just changed.
-	if strings.HasPrefix(back, planningURL(v.Event)) {
+	// A card of the planning or of the pole's page shows who is on the
+	// slot, which an action on it has just changed.
+	page, _, _ := strings.Cut(back, "?")
+	if (page == planningURL(v.Event) || page == v.Pole.URL()) && (v.Member || v.Pole.IsOpen() || v.Manage) {
 		people, err := s.store.ListSlotVolunteers(r.Context(), sl.ID)
 		if err != nil {
 			slog.Error("slot card", "slot", sl.UID, "err", err)
 		}
 
 		card.ShowPeople, card.People, card.Manage = true, people, v.Manage
+
+		if v.Manage {
+			counts, err := s.store.WaitlistCounts(r.Context(), v.Pole.ID)
+			if err != nil {
+				slog.Error("slot card", "slot", sl.UID, "err", err)
+			}
+
+			card.WaitCount = counts[sl.ID]
+		}
 	}
 
 	return card

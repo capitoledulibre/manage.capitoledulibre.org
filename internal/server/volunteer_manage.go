@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"net/mail"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -27,7 +26,6 @@ func (s *Server) poleManageRoutes(mux *http.ServeMux) {
 
 	const base = "/volunteers/{event}/{pole}/manage"
 
-	m("GET "+base, s.managePole)
 	m("POST "+base, s.managePoleSave)
 	m("POST "+base+"/key", s.managePoleKey)
 	m("POST "+base+"/image", s.managePoleImage)
@@ -52,7 +50,6 @@ func (s *Server) poleManageRoutes(mux *http.ServeMux) {
 	m("POST "+base+"/slots/{slot}/volunteers/{person}/delete", s.manageSlotRemoveVolunteer)
 	m("POST "+base+"/tasks/{task}/delete", s.manageTaskDelete)
 	m("POST "+base+"/days/copy", s.manageDayCopy)
-	m("GET "+base+"/roster", s.redirectPlanning(""))
 	m("GET "+base+"/signups.csv", s.manageSignupsCSV)
 
 	s.generateRoutes(m)
@@ -96,8 +93,9 @@ func (s *Server) pathPerson(r *http.Request) (*store.Person, error) {
 	return s.store.GetPersonByUID(r.Context(), r.PathValue("person"))
 }
 
+// redirectTab goes back to a tab of the pole's page after an action.
 func (s *Server) redirectTab(w http.ResponseWriter, r *http.Request, p *store.Pole, tab string) error {
-	to := p.ManageURL()
+	to := p.URL()
 	if tab != "" {
 		to += "?tab=" + tab
 	}
@@ -108,98 +106,6 @@ func (s *Server) redirectTab(w http.ResponseWriter, r *http.Request, p *store.Po
 }
 
 // --- the management page ----------------------------------------------------
-
-func (s *Server) managePole(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
-	v, err := s.managedPole(r)
-	if err != nil {
-		return err
-	}
-
-	slots, err := s.store.ListSlots(ctx, v.Pole.ID, 0)
-	if err != nil {
-		return err
-	}
-
-	volunteers := map[int64][]*store.Person{}
-
-	var capacity, filled, short int
-
-	urgent := false
-
-	for _, sl := range slots {
-		if volunteers[sl.ID], err = s.store.ListSlotVolunteers(ctx, sl.ID); err != nil {
-			return err
-		}
-
-		capacity += sl.Capacity
-		filled += sl.Filled
-
-		if !sl.IsFull() {
-			short++
-		}
-
-		urgent = urgent || (!sl.IsFull() && isLate(sl))
-	}
-
-	locations, err := s.store.ListLocations(ctx, v.Pole.ID)
-	if err != nil {
-		return err
-	}
-
-	messages, err := s.store.ListPoleMessages(ctx, v.Pole.ID)
-	if err != nil {
-		return err
-	}
-
-	members, err := s.store.ListPoleMembers(ctx, v.Pole.ID)
-	if err != nil {
-		return err
-	}
-
-	managers, err := s.store.ListPoleManagers(ctx, v.Pole.ID)
-	if err != nil {
-		return err
-	}
-
-	// A slot with people waiting is a slot worth enlarging: show it.
-	waiting, err := s.store.WaitlistCounts(ctx, v.Pole.ID)
-	if err != nil {
-		return err
-	}
-
-	coordinator, err := s.coordinates(r, v.Event.ID)
-	if err != nil {
-		return err
-	}
-
-	tab := r.URL.Query().Get("tab")
-	if tab != "members" && tab != "messages" && tab != "settings" && tab != "history" {
-		tab = "planning"
-	}
-
-	var history []*store.LogEntry
-
-	if tab == "history" {
-		if history, err = s.store.ListPoleLog(ctx, v.Pole.ID); err != nil {
-			return err
-		}
-	}
-
-	p := s.page(r, "vol.manage.title")
-	p.TitleText = i18n.T(p.Lang, "vol.manage.title_pole", v.Pole.Name)
-	p.D = map[string]any{
-		"V": v, "Tab": tab, "Days": groupByDay(slots), "Volunteers": volunteers, "Waiting": waiting, "Urgent": urgent,
-		"Locations": locations, "Messages": messages, "Members": members, "Managers": managers,
-		"Coordinator": coordinator, "CanAddMembers": coordinator || v.Pole.ManagersCanAdd(),
-		"SlotCount": len(slots), "Capacity": capacity, "Filled": filled, "Short": short,
-		"InviteURL": s.cfg.BaseURL + v.Pole.URL() + "/join?key=" + url.QueryEscape(v.Pole.AccessKey),
-		"Modes":     store.PoleModes, "MaxImage": maxPoleImageSize, "History": history,
-	}
-
-	return s.render(w, r, "volunteer/manage", p)
-}
 
 // formTime reads a datetime-local field, in the event's time zone.
 func formTime(r *http.Request, name string) (time.Time, bool) {
@@ -698,7 +604,7 @@ func (s *Server) manageMessageDelete(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	http.Redirect(w, r, safeRedirect(r.FormValue("back"), v.Pole.ManageURL()+"?tab=messages"), http.StatusSeeOther)
+	http.Redirect(w, r, safeRedirect(r.FormValue("back"), v.Pole.URL()+"?tab=messages"), http.StatusSeeOther)
 
 	return nil
 }

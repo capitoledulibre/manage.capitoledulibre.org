@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -31,7 +30,7 @@ func TestVolunteerLog(t *testing.T) {
 	})
 	e.post(lead, f.tomorrow.ManageURL()+"/delete", nil)
 
-	_, body := e.get(lead, f.buvette.ManageURL()+"?tab=history")
+	_, body := e.get(lead, f.buvette.URL()+"?tab=history")
 	mustContain(t, body, "Historique",
 		"Nina Bénévole a rejoint le pôle Buvette",
 		"Nina Bénévole s&#39;est inscrit·e sur Buvette",
@@ -49,19 +48,19 @@ func TestVolunteerLog(t *testing.T) {
 
 	// In English for an English reader.
 	e.get(lead, "/lang/en")
-	_, body = e.get(lead, f.buvette.ManageURL()+"?tab=history")
+	_, body = e.get(lead, f.buvette.URL()+"?tab=history")
 	mustContain(t, body, "Nina Bénévole signed up for Buvette", "Lou Lead took Nina Bénévole off Buvette")
 
-	// A volunteer does not read it.
-	if code, _ := e.get(nina, f.buvette.ManageURL()+"?tab=history"); code != http.StatusForbidden {
-		t.Fatalf("a volunteer reads the history: %d", code)
+	// A volunteer does not read it: the tab falls back to the slots.
+	if _, body := e.get(nina, f.buvette.URL()+"?tab=history"); strings.Contains(body, "took Nina") || strings.Contains(body, "a retiré") {
+		t.Fatal("a volunteer reads the history")
 	}
 
 	// Someone who deletes their account leaves no name behind.
 	e.post(nina, "/volunteers/profile/delete", url.Values{"confirm": {"yes"}})
 
 	e.get(lead, "/lang/fr")
-	_, body = e.get(lead, f.buvette.ManageURL()+"?tab=history")
+	_, body = e.get(lead, f.buvette.URL()+"?tab=history")
 
 	if strings.Contains(body, "Nina Bénévole") {
 		t.Error("a deleted person is still named in the history")

@@ -36,8 +36,6 @@ func (s *Server) volunteerRoutes(mux *http.ServeMux) {
 
 	vol("GET /volunteers/{event}", s.eventHome)
 	vol("GET /volunteers/{event}/planning", s.planningPage)
-	vol("GET /volunteers/{event}/slots", s.redirectPlanning("open"))
-	vol("GET /volunteers/{event}/me", s.redirectPlanning("mine"))
 	vol("GET /volunteers/{event}/me.ics", s.myPlanningICS)
 	vol("POST /volunteers/{event}/me/calendar/reset", s.calendarReset)
 
@@ -452,27 +450,6 @@ func (s *Server) upcomingWaitlist(r *http.Request, eventID int64) ([]*store.Slot
 	}
 
 	return out, nil
-}
-
-// slotDay is the slots of one day.
-type slotDay struct {
-	Day   string
-	Slots []*store.Slot
-}
-
-func groupByDay(slots []*store.Slot) []*slotDay {
-	var out []*slotDay
-
-	for _, sl := range slots {
-		key := dayKey(sl.StartsAt)
-		if len(out) == 0 || out[len(out)-1].Day != key {
-			out = append(out, &slotDay{Day: key})
-		}
-
-		out[len(out)-1].Slots = append(out[len(out)-1].Slots, sl)
-	}
-
-	return out
 }
 
 // calendarFor renders the slots of a person in an edition as an iCalendar

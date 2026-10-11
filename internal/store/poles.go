@@ -69,7 +69,7 @@ type Pole struct {
 // URL is the volunteer page of the pole.
 func (p *Pole) URL() string { return "/volunteers/" + p.EventSlug + "/" + p.Slug }
 
-// ManageURL is the management page of the pole.
+// ManageURL is the base of the actions that run the pole; its page is URL.
 func (p *Pole) ManageURL() string { return p.URL() + "/manage" }
 
 // Initials stand for the pole when it has no icon.

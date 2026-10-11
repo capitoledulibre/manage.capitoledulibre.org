@@ -58,7 +58,7 @@ func TestCoordination(t *testing.T) {
 	}
 
 	// A coordinator manages every pole.
-	if code, _ := e.get(coco, f.buvette.ManageURL()); code != 200 {
+	if code, _ := e.get(coco, f.buvette.URL()); code != 200 {
 		t.Fatalf("coordinator on a pole: %d", code)
 	}
 
@@ -121,9 +121,8 @@ func TestCoordination(t *testing.T) {
 	}
 
 	// Planning and volunteers.
-	// The planning moved out of the coordination: its old address leads to
-	// the planning of every pole, with the links to edit the slots.
-	_, body = e.get(coco, base+"/planning")
+	// The planning of every pole, with the links to edit the slots.
+	_, body = e.get(coco, "/volunteers/"+f.event.Slug+"/planning?day=all")
 	mustContain(t, body, "Tous les pôles", "Buvette", `href="`+f.morning.ManageURL()+`"`, "Modifier le créneau")
 
 	_, body = e.post(coco, base+"/volunteers", url.Values{"name": {"Paul"}, "email": {"paul@example.org"}, "phone": {"0600000000"}, "pole": {f.accueil.Slug}})
@@ -169,7 +168,7 @@ func TestCoordination(t *testing.T) {
 	// No integer id on the coordination pages.
 	numeric := regexp.MustCompile(`(?:href|action)="[^"]*/[0-9]+(?:[/"?#])|<option value="[0-9]+"`)
 
-	for _, path := range []string{base, base + "?tab=messages", base + "?tab=settings", base + "/planning", base + "/volunteers"} {
+	for _, path := range []string{base, base + "?tab=messages", base + "?tab=settings", "/volunteers/" + f.event.Slug + "/planning", base + "/volunteers"} {
 		code, body := e.get(admin, path)
 		if code != 200 {
 			t.Errorf("%s: %d", path, code)

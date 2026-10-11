@@ -174,8 +174,10 @@
       {{/* A slot still short of people that starts within two days is the
            one worth a look; every slot not yet full would drown it. */}}
       {{if and (not .Slot.Mine) (urgent .Slot)}}<span class="badge ml-1 bg-amber-100 text-amber-800">{{t $l "vol.slot.soon"}}</span>{{end}}
-      {{/* Tasks are ticked on the day by the people on the slot. */}}
-      {{if and .Slot.TaskCount .Slot.Mine}}<p class="text-xs text-gray-500">{{tn $l "vol.slot.tasks_done" .Slot.TaskCount .Slot.TaskDone}}</p>{{end}}
+      {{/* Tasks are ticked on the day by the people on the slot; whoever
+           runs the pole follows them, and the queue of a full slot. */}}
+      {{if and .Slot.TaskCount (or .Slot.Mine .Manage)}}<p class="text-xs text-gray-500">{{tn $l "vol.slot.tasks_done" .Slot.TaskCount .Slot.TaskDone}}</p>{{end}}
+      {{if .WaitCount}}<span class="badge bg-amber-100 text-amber-800">{{tn $l "vol.slot.wait_count" .WaitCount}}</span>{{end}}
     </div>
     {{end}}
     <div class="flex items-center gap-2 text-xs text-gray-600">
