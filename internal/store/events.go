@@ -147,9 +147,13 @@ func (s *Store) SaveEvent(ctx context.Context, e *Event) error {
 				return err
 			}
 
-			e.ID, err = res.LastInsertId()
+			if e.ID, err = res.LastInsertId(); err != nil {
+				return err
+			}
 
-			return err
+			// Every edition has a default pole for the volunteer slots of no
+			// team in particular.
+			return createDefaultPole(ctx, tx, e.ID)
 		}
 
 		_, err := tx.ExecContext(ctx, `UPDATE events SET slug = ?, name = ?, year = ?, starts_on = ?, ends_on = ?, is_current = ?,

@@ -53,6 +53,31 @@ type Person struct {
 	AvatarFile  string
 	CreatedAt   time.Time
 	LastLoginAt *time.Time
+
+	// The volunteer side of a person.
+	Phone string
+	// SharePhone lets the volunteers of the poles this person manages see
+	// their phone number.
+	SharePhone bool
+	// AvatarSource says where AvatarFile came from, see AvatarUpload.
+	AvatarSource    string
+	AvatarCheckedAt *time.Time
+}
+
+// Where a profile picture came from. Recorded so that an uploaded photo is
+// never overwritten by the Gravatar fallback, and so that a person who
+// removed their picture is not handed one back on the next page view.
+const (
+	AvatarUnknown  = ""         // nothing yet: the Gravatar fallback may run
+	AvatarUpload   = "upload"   // uploaded by the person
+	AvatarGravatar = "gravatar" // fetched from gravatar.com, cached on disk
+	AvatarOptOut   = "none"     // the person wants no picture
+)
+
+// WantsGravatar tells whether gravatar.com may be looked up for this person:
+// there is no uploaded photo and they have not opted out.
+func (p *Person) WantsGravatar() bool {
+	return p.AvatarSource == AvatarUnknown || p.AvatarSource == AvatarGravatar
 }
 
 // Label is the name to display for a person.
@@ -67,22 +92,55 @@ func (p *Person) Label() string {
 // Initials are shown in place of an avatar.
 func (p *Person) Initials() string { return initials(p.Label()) }
 
-const personCols = `id, uid, email, name, lang, avatar_file, created_at, last_login_at`
+const personCols = `id, uid, email, name, lang, avatar_file, created_at, last_login_at,
+	phone, share_phone, avatar_source, avatar_checked_at`
 
-func scanPerson(row interface{ Scan(...any) error }) (*Person, error) {
+// scanPerson reads the personCols columns, plus any extra column the query
+// selected after them, so that joined queries share this one column list.
+func scanPerson(row interface{ Scan(...any) error }, extra ...any) (*Person, error) {
 	var (
-		p         Person
-		lastLogin sql.NullTime
+		p                  Person
+		lastLogin, checked sql.NullTime
 	)
 
-	if err := row.Scan(&p.ID, &p.UID, &p.Email, &p.Name, &p.Lang, &p.AvatarFile, &p.CreatedAt, &lastLogin); err != nil {
+	dest := []any{&p.ID, &p.UID, &p.Email, &p.Name, &p.Lang, &p.AvatarFile, &p.CreatedAt, &lastLogin,
+		&p.Phone, &p.SharePhone, &p.AvatarSource, &checked}
+
+	if err := row.Scan(append(dest, extra...)...); err != nil {
 		return nil, notFound(err)
 	}
 
-	p.LastLoginAt = timePtr(lastLogin)
+	p.LastLoginAt, p.AvatarCheckedAt = timePtr(lastLogin), timePtr(checked)
 
 	return &p, nil
 }
+
+// queryPeople runs a query selecting personCols, or peCols when the query
+// joins other tables.
+func (s *Store) queryPeople(ctx context.Context, query string, args ...any) ([]*Person, error) {
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*Person
+
+	for rows.Next() {
+		p, err := scanPerson(rows)
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, p)
+	}
+
+	return out, rows.Err()
+}
+
+// peCols is personCols for a query where people is aliased pe (p is taken
+// by poles and partnerships).
+var peCols = prefixCols("pe", personCols)
 
 func (s *Store) GetPerson(ctx context.Context, id int64) (*Person, error) {
 	return scanPerson(s.db.QueryRowContext(ctx, `SELECT `+personCols+` FROM people WHERE id = ?`, id))
