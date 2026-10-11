@@ -39,7 +39,7 @@ func TestVolunteerLog(t *testing.T) {
 		"Lou Lead a supprimé un créneau du pôle Buvette")
 
 	// The coordination sees the edition's, including its own actions.
-	base := "/volunteers/" + f.event.Slug + "/coordination"
+	base := "/volunteers/" + f.event.Slug + "/edition"
 	e.post(admin, base+"/poles", url.Values{"name": {"Régie"}})
 	e.post(admin, base+"/settings", url.Values{"status": {store.VolunteersFrozen}})
 

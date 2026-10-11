@@ -137,7 +137,7 @@ func (s *Server) adminVolunteers(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	http.Redirect(w, r, "/volunteers/"+e.Slug+"/coordination", http.StatusSeeOther)
+	http.Redirect(w, r, "/volunteers/"+e.Slug+"/edition", http.StatusSeeOther)
 
 	return nil
 }

@@ -372,6 +372,7 @@ var messages = map[string][2]string{
 	"vol.welcome.later":         {"Vous pourrez modifier ces informations plus tard, depuis «\u00a0Mon profil\u00a0».", "You can change this later from “My profile”."},
 
 	"vol.profile.title":            {"Mon profil", "My profile"},
+	"vol.profile.my_slots":         {"Mes créneaux · %s", "My slots · %s"},
 	"vol.profile.name":             {"Prénom et nom", "Full name"},
 	"vol.profile.phone":            {"Téléphone", "Phone"},
 	"vol.profile.phone_help":       {"Visible des responsables de vos pôles uniquement.", "Only the leads of your teams see it."},
@@ -386,7 +387,8 @@ var messages = map[string][2]string{
 
 	"vol.tabs.label":                 {"Navigation bénévole", "Volunteer navigation"},
 	"vol.tabs.poles":                 {"Pôles", "Teams"},
-	"vol.tabs.coordination":          {"Coordination", "Coordination"},
+	"vol.tabs.coordination":          {"Édition", "Edition"},
+	"vol.tabs.me":                    {"Moi", "Me"},
 	"vol.focus.now":                  {"En ce moment", "Right now"},
 	"vol.focus.next":                 {"Votre prochain créneau aujourd'hui", "Your next slot today"},
 	"vol.focus.details":              {"Page du créneau", "Slot page"},
@@ -718,19 +720,18 @@ var messages = map[string][2]string{
 	"flash.vol.volunteer_removed":   {"%s a été retiré·e du créneau et prévenu·e par e-mail. La personne reste dans le pôle.", "%s was taken off the slot and told by email. They stay in the team."},
 
 	// Coordination of an edition.
-	"vol.nav.coordination": {"Coordination", "Coordination"},
+	"vol.nav.coordination": {"Édition", "Edition"},
 
 	"vol.status.draft.help":    {"Préparée par la coordination et les responsables, invisible des bénévoles.", "Prepared by the coordination and the team leads, hidden from volunteers."},
 	"vol.status.open.help":     {"Les bénévoles voient l'édition et s'inscrivent.", "Volunteers see the edition and sign up."},
 	"vol.status.frozen.help":   {"Visible, mais les bénévoles ne modifient plus leurs inscriptions.", "Visible, but volunteers can no longer change their sign-ups."},
 	"vol.status.archived.help": {"Masquée des bénévoles.", "Hidden from volunteers."},
 
-	"vol.coord.title":                {"Coordination", "Coordination"},
-	"vol.coord.title_event":          {"Coordination · %s", "Coordination · %s"},
-	"vol.coord.planning":             {"Planning global", "Overall schedule"},
+	"vol.coord.title":                {"Édition", "Edition"},
+	"vol.coord.title_event":          {"Édition · %s", "Edition · %s"},
 	"vol.coord.volunteers":           {"Bénévoles", "Volunteers"},
 	"vol.coord.stat_poles":           {"Pôles", "Teams"},
-	"vol.coord.sections":             {"Sections de la coordination", "Coordination sections"},
+	"vol.coord.sections":             {"Sections de l'édition", "Edition sections"},
 	"vol.coord.tab_poles":            {"Pôles et couverture", "Teams and coverage"},
 	"vol.coord.tab_messages":         {"Messages à tous", "Messages to all"},
 	"vol.coord.tab_settings":         {"Réglages", "Settings"},

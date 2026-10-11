@@ -288,7 +288,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	case q.Pole != nil && (coordinator || managed[q.Pole.ID]):
 		csvURL = q.Pole.ManageURL() + "/signups.csv"
 	case coordinator:
-		csvURL = coordinationURL(e) + "/signups.csv"
+		csvURL = editionURL(e) + "/signups.csv"
 	}
 
 	data := map[string]any{

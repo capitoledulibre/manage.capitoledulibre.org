@@ -15,7 +15,7 @@ func TestCoordination(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	f := e.volFixture()
-	base := "/volunteers/" + f.event.Slug + "/coordination"
+	base := "/volunteers/" + f.event.Slug + "/edition"
 
 	admin := e.adminClient()
 	lead := e.loginAs(f.leadEmail)
@@ -43,7 +43,7 @@ func TestCoordination(t *testing.T) {
 	}
 
 	for _, tab := range []string{"", "?tab=messages", "?tab=settings"} {
-		if code, body := e.get(coco, base+tab); code != 200 || !strings.Contains(body, "Coordination · Example Conf 2026") {
+		if code, body := e.get(coco, base+tab); code != 200 || !strings.Contains(body, "Édition · Example Conf 2026") {
 			t.Fatalf("tab %q: %d", tab, code)
 		}
 	}
@@ -139,11 +139,11 @@ func TestCoordination(t *testing.T) {
 	mustContain(t, body, "name,email,phone,poles,slots", "Paul,paul@example.org,0600000000")
 
 	// Another edition is prepared from this one, by the staff.
-	if code, _ := e.post(coco, "/volunteers/"+f.draft.Slug+"/coordination/copy", url.Values{"from": {f.event.Slug}}); code != http.StatusForbidden {
+	if code, _ := e.post(coco, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}}); code != http.StatusForbidden {
 		t.Fatalf("copy by a non-coordinator of the target: %d", code)
 	}
 
-	_, body = e.post(admin, "/volunteers/"+f.draft.Slug+"/coordination/copy", url.Values{"from": {f.event.Slug}})
+	_, body = e.post(admin, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}})
 	mustContain(t, body, "Pôles, coordination et logo repris de « Example Conf 2026 »")
 
 	if _, err := e.st.GetPoleBySlug(ctx, f.draft.ID, "buvette"); err != nil {

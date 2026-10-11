@@ -27,14 +27,14 @@ func TestAdminWelcomeAndTabs(t *testing.T) {
 
 	// The edition has its two sides, linked both ways.
 	_, body = e.get(admin, "/admin/events/"+f.event.Slug)
-	mustContain(t, body, `href="/volunteers/`+f.event.Slug+`/coordination"`, ">Bénévoles</a>", `href="/admin/volunteers"`, `href="/admin/people"`)
+	mustContain(t, body, `href="/volunteers/`+f.event.Slug+`/edition"`, ">Bénévoles</a>", `href="/admin/volunteers"`, `href="/admin/people"`)
 
-	_, body = e.get(admin, "/volunteers/"+f.event.Slug+"/coordination")
+	_, body = e.get(admin, "/volunteers/"+f.event.Slug+"/edition")
 	mustContain(t, body, `href="/admin/events/`+f.event.Slug+`"`, `href="/admin/" class="menu-item"`)
 
-	// The menu entry opens the coordination of the current edition.
+	// The menu entry opens the volunteer side of the current edition.
 	_, body = e.get(admin, "/admin/volunteers")
-	mustContain(t, body, "Coordination · "+f.event.Name)
+	mustContain(t, body, "Édition · "+f.event.Name)
 
 	// The editions list gives the volunteer status.
 	_, body = e.get(admin, "/admin/events")

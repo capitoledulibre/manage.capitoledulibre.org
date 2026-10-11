@@ -1,15 +1,14 @@
 {{define "content"}}
-{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/volunteers/%s/coordination" $e.Slug}}
+{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/volunteers/%s/edition" $e.Slug}}
 {{if $d.Staff}}{{template "edition_tabs" (dict "Event" $e "Active" "volunteers")}}{{end}}
 <div class="mb-6 flex flex-wrap items-center gap-4">
   {{with $e.LogoFile}}<img src="/volunteer-images/{{.}}" alt="" class="h-14 w-14 rounded-lg object-contain">{{end}}
   <div class="flex-1">
-    <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.coord.title_event" $e.Name}}</h1>
+    <h1 class="text-2xl font-bold tracking-tight">{{$e.Name}}</h1>
     <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">{{with dateSpan $l $e.StartsOn $e.EndsOn}}{{.}}{{end}}
       <span class="badge {{if eq $e.VolunteerStatus "open"}}bg-green-100 text-green-800{{else if eq $e.VolunteerStatus "frozen"}}bg-amber-100 text-amber-800{{else}}bg-gray-100 text-gray-700{{end}}">{{t $l (printf "vol.status.%s" $e.VolunteerStatus)}}</span></p>
   </div>
   <div class="flex flex-wrap gap-2">
-    <a href="/volunteers/{{$e.Slug}}/planning" class="btn">{{t $l "vol.coord.planning"}}</a>
     <a href="{{$base}}/volunteers" class="btn-secondary">{{t $l "vol.coord.volunteers"}}</a>
   </div>
 </div>

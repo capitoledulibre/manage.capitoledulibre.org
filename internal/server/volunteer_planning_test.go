@@ -88,7 +88,7 @@ func TestPlanning(t *testing.T) {
 
 	// The coordination sees every pole.
 	_, body = e.get(admin, planning+"?day=all")
-	mustContain(t, body, "Coffre", "Badges", "06 12 34 56 78", `href="/volunteers/`+f.event.Slug+`/coordination/signups.csv"`)
+	mustContain(t, body, "Coffre", "Badges", "06 12 34 56 78", `href="/volunteers/`+f.event.Slug+`/edition/signups.csv"`)
 
 	// On paper: a day per page, boxes to tick, a line per free place.
 	mustContain(t, body, "hidden print:block", "break-before-page", "roster-box", "roster-blank", "Document interne")
@@ -110,6 +110,6 @@ func TestPlanning(t *testing.T) {
 		dayKey(f.morning.StartsAt)+","+clock(f.morning.StartsAt)+","+clock(f.morning.EndsAt)+",Buvette,,Café,1,Nina Bénévole,nina@example.org,0612345678",
 		",Buvette,,,3,,,")
 
-	_, body = e.get(admin, "/volunteers/"+f.event.Slug+"/coordination/signups.csv")
+	_, body = e.get(admin, "/volunteers/"+f.event.Slug+"/edition/signups.csv")
 	mustContain(t, body, "Nina Bénévole,nina@example.org", "Coffre")
 }

@@ -38,7 +38,7 @@ const DefaultPoleName = "Général"
 // reservedPoleSlugs are path segments the volunteer pages of an edition use
 // next to the pole slugs.
 var reservedPoleSlugs = map[string]bool{
-	"manage": true, "planning": true, "volunteers": true, "coordination": true, "messages": true,
+	"manage": true, "planning": true, "volunteers": true, "edition": true, "messages": true,
 	"calendar": true, "slots": true, "tasks": true, "join": true, "leave": true, "new": true, "me": true,
 }
 

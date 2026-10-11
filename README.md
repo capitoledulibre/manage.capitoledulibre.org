@@ -58,15 +58,22 @@ when they first use their link, while an edition takes volunteers):
 - one-click sign-up (a public pole is joined on the way), overlap warning,
   waiting list on full shifts with an e-mail when a place frees up, task
   checklists ticked on the day; shift cards are updated in place with htmx
-- "where am I needed?" across poles, personal schedule with a calendar
-  subscription link that follows changes, returning volunteers offered last
-  year's poles
-- pole leads: planning with who is on each shift, shifts created one by one
-  or as series (per place), members (search, add by address), messages,
-  settings, picture, places, freeze date
-- coordination per edition: coverage of every pole, global planning,
-  volunteer list with CSV export, messages to all, volunteer status (draft,
-  open, frozen, archived), coordinators, an edition prepared from another
+- one planning for everyone, whose content follows the role: a volunteer
+  sees the shifts of their poles and of the open ones with who is on them
+  (no contact details), and signs up only themselves; a pole lead also sees
+  phone numbers and edit links on their poles; the coordination sees every
+  pole. Views "all", "mine" and "to fill", filters by pole and day, today
+  first during the edition, a print layout that is the roster for the day
+  (boxes to tick, blank lines for free places), and a CSV of sign-ups
+- personal calendar subscription link that follows changes, returning
+  volunteers offered last year's poles
+- one page per pole: its shifts for everyone; for its leads, tabs for
+  members (search, add by address), messages, settings (picture, places,
+  freeze date) and history, and a slot generator (days, hours per day,
+  places, with a preview)
+- the edition, for its coordinators: coverage of every pole, volunteer list
+  with CSV export, messages to all, volunteer status (draft, open, frozen,
+  archived), coordinators, an edition prepared from another
 - nobody loses a shift silently: moving or deleting a shift, taking someone
   off or out of a pole e-mails them; a withdrawal less than 48 hours ahead
   warns the leads; a recap of the next day's shifts goes out every evening

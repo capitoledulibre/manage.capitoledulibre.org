@@ -22,7 +22,7 @@ func (s *Server) coordinationRoutes(mux *http.ServeMux) {
 		mux.Handle(pattern, s.wrap(s.requireVolunteer(s.requireCoordination(h))))
 	}
 
-	const base = "/volunteers/{event}/coordination"
+	const base = "/volunteers/{event}/edition"
 
 	c("GET "+base, s.coordination)
 	c("POST "+base+"/settings", s.coordinationSettings)
@@ -71,10 +71,10 @@ func (s *Server) coordinationEvent(r *http.Request) (*store.Event, error) {
 	return s.store.GetEventBySlug(r.Context(), r.PathValue("event"))
 }
 
-func coordinationURL(e *store.Event) string { return "/volunteers/" + e.Slug + "/coordination" }
+func editionURL(e *store.Event) string { return "/volunteers/" + e.Slug + "/edition" }
 
 func (s *Server) redirectCoordination(w http.ResponseWriter, r *http.Request, e *store.Event, tab string) error {
-	to := coordinationURL(e)
+	to := editionURL(e)
 	if tab != "" {
 		to += "?tab=" + tab
 	}
@@ -166,7 +166,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 		"MaxImage": maxPoleImageSize, "History": history,
 	}
 
-	return s.render(w, r, "volunteer/coordination", p)
+	return s.render(w, r, "volunteer/edition", p)
 }
 
 // --- settings ---------------------------------------------------------------
@@ -591,7 +591,7 @@ func (s *Server) coordinationVolunteerAdd(w http.ResponseWriter, r *http.Request
 		return err
 	}
 
-	back := "/volunteers/" + e.Slug + "/coordination/volunteers"
+	back := "/volunteers/" + e.Slug + "/edition/volunteers"
 
 	email := store.NormalizeEmail(r.FormValue("email"))
 	if !validEmail(email) {
@@ -652,7 +652,7 @@ func (s *Server) coordinationVolunteerJoin(w http.ResponseWriter, r *http.Reques
 
 	s.logVol(r, logPole(store.LogMemberAdded, pole, who))
 	s.flash(w, "flash.vol.member_joined", who.Label(), pole.Name)
-	http.Redirect(w, r, "/volunteers/"+e.Slug+"/coordination/volunteers", http.StatusSeeOther)
+	http.Redirect(w, r, "/volunteers/"+e.Slug+"/edition/volunteers", http.StatusSeeOther)
 
 	return nil
 }
