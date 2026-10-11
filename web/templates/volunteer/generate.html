@@ -1,0 +1,102 @@
+{{define "content"}}
+{{$d := .D}}{{$l := .Lang}}{{$v := $d.V}}{{$pole := $v.Pole}}{{$f := $d.F}}{{$p := $d.Plan}}
+<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="{{$pole.ManageURL}}">← {{t $l "vol.manage.title_pole" $pole.Name}}</a></nav>
+<h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.gen.title"}}</h1>
+<p class="mt-1 max-w-2xl text-sm text-gray-600">{{t $l "vol.gen.intro"}}</p>
+
+<form method="post" action="{{$pole.ManageURL}}/generate" class="mt-6 max-w-3xl space-y-6">
+  <fieldset class="card space-y-3">
+    <legend class="card-title float-left w-full">1. {{t $l "vol.gen.days"}}</legend>
+    <div class="clear-both grid gap-3 sm:grid-cols-2">
+      <div><label class="label" for="g-from">{{t $l "vol.gen.from"}}</label><input id="g-from" class="input" type="date" name="from" value="{{$f.From}}" required></div>
+      <div><label class="label" for="g-to">{{t $l "vol.gen.to"}}</label><input id="g-to" class="input" type="date" name="to" value="{{$f.To}}" required></div>
+    </div>
+  </fieldset>
+
+  <fieldset class="card space-y-3">
+    <legend class="card-title float-left w-full">2. {{t $l "vol.gen.hours"}}</legend>
+    <label class="clear-both flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-2 has-checked:ring-brand-600">
+      <input type="radio" name="mode" value="regular" class="mt-1 accent-brand-600" {{if eq $f.Mode "regular"}}checked{{end}}>
+      <span class="flex-1 text-sm">
+        <strong>{{t $l "vol.gen.regular"}}</strong>
+        <span class="mt-2 flex flex-wrap items-center gap-2">
+          {{t $l "vol.gen.from_time"}} <input class="input w-28" type="time" name="day_start" value="{{$f.DayStart}}" aria-label="{{t $l "vol.gen.day_start"}}">
+          {{t $l "vol.gen.to_time"}} <input class="input w-28" type="time" name="day_end" value="{{$f.DayEnd}}" aria-label="{{t $l "vol.gen.day_end"}}">
+          {{t $l "vol.gen.by"}}
+          <select class="input w-28" name="length" aria-label="{{t $l "vol.gen.length"}}">{{range $d.Lengths}}<option value="{{.}}" {{if eq . $f.Length}}selected{{end}}>{{minutes .}}</option>{{end}}</select>
+        </span>
+      </span>
+    </label>
+    <label class="flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-2 has-checked:ring-brand-600">
+      <input type="radio" name="mode" value="list" class="mt-1 accent-brand-600" {{if eq $f.Mode "list"}}checked{{end}}>
+      <span class="flex-1 text-sm">
+        <strong>{{t $l "vol.gen.list"}}</strong>
+        <textarea class="input mt-2 font-mono" name="list" rows="4" placeholder="09:00-12:00&#10;12:00-14:00 4&#10;14:00-18:00" aria-label="{{t $l "vol.gen.list"}}">{{$f.List}}</textarea>
+        <span class="help block">{{t $l "vol.gen.list_help"}}</span>
+      </span>
+    </label>
+  </fieldset>
+
+  <fieldset class="card space-y-3">
+    <legend class="card-title float-left w-full">3. {{t $l "vol.gen.places"}}</legend>
+    <div class="clear-both">
+    {{if $d.Locations}}
+    <div class="flex flex-wrap gap-2">
+      {{range $d.Locations}}
+      <label class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-brand-600">
+        <input type="checkbox" name="location" value="{{.UID}}" class="accent-brand-600" {{if in $f.Locations .UID}}checked{{end}}> {{.Name}}
+      </label>
+      {{end}}
+    </div>
+    {{end}}
+    <label class="label mt-3" for="g-new">{{if $d.Locations}}{{t $l "vol.gen.new_places"}}{{else}}{{t $l "vol.gen.places_to_create"}}{{end}}</label>
+    <textarea id="g-new" class="input" name="new_locations" rows="3" placeholder="{{t $l "vol.manage.locations_placeholder"}}">{{$f.NewLocations}}</textarea>
+    <p class="help">{{t $l "vol.gen.places_help"}}</p>
+    </div>
+  </fieldset>
+
+  <fieldset class="card space-y-3">
+    <legend class="card-title float-left w-full">4. {{t $l "vol.gen.details"}}</legend>
+    <div class="clear-both grid gap-3 sm:grid-cols-2">
+      <div><label class="label" for="g-cap">{{t $l "vol.slot_form.capacity"}}</label><input id="g-cap" class="input" type="number" name="capacity" min="1" max="500" value="{{$f.Capacity}}" required></div>
+      <div><label class="label" for="g-title">{{t $l "vol.slot_form.title"}}</label><input id="g-title" class="input" name="title" value="{{$f.Title}}" maxlength="200"></div>
+    </div>
+    <div>
+      <label class="label" for="g-tasks">{{t $l "vol.slot_form.tasks"}}</label>
+      <textarea id="g-tasks" class="input" name="tasks" rows="3" placeholder="{{t $l "vol.manage.tasks_placeholder"}}">{{$f.Tasks}}</textarea>
+    </div>
+  </fieldset>
+
+  {{with $p}}
+  <section class="card space-y-4" aria-labelledby="preview-title" id="preview">
+    <h2 id="preview-title" class="card-title !mb-0">{{t $l "vol.gen.preview"}}</h2>
+    {{with .Errors}}<ul class="alert list-disc space-y-1 bg-red-50 pl-8 text-red-800" role="alert">{{range .}}<li>{{t $l .}}</li>{{end}}</ul>{{end}}
+    {{if not .Errors}}
+    <p class="text-lg font-semibold">{{tn $l "vol.gen.total" .Slots .Seats}}</p>
+    {{if .Skipped}}<p class="text-sm text-gray-600">{{tn $l "vol.gen.skipped" .Skipped}}</p>{{end}}
+    {{with .Warnings}}<ul class="list-disc space-y-1 rounded-md bg-amber-50 py-3 pr-3 pl-8 text-sm text-amber-900">{{range .}}<li>{{t $l .}}</li>{{end}}</ul>{{end}}
+    <p class="text-sm text-gray-700"><strong>{{t $l "vol.gen.places"}}</strong>&nbsp;: {{range $i, $n := .Places}}{{if $i}}, {{end}}{{$n}}{{if in $p.NewPlaces $n}} <span class="badge bg-green-100 text-green-800">{{t $l "vol.gen.new"}}</span>{{end}}{{else}}{{t $l "vol.slot_form.whole_pole"}}{{end}}</p>
+    <div class="overflow-x-auto rounded-md ring-1 ring-gray-200">
+      <table class="table">
+        <thead><tr><th>{{t $l "vol.gen.day"}}</th><th>{{t $l "vol.gen.hours"}}</th></tr></thead>
+        <tbody>
+        {{range .Days}}
+        <tr>
+          <td class="whitespace-nowrap align-top"><span class="inline-block first-letter:uppercase">{{dayName $l .Day}}</span>{{if .Outside}} <span class="badge bg-amber-100 text-amber-800">{{t $l "vol.gen.outside"}}</span>{{end}}</td>
+          <td><div class="flex flex-wrap gap-1.5">{{range .Ranges}}<span class="badge bg-gray-100 py-1 text-gray-800 tabular-nums">{{.Label}} · {{.Capacity}}</span>{{end}}</div></td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    <p class="help">{{t $l "vol.gen.preview_help"}}</p>
+    {{end}}
+  </section>
+  {{end}}
+
+  <div class="flex flex-wrap gap-3">
+    <button class="{{if and $p (not $p.Errors) $p.Slots}}btn-secondary{{else}}btn{{end}}" name="action" value="preview">{{if $p}}{{t $l "vol.gen.refresh"}}{{else}}{{t $l "vol.gen.show_preview"}}{{end}}</button>
+    {{if and $p (not $p.Errors) $p.Slots}}<button class="btn" name="action" value="create">{{tn $l "vol.gen.create" $p.Slots}}</button>{{end}}
+  </div>
+</form>
+{{end}}

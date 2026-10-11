@@ -10,7 +10,10 @@
       <span class="badge bg-blue-100 text-blue-800">{{t $l (printf "vol.mode.%s" $pole.AccessMode)}}</span>
       {{if $pole.IsDefault}}<span class="badge bg-gray-100 text-gray-700">{{t $l "vol.manage.default_pole"}}</span>{{end}}</p>
   </div>
-  <a href="{{$pole.ManageURL}}/slots/new" class="btn">+ {{t $l "vol.manage.new_slot"}}</a>
+  <div class="flex flex-wrap gap-2">
+    <a href="{{$pole.ManageURL}}/generate" class="btn">{{t $l "vol.gen.title"}}</a>
+    <a href="{{$pole.ManageURL}}/slots/new" class="btn-secondary">+ {{t $l "vol.manage.new_slot"}}</a>
+  </div>
 </div>
 
 <dl class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -65,7 +68,7 @@
     </div>
   </section>
   {{else}}
-  <div class="card text-sm text-gray-700">{{t $l "vol.manage.no_slots"}} <a class="link" href="{{$pole.ManageURL}}/slots/new">{{t $l "vol.manage.first_slot"}}</a></div>
+  <div class="card text-sm text-gray-700">{{t $l "vol.manage.no_slots"}} <a class="link" href="{{$pole.ManageURL}}/generate">{{t $l "vol.gen.first"}}</a></div>
   {{end}}
 
 {{else if eq $d.Tab "members"}}

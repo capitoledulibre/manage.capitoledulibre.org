@@ -52,6 +52,8 @@ func (s *Server) poleManageRoutes(mux *http.ServeMux) {
 	m("POST "+base+"/slots/{slot}/volunteers/{person}/delete", s.manageSlotRemoveVolunteer)
 	m("POST "+base+"/tasks/{task}/delete", s.manageTaskDelete)
 	m("POST "+base+"/days/copy", s.manageDayCopy)
+
+	s.generateRoutes(m)
 }
 
 // managedPole loads the pole of the path for someone who runs it.

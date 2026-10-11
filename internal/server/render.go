@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -359,6 +360,18 @@ var funcs = template.FuncMap{
 	"tn":         plural,
 	"named":      named,
 	"hasPrefix":  strings.HasPrefix,
+	"in":         func(list []string, v string) bool { return slices.Contains(list, v) },
+	// minutes renders a duration as "30 min", "2 h" or "1 h 30".
+	"minutes": func(n int) string {
+		switch {
+		case n < 60:
+			return fmt.Sprintf("%d\u00a0min", n)
+		case n%60 == 0:
+			return fmt.Sprintf("%d\u00a0h", n/60)
+		}
+
+		return fmt.Sprintf("%d\u00a0h\u00a0%02d", n/60, n%60)
+	},
 	// inputDT renders a time for a datetime-local field, in the event's
 	// time zone.
 	"inputDT": func(v any) string {
