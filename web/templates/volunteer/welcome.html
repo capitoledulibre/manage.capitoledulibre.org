@@ -17,6 +17,6 @@
     </div>
     <button class="btn w-full">{{with $d.Pole}}{{t $.Lang "vol.welcome.continue_pole" .Name}}{{else}}{{t .Lang "vol.welcome.continue"}}{{end}}</button>
   </form>
-  <p class="help mt-4">{{t .Lang "vol.welcome.later"}}</p>
+  <p class="help mt-4">{{t .Lang "vol.welcome.later"}} <a class="link" href="/privacy">{{t .Lang "privacy.link"}}</a></p>
 </div>
 {{end}}

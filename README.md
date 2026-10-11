@@ -77,10 +77,13 @@ when they first use their link, while an edition takes volunteers):
 - nobody loses a shift silently: moving or deleting a shift, taking someone
   off or out of a pole e-mails them; a withdrawal less than 48 hours ahead
   warns the leads; a recap of the next day's shifts goes out every evening
-- profile: name, phone (shared with volunteers only if a lead chooses to),
-  photo, or the Gravatar of the address fetched by the server so browsers
+- profile: name, phone (seen by the leads and the coordination; a lead's
+  own is shown to volunteers only if they choose to), photo, or, on
+  request, the Gravatar of the address fetched by the server so browsers
   never contact gravatar.com; a volunteer can stop volunteering, which
   deletes their account unless they are also a partner contact or staff
+- a personal data notice (`/privacy`, French and English), built from the
+  configuration and linked from every page
 
 **Staff** (`/admin/`, OpenID Connect):
 
@@ -92,6 +95,10 @@ when they first use their link, while an edition takes volunteers):
 - "+ Edition" on the file: renews from the latest edition (same level by
   name, same owner, status "contacted"), or starts a prospect
 - staff profile (display name, avatar)
+- once an edition is over, a purge of its personal data on request:
+  attendees, partnership logs, volunteer sign-ups and memberships, the
+  names in its history, and the people left with no part in anything; the
+  levels, poles and slots stay for the next edition
 - editions, levels (medal color, price, VAT regime: excluding VAT, including VAT or not
   applicable, max partners, max attendees), perks and the level × perk
   matrix; they can be copied from another edition (on creation or later,
@@ -184,7 +191,7 @@ Everything is configured with environment variables; see
 | `MANAGE_EXPORT_TOKEN` | Token for the JSON export, at least 32 characters (`openssl rand -hex 32`), sent as `Authorization: Bearer` (never in the URL); empty disables token access |
 | `MANAGE_TRUSTED_PROXIES` | Peers whose `X-Forwarded-For` is believed, to rate-limit login requests per client: addresses or CIDR ranges, `private` (default: loopback and private ranges) or `none`; use `none` when the container is exposed without a reverse proxy, or a client could forge its address |
 | `MANAGE_VOLUNTEER_REMINDER_HOUR` | Hour (event time, 0–23) at which volunteers get the recap of their slots of the next day (default: 18) |
-| `MANAGE_GRAVATAR` | `1` (default) looks missing profile pictures up on gravatar.com, from the server; `0` never does |
+| `MANAGE_GRAVATAR` | `1` (default) lets people use their Gravatar: on their request only, the server looks it up on gravatar.com; `0` never does |
 
 ## JSON export for the website
 

@@ -1,12 +1,12 @@
-// Package gravatar fills in the profile picture of people who have not
-// uploaded one, from gravatar.com.
+// Package gravatar fetches, for people who ask for it, the profile picture
+// linked to their address on gravatar.com.
 //
 // The picture is fetched by the server and kept in the files store, so a
 // browser only ever talks to this application: neither the IP address of a
 // visitor nor the address hash of the person on screen reaches a third
-// party. Pages that merely show someone never trigger a lookup either; it
-// runs in the background for the signed-in person only, and the picture
-// shows up on the next page.
+// party. Nobody is looked up without asking: the first lookup is the
+// person's own request, from their profile; after that the picture is kept
+// up to date in the background, for the signed-in person only.
 package gravatar
 
 import (
@@ -75,10 +75,11 @@ func Hash(email string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Refresh starts a lookup for p when it needs one, and returns at once: it
-// runs during a request, which must never wait on a third party.
+// Refresh starts a lookup for p when their Gravatar is due for one, and
+// returns at once: it runs during a request, which must never wait on a
+// third party. Only people who chose their Gravatar are refreshed.
 func (f *Fetcher) Refresh(p *store.Person) {
-	if !f.enabled || !p.WantsGravatar() {
+	if !f.enabled || !p.UsesGravatar() {
 		return
 	}
 
@@ -103,9 +104,8 @@ func (f *Fetcher) Refresh(p *store.Person) {
 }
 
 // Lookup fetches the Gravatar of a person now and tells whether there is
-// one. No Gravatar is not an error: the person keeps their initials and is
-// not looked up again before TTL. A request should prefer Refresh, except
-// for an explicit action of the person.
+// one. No Gravatar is not an error: the person keeps their initials. It
+// runs on an explicit action of the person, or from Refresh.
 func (f *Fetcher) Lookup(ctx context.Context, personID int64) (bool, error) {
 	if !f.enabled {
 		return false, nil

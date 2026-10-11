@@ -78,10 +78,19 @@ func TestProfilePhotoAndGravatar(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 
-	// Browsing fills in the picture in the background.
+	// Nobody is looked up without asking: browsing tells gravatar.com
+	// nothing.
 	nina := e.volunteer("nina@example.org", "Nina", f.buvette.URL())
 	e.post(nina, f.buvette.URL()+"/join", nil)
 	e.app.gravatar.Wait()
+
+	if n := hits.Load(); n != 0 {
+		t.Fatalf("gravatar.com asked %d times without consent", n)
+	}
+
+	// Asked from the profile, the picture comes.
+	_, body := e.post(nina, "/volunteers/profile/gravatar", nil)
+	mustContain(t, body, "Avatar Gravatar récupéré.")
 
 	p, _ := e.st.PersonByEmail(ctx, "nina@example.org")
 	if p.AvatarSource != store.AvatarGravatar || p.AvatarFile == "" {
@@ -112,7 +121,7 @@ func TestProfilePhotoAndGravatar(t *testing.T) {
 	// An uploaded photo wins, and the Gravatar file goes.
 	old := p.AvatarFile
 
-	_, body := e.upload(nina, "/volunteers/profile/photo", nil, "photo", "me.png", pngBytes())
+	_, body = e.upload(nina, "/volunteers/profile/photo", nil, "photo", "me.png", pngBytes())
 	mustContain(t, body, "Photo de profil enregistrée.", "Retirer ma photo")
 
 	if strings.Contains(body, "Chercher mon avatar Gravatar") {

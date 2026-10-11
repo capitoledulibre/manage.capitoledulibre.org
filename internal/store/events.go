@@ -35,6 +35,8 @@ type Event struct {
 	VolunteerStatus   string
 	VolunteerFreezeAt *time.Time
 	LogoFile          string
+	// PurgedAt is when the personal data of the edition was purged.
+	PurgedAt *time.Time
 }
 
 // Volunteer statuses of an edition.
@@ -67,23 +69,23 @@ func (e *Event) AttendeesLocked() bool {
 
 const eventCols = `id, slug, name, year, starts_on, ends_on, is_current, logo_deadline, attendees_deadline,
 	brochure_fr_file, brochure_en_file, guide_fr_file, guide_en_file, payment_info, payment_mention, created_at,
-	volunteer_status, volunteer_freeze_at, logo_file`
+	volunteer_status, volunteer_freeze_at, logo_file, purged_at`
 
 func scanEvent(row interface{ Scan(...any) error }) (*Event, error) {
 	var (
-		e                                        Event
-		starts, ends, logoDL, attendeeDL, freeze sql.NullTime
+		e                                                Event
+		starts, ends, logoDL, attendeeDL, freeze, purged sql.NullTime
 	)
 
 	err := row.Scan(&e.ID, &e.Slug, &e.Name, &e.Year, &starts, &ends, &e.IsCurrent, &logoDL, &attendeeDL,
 		&e.BrochureFRFile, &e.BrochureENFile, &e.GuideFRFile, &e.GuideENFile, &e.PaymentInfo, &e.PaymentMention, &e.CreatedAt,
-		&e.VolunteerStatus, &freeze, &e.LogoFile)
+		&e.VolunteerStatus, &freeze, &e.LogoFile, &purged)
 	if err != nil {
 		return nil, notFound(err)
 	}
 
 	e.StartsOn, e.EndsOn = timePtr(starts), timePtr(ends)
-	e.VolunteerFreezeAt = timePtr(freeze)
+	e.VolunteerFreezeAt, e.PurgedAt = timePtr(freeze), timePtr(purged)
 	e.LogoDeadline, e.AttendeesDeadline = timePtr(logoDL), timePtr(attendeeDL)
 
 	return &e, nil

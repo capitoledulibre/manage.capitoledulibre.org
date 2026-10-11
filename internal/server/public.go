@@ -39,9 +39,18 @@ func (s *Server) publicRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /lang/{lang}", s.wrap(s.switchLang))
 	mux.Handle("GET /theme/{theme}", s.wrap(s.switchTheme))
 	mux.Handle("GET /jobs", s.wrap(s.publicJobs))
+	mux.Handle("GET /privacy", s.wrap(s.privacy))
 	mux.Handle("GET /logos/{file}", s.wrap(s.publicLogo))
 	mux.Handle("GET /avatars/{file}", s.wrap(s.avatar))
 	mux.Handle("GET /api/partners.json", s.wrap(s.exportJSON))
+}
+
+// privacy is the personal data notice, linked from every page.
+func (s *Server) privacy(w http.ResponseWriter, r *http.Request) error {
+	p := s.page(r, "privacy.title")
+	p.D = map[string]any{"Gravatar": s.gravatar.Enabled()}
+
+	return s.render(w, r, "public/privacy", p)
 }
 
 // loginPage is the home page: the login form, or where a logged-in person

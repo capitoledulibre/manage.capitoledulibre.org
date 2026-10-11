@@ -460,6 +460,16 @@ func (s *Store) DeletePerson(ctx context.Context, personID int64) ([]int64, erro
 			return err
 		}
 
+		// The partner change log names people by address.
+		var email string
+		if err := tx.QueryRowContext(ctx, `SELECT email FROM people WHERE id = ?`, personID).Scan(&email); err != nil {
+			return notFound(err)
+		}
+
+		if err := forgetInActivity(ctx, tx, email); err != nil {
+			return err
+		}
+
 		_, err = tx.ExecContext(ctx, `DELETE FROM people WHERE id = ?`, personID)
 
 		return err

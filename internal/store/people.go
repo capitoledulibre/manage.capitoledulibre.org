@@ -68,17 +68,22 @@ type Person struct {
 // never overwritten by the Gravatar fallback, and so that a person who
 // removed their picture is not handed one back on the next page view.
 const (
-	AvatarUnknown  = ""         // nothing yet: the Gravatar fallback may run
+	AvatarUnknown  = ""         // nothing yet: no picture until the person adds one
 	AvatarUpload   = "upload"   // uploaded by the person
 	AvatarGravatar = "gravatar" // fetched from gravatar.com, cached on disk
 	AvatarOptOut   = "none"     // the person wants no picture
 )
 
-// WantsGravatar tells whether gravatar.com may be looked up for this person:
-// there is no uploaded photo and they have not opted out.
+// WantsGravatar tells whether gravatar.com may be looked up for this person
+// when they ask for it: there is no uploaded photo and they have not opted
+// out.
 func (p *Person) WantsGravatar() bool {
 	return p.AvatarSource == AvatarUnknown || p.AvatarSource == AvatarGravatar
 }
+
+// UsesGravatar tells whether the person chose their Gravatar, which is then
+// kept up to date: gravatar.com only hears of the people who asked for it.
+func (p *Person) UsesGravatar() bool { return p.AvatarSource == AvatarGravatar }
 
 // Label is the name to display for a person.
 func (p *Person) Label() string {

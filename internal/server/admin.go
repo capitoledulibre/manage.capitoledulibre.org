@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sort"
@@ -48,6 +49,7 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 	h("POST /admin/events/{event}/matrix", s.adminMatrixSave)
 	h("POST /admin/events/{event}/clone", s.adminLevelsClone)
 	h("GET /admin/events/{event}/attendees.csv", s.adminAttendeesCSV)
+	h("POST /admin/events/{event}/purge", s.adminEventPurge)
 
 	h("GET /admin/organizations", s.adminOrganizations)
 	h("POST /admin/organizations", s.adminOrganizationCreate)
@@ -174,9 +176,50 @@ func (s *Server) adminEventForm(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	p := s.page(r, "Édition")
-	p.D = map[string]any{"E": e, "Others": others}
+	p.D = map[string]any{"E": e, "Others": others, "Ended": eventEnded(e)}
 
 	return s.render(w, r, "admin/event_form", p)
+}
+
+// eventEnded tells whether an edition is over: its last day has passed.
+func eventEnded(e *store.Event) bool {
+	return e.EndsOn != nil && dayKey(time.Now()) > e.EndsOn.Format(time.DateOnly)
+}
+
+// adminEventPurge removes the personal data of a finished edition (see
+// store.PurgeEvent), on the staff's request.
+func (s *Server) adminEventPurge(w http.ResponseWriter, r *http.Request) error {
+	e, err := s.eventFromPath(r)
+	if err != nil {
+		return err
+	}
+
+	to := "/admin/events/" + e.Slug + "/edit"
+
+	if !eventEnded(e) {
+		s.flash(w, "flash.event_not_over")
+		http.Redirect(w, r, to, http.StatusSeeOther)
+
+		return nil
+	}
+
+	end := e.EndsOn.In(time.UTC)
+	ended := time.Date(end.Year(), end.Month(), end.Day()+1, 0, 0, 0, 0, paris)
+
+	res, err := s.store.PurgeEvent(r.Context(), e.ID, ended)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range res.Files {
+		s.dropFile(r, f)
+	}
+
+	slog.Info("edition purged", "event", e.Slug, "attendees", res.Attendees, "signups", res.Signups, "people", res.People)
+	s.flash(w, "flash.event_purged", strconv.FormatInt(res.Attendees, 10), strconv.FormatInt(res.Signups, 10), strconv.FormatInt(res.People, 10))
+	http.Redirect(w, r, to, http.StatusSeeOther)
+
+	return nil
 }
 
 func (s *Server) adminEventSubmit(w http.ResponseWriter, r *http.Request) error {

@@ -71,6 +71,27 @@
       {{end}}
     </ul>
   </section>
+
+  {{/* The personal data of a past edition go on the staff's request: what
+       the next edition builds on stays. */}}
+  <section class="card">
+    <h2 class="card-title">Données personnelles</h2>
+    {{with $e.PurgedAt}}<p class="mb-3 text-sm font-medium text-green-800">Purgées le {{date "fr" .}}.</p>{{end}}
+    <p class="text-sm text-gray-600">Une fois l'édition passée, la purge supprime&nbsp;:</p>
+    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
+      <li>les participants déclarés par les partenaires (noms, e-mails, régimes alimentaires) et le journal de leurs partenariats&nbsp;;</li>
+      <li>côté bénévoles, les inscriptions, listes d'attente, membres, responsables et coordination de l'édition&nbsp;; l'historique garde ses chiffres, sans les noms&nbsp;;</li>
+      <li>les personnes qui ne participent plus à rien et ne se sont pas connectées depuis.</li>
+    </ul>
+    <p class="mt-2 text-sm text-gray-600">Restent les niveaux, partenariats, pôles, créneaux et messages. Préparez d'abord l'édition suivante (copie des pôles et des niveaux)&nbsp;: les responsables de cette édition seront retirés.</p>
+    {{if .D.Ended}}
+    <form method="post" action="/admin/events/{{$e.Slug}}/purge" class="mt-4" data-confirm="Purger les données personnelles de {{$e.Name}} ? C'est définitif.">
+      <button class="btn-danger">Purger les données de l'édition</button>
+    </form>
+    {{else}}
+    <p class="help mt-4">Possible une fois l'édition terminée{{if not $e.EndsOn}}&nbsp;: indiquez sa date de fin{{end}}.</p>
+    {{end}}
+  </section>
   {{end}}
 </div>
 {{end}}

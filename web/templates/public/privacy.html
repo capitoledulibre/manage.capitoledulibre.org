@@ -1,0 +1,95 @@
+{{define "content"}}
+{{$d := .D}}{{$s := .Site}}
+{{/* Written per language rather than sentence by sentence: a notice reads
+     as a whole. The facts come from the configuration and from what the
+     code does; keep them in step with it. */}}
+<article class="card mx-auto max-w-3xl space-y-6 text-sm leading-relaxed text-gray-700 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-gray-900 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
+{{if eq .Lang "en"}}
+  <h1 class="text-2xl font-bold tracking-tight text-gray-900">Personal data</h1>
+  <p>This site is how the team of <strong>{{$s.Name}}</strong> runs the event: its partners and its volunteers. This page says what it keeps about you, who sees it, for how long, and how to have it changed or deleted.</p>
+
+  <section><h2>What is kept</h2>
+    <ul>
+      <li>Everyone: e-mail address, name, language of e-mails, date of last login, and a profile picture if you add one.</li>
+      <li>Volunteers: phone number (optional), teams, slots, waiting lists, ticked tasks, and a history of sign-ups and changes, which keeps the names of the people concerned.</li>
+      <li>Partner contacts: the details of the organisation, the people declared to attend (name, e-mail, dietary requirements when given) and a log of changes.</li>
+      <li>Staff: the identity given by the single sign-on provider.</li>
+    </ul>
+  </section>
+
+  <section><h2>What for</h2>
+    <p>Only to organise the event: partnerships, the volunteer schedule, and the e-mails about them (login links, reminders, changes to your slots). Nothing is sold or passed on, there is no advertising and no tracking.</p>
+  </section>
+
+  <section><h2>Who sees it</h2>
+    <ul>
+      <li>The event team (staff) sees everything needed to run it.</li>
+      <li>The volunteer coordination of an edition, and the leads of a team, see its members with their e-mail and phone number.</li>
+      <li>Other volunteers see the names of the people on the slots they can take, never their e-mail or phone number.</li>
+      <li>Partners see their own organisation only.</li>
+    </ul>
+  </section>
+
+  {{if $d.Gravatar}}
+  <section><h2>Gravatar</h2>
+    <p>Only if you ask for it from your profile, this server looks up the picture linked to your address on gravatar.com (Automattic): it sends a hash of your address, then keeps the picture up to date. Your browser, like everyone else's, never contacts gravatar.com.</p>
+  </section>
+  {{end}}
+
+  <section><h2>Cookies</h2>
+    <p>One session cookie keeps you logged in; others remember your language and theme. No measurement or tracking cookie.</p>
+  </section>
+
+  <section><h2>How long</h2>
+    <p>Your account lasts as long as you take part. After an edition, the team purges its data: attendees and their dietary requirements, sign-ups, and the people who no longer take part in anything; the histories keep no names. A volunteer can also stop at any time from their profile, which deletes their account.</p>
+  </section>
+
+  <section><h2>Your rights</h2>
+    <p>You can see, correct or delete what concerns you, or object to its use, by writing to {{with $s.VolunteerContactEmail}}<a class="link" href="mailto:{{.}}">{{.}}</a> (volunteers){{end}}{{if and $s.ContactEmail (ne $s.ContactEmail $s.VolunteerContactEmail)}} or <a class="link" href="mailto:{{$s.ContactEmail}}">{{$s.ContactEmail}}</a> (partners){{end}}. If the answer does not satisfy you, you may complain to your data protection authority (in France, the CNIL).</p>
+  </section>
+{{else}}
+  <h1 class="text-2xl font-bold tracking-tight text-gray-900">Données personnelles</h1>
+  <p>Ce site sert à l'équipe de <strong>{{$s.Name}}</strong> à organiser l'événement&nbsp;: ses partenaires et ses bénévoles. Cette page dit ce qu'il garde sur vous, qui le voit, combien de temps, et comment le faire corriger ou supprimer.</p>
+
+  <section><h2>Ce qui est conservé</h2>
+    <ul>
+      <li>Pour tous&nbsp;: adresse e-mail, nom, langue des e-mails, date de dernière connexion, et une photo de profil si vous en ajoutez une.</li>
+      <li>Bénévoles&nbsp;: téléphone (facultatif), pôles, créneaux, listes d'attente, tâches cochées, et un historique des inscriptions et des changements, qui garde le nom des personnes concernées.</li>
+      <li>Contacts partenaires&nbsp;: les coordonnées de l'organisation, les personnes déclarées comme participantes (nom, e-mail, régime alimentaire s'il est indiqué) et un journal des modifications.</li>
+      <li>Équipe&nbsp;: l'identité transmise par le service de connexion unique.</li>
+    </ul>
+  </section>
+
+  <section><h2>Pour quoi faire</h2>
+    <p>Uniquement pour organiser l'événement&nbsp;: les partenariats, le planning des bénévoles, et les e-mails qui s'y rapportent (liens de connexion, rappels, changements sur vos créneaux). Rien n'est vendu ni transmis, il n'y a ni publicité ni pistage.</p>
+  </section>
+
+  <section><h2>Qui y a accès</h2>
+    <ul>
+      <li>L'équipe d'organisation (staff) voit ce qu'il faut pour faire tourner l'événement.</li>
+      <li>La coordination bénévole d'une édition, et les responsables d'un pôle, voient ses membres avec leur e-mail et leur téléphone.</li>
+      <li>Les autres bénévoles voient le nom des personnes inscrites sur les créneaux qu'ils peuvent prendre, jamais leur e-mail ni leur téléphone.</li>
+      <li>Les partenaires ne voient que leur propre organisation.</li>
+    </ul>
+  </section>
+
+  {{if $d.Gravatar}}
+  <section><h2>Gravatar</h2>
+    <p>Seulement si vous le demandez depuis votre profil, ce serveur cherche l'image associée à votre adresse sur gravatar.com (Automattic)&nbsp;: il envoie une empreinte de votre adresse, puis garde l'image à jour. Votre navigateur, comme celui des autres, ne contacte jamais gravatar.com.</p>
+  </section>
+  {{end}}
+
+  <section><h2>Cookies</h2>
+    <p>Un cookie de session vous garde connecté·e&nbsp;; d'autres retiennent votre langue et votre thème. Aucun cookie de mesure d'audience ni de pistage.</p>
+  </section>
+
+  <section><h2>Combien de temps</h2>
+    <p>Votre compte dure tant que vous participez. Après une édition, l'équipe en purge les données&nbsp;: participants et leurs régimes alimentaires, inscriptions, et personnes qui ne participent plus à rien&nbsp;; les historiques ne gardent pas les noms. Un·e bénévole peut aussi arrêter à tout moment depuis son profil, ce qui supprime son compte.</p>
+  </section>
+
+  <section><h2>Vos droits</h2>
+    <p>Vous pouvez consulter, corriger ou supprimer ce qui vous concerne, ou vous opposer à son utilisation, en écrivant à {{with $s.VolunteerContactEmail}}<a class="link" href="mailto:{{.}}">{{.}}</a> (bénévoles){{end}}{{if and $s.ContactEmail (ne $s.ContactEmail $s.VolunteerContactEmail)}} ou <a class="link" href="mailto:{{$s.ContactEmail}}">{{$s.ContactEmail}}</a> (partenaires){{end}}. Si la réponse ne vous satisfait pas, vous pouvez saisir la CNIL.</p>
+  </section>
+{{end}}
+</article>
+{{end}}
