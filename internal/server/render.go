@@ -22,10 +22,17 @@ import (
 type Page struct {
 	Lang  string
 	Title string
+	// TitleText, when set, is the title as is: a pole or edition name
+	// rather than an i18n key.
+	TitleText string
 	// Area selects the navigation: "public", "partner" or "admin".
-	Area  string
-	Flash string
-	Path  string
+	Area string
+	// Flash is the i18n key of a one-shot message, FlashText its text and
+	// FlashError whether it reports a failure.
+	Flash      string
+	FlashText  string
+	FlashError bool
+	Path       string
 	// RequestURI is the path with its query string, used to come back to
 	// the same page after switching language.
 	RequestURI string
@@ -39,13 +46,25 @@ type Page struct {
 	Nav string
 	Dev bool
 
-	Manager       *store.Manager
+	Manager *store.Manager
+	// Person is who is signed in with an e-mail link (or, on volunteer
+	// pages, the person of a staff member).
+	Person        *store.Person
 	Org           *store.Organization
 	Admin         *store.Admin
 	Impersonating bool
 
 	// Site is the event identity (name, website, contact, logo).
 	Site Site
+
+	// Vol is the navigation of the volunteer space, on its pages.
+	Vol *volunteerNav
+	// StaffPerson is set when Person comes from the staff login, not from
+	// an e-mail link: logging out then ends the staff session.
+	StaffPerson bool
+	// Spaces are the other spaces of the signed-in person, linked from
+	// their menu.
+	Spaces []space
 
 	// D holds page-specific data.
 	D any
@@ -61,6 +80,8 @@ func (s *Server) page(r *http.Request, title string) *Page {
 		area = "admin"
 	case strings.HasPrefix(r.URL.Path, "/partners/") && c.Org != nil:
 		area = "partner"
+	case strings.HasPrefix(r.URL.Path, "/volunteers/") && c.Person != nil:
+		area = "volunteer"
 	}
 
 	lang := c.Lang
@@ -74,7 +95,7 @@ func (s *Server) page(r *http.Request, title string) *Page {
 		eventQuery = "?event=" + url.QueryEscape(slug)
 	}
 
-	return &Page{
+	p := &Page{
 		Lang:          lang,
 		Title:         title,
 		Area:          area,
@@ -86,10 +107,24 @@ func (s *Server) page(r *http.Request, title string) *Page {
 		Nav:           adminNav(r.URL.Path),
 		Dev:           s.cfg.Dev,
 		Manager:       c.Manager,
+		Person:        c.Person,
 		Org:           c.Org,
 		Admin:         c.Admin,
 		Impersonating: c.Impersonating,
 	}
+
+	switch area {
+	case "volunteer":
+		p.Vol = s.volunteerNav(r)
+		p.StaffPerson = c.personToken == "" && c.Admin != nil
+		p.Spaces = s.spaces(r, "volunteer")
+	case "partner":
+		if !c.Impersonating {
+			p.Spaces = s.spaces(r, "partner")
+		}
+	}
+
+	return p
 }
 
 var pipelinePath = regexp.MustCompile(`^/admin/events/[^/]+$`)
@@ -111,7 +146,12 @@ func adminNav(path string) string {
 }
 
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *Page) error {
-	p.Flash = s.popFlash(w, r)
+	var args []string
+
+	p.Flash, args = s.popFlash(w, r)
+	if p.Flash != "" && i18n.Has(p.Flash) {
+		p.FlashText, p.FlashError = i18n.T(p.Lang, p.Flash, anys(args)...), errorFlash(p.Flash)
+	}
 
 	var buf bytes.Buffer
 	if err := s.tmpl.render(&buf, name, p); err != nil {
@@ -124,8 +164,30 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *
 	return err
 }
 
+// errorFlashes are the flash messages that report a failure.
+var errorFlashes = map[string]bool{
+	"flash.upload_bad_logo": true, "flash.upload_bad_pdf": true, "flash.upload_too_large": true, "flash.upload_missing": true,
+	"flash.last_manager": true, "flash.invalid_email": true, "flash.confirm_mismatch": true,
+}
+
+// errorFlash tells whether a flash key reports a failure: one of
+// errorFlashes, or a volunteer error ("vol.err.…").
+func errorFlash(key string) bool { return errorFlashes[key] || strings.HasPrefix(key, "vol.err.") }
+
+func anys(v []string) []any {
+	out := make([]any, len(v))
+	for i, x := range v {
+		out[i] = x
+	}
+
+	return out
+}
+
 type templates struct {
 	pages map[string]*template.Template
+	// shared holds the layout and the partials alone, to render a partial
+	// as an htmx fragment.
+	shared *template.Template
 }
 
 func loadTemplates() (*templates, error) {
@@ -146,6 +208,10 @@ func loadTemplates() (*templates, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if t.shared, err = template.New("shared").Funcs(funcs).ParseFS(web.Templates, shared...); err != nil {
+		return nil, fmt.Errorf("parse partials: %w", err)
 	}
 
 	err = fs.WalkDir(web.Templates, "templates", func(p string, d fs.DirEntry, err error) error {
@@ -170,6 +236,19 @@ func loadTemplates() (*templates, error) {
 	})
 
 	return t, err
+}
+
+// fragment renders one partial alone, as the answer to an htmx request.
+func (s *Server) fragment(w http.ResponseWriter, name string, data any) error {
+	var buf bytes.Buffer
+	if err := s.tmpl.shared.ExecuteTemplate(&buf, name, data); err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, err := buf.WriteTo(w)
+
+	return err
 }
 
 func (t *templates) render(w io.Writer, name string, p *Page) error {
@@ -263,6 +342,35 @@ var funcs = template.FuncMap{
 		}
 
 		return m
+	},
+	// Volunteer pages: days and hours in the reader's language.
+	"dayName":    dayName,
+	"dayKeyName": dayKeyName,
+	"clock":      clock,
+	"dateSpan":   dateSpan,
+	"deadline":   deadline,
+	"slotWhen":   slotWhen,
+	"tn":         plural,
+	"named":      named,
+	"phone":      formatPhone,
+	"telHref":    telHref,
+	"nl2br": func(v string) template.HTML {
+		return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(v), "\n", "<br>"))
+	},
+	"seq": func(n int) []int {
+		out := make([]int, n)
+		for i := range out {
+			out[i] = i + 1
+		}
+
+		return out
+	},
+	"pct": func(filled, capacity int) int {
+		if capacity == 0 {
+			return 100
+		}
+
+		return min(filled*100/capacity, 100)
 	},
 	// actor hides staff emails from partners.
 	"actor": func(a string) string {

@@ -1,0 +1,22 @@
+{{define "content"}}
+{{$d := .D}}{{$l := .Lang}}{{$v := $d.V}}{{$pole := $v.Pole}}
+<div class="pole-c{{$pole.Color}} card mx-auto max-w-md text-center">
+  <div class="flex justify-center">{{template "pole_icon" (dict "Pole" $pole "Big" true)}}</div>
+  <h1 class="mt-3 text-xl font-semibold">{{$pole.Name}}</h1>
+  <p class="mt-1 text-sm text-gray-600">{{$v.Event.Name}}{{with dateSpan $l $v.Event.StartsOn $v.Event.EndsOn}} · {{.}}{{end}}</p>
+  {{with $pole.Description}}<p class="mt-4 text-sm text-gray-700">{{nl2br .}}</p>{{end}}
+  {{with $d.Managers}}<p class="help mt-2">{{tn $l "vol.managers" (len .)}} {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+  {{if $d.Closed}}
+  <p class="alert mt-6 bg-red-50 text-red-800" role="alert">{{t $l "vol.err.closed"}}</p>
+  {{else if $d.Valid}}
+  <p class="mt-6 text-sm text-gray-700">{{t $l "vol.join.invited"}}</p>
+  <form method="post" action="{{$pole.URL}}/join" class="mt-4">
+    <input type="hidden" name="key" value="{{$d.Key}}">
+    <button class="btn w-full">{{t $l "vol.join.submit"}}</button>
+  </form>
+  {{else}}
+  <p class="alert mt-6 bg-red-50 text-red-800" role="alert">{{t $l "vol.join.invalid"}}</p>
+  {{end}}
+  <a class="link mt-6 inline-block text-sm" href="/volunteers/{{$v.Event.Slug}}">← {{t $l "vol.nav.poles"}}</a>
+</div>
+{{end}}

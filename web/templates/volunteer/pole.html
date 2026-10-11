@@ -1,0 +1,64 @@
+{{define "content"}}
+{{$d := .D}}{{$l := .Lang}}{{$v := $d.V}}{{$pole := $v.Pole}}
+<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="/volunteers/{{$v.Event.Slug}}">← {{t $l "vol.nav.poles"}}</a></nav>
+<div class="pole-c{{$pole.Color}} mb-4 flex flex-wrap items-center gap-4">
+  {{template "pole_icon" (dict "Pole" $pole "Big" true)}}
+  <div class="flex-1">
+    <h1 class="text-2xl font-bold tracking-tight">{{$pole.Name}}</h1>
+    {{with $d.Managers}}<p class="text-sm text-gray-600">{{tn $l "vol.managers" (len .)}} {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+  </div>
+</div>
+{{with $pole.Description}}<p class="mb-6 text-sm text-gray-700">{{nl2br .}}</p>{{end}}
+
+{{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages)}}
+
+{{if and (not $v.Member) (not $pole.IsDefault)}}
+<section class="card mb-6">
+  <h2 class="card-title">{{t $l "vol.pole.not_member"}}</h2>
+  {{if $pole.IsOpen}}
+  <p class="text-sm text-gray-700">{{t $l "vol.pole.open_help"}}</p>
+  <form method="post" action="{{$pole.URL}}/join" class="mt-4"><button class="btn">{{t $l "vol.pole.join"}}</button></form>
+  {{else if $pole.IsPrivate}}
+  <p class="text-sm text-gray-700">{{t $l "vol.pole.private_help"}}</p>
+  {{else}}
+  <p class="text-sm text-gray-700">{{t $l "vol.pole.invitation_help"}}</p>
+  {{end}}
+</section>
+{{else}}
+{{/* One sentence, not a row of figures: a volunteer wants to know whether
+     help is needed here, and the slots are what they came for. */}}
+{{if $d.Total}}<p class="mb-4 text-sm">{{if $d.Missing}}<strong class="text-amber-800">{{tn $l "vol.pole.summary_missing" $d.Missing}}</strong>{{else}}<strong class="text-green-800">{{t $l "vol.pole.summary_full"}}</strong>{{end}}{{if $d.Mine}} · {{tn $l "vol.pole.summary_mine" $d.Mine}}{{end}}</p>{{end}}
+{{if $v.Locked}}<div class="alert mb-4 bg-red-50 text-red-800" role="alert">{{t $l "vol.pole.locked"}}</div>{{end}}
+{{end}}
+{{if and $d.Deadline (not $v.Locked)}}<p class="help mb-4">{{t $l "vol.pole.deadline" (deadline $l $d.Deadline)}}</p>{{end}}
+
+{{if or $d.Locations $d.Total}}
+<nav class="mb-6 flex flex-wrap items-center gap-2 text-sm" aria-label="{{t $l "vol.pole.filters"}}">
+  {{if $d.Locations}}
+  <a href="{{$pole.URL}}{{if $d.OnlyOpen}}?open=1{{end}}" class="filter {{if not $d.Filter}}filter-on{{end}}" {{if not $d.Filter}}aria-current="true"{{end}}>{{t $l "vol.pole.all_locations"}}</a>
+  {{range $d.Locations}}<a href="{{$pole.URL}}?location={{.UID}}{{if $d.OnlyOpen}}&amp;open=1{{end}}" class="filter {{if eq .UID $d.Filter}}filter-on{{end}}" {{if eq .UID $d.Filter}}aria-current="true"{{end}}>{{.Name}}</a>{{end}}
+  <span class="text-gray-400" aria-hidden="true">·</span>
+  {{end}}
+  <a href="{{$pole.URL}}?{{with $d.Filter}}location={{.}}&amp;{{end}}{{if not $d.OnlyOpen}}open=1{{end}}" class="filter {{if $d.OnlyOpen}}filter-on{{end}}" {{if $d.OnlyOpen}}aria-current="true"{{end}}>{{t $l "vol.pole.only_open"}}</a>
+</nav>
+{{end}}
+
+{{range $d.Days}}
+<section class="mb-6">
+  <h2 class="mb-2 text-sm font-semibold text-gray-700 first-letter:uppercase">{{dayKeyName $l .Day}}</h2>
+  <div class="space-y-2">
+    {{range .Slots}}{{template "slot_card" (dict "Lang" $l "Slot" . "Pole" $pole "Member" $v.Member "Locked" $v.Locked "Back" $d.Back "Waiting" (index $d.Waiting .ID))}}{{end}}
+  </div>
+</section>
+{{else}}
+<p class="text-sm text-gray-600">{{if $d.OnlyOpen}}{{t $l "vol.pole.all_filled"}}{{else}}{{t $l "vol.pole.none_yet"}}{{end}}</p>
+{{end}}
+
+{{if and $v.Member (not $pole.IsDefault) (not $v.Locked)}}
+<details class="mt-10">
+  <summary class="cursor-pointer text-sm text-gray-500">{{t $l "vol.pole.leave_title"}}</summary>
+  <p class="help">{{if $d.Mine}}{{tn $l "vol.pole.leave_help_mine" $d.Mine}}{{else}}{{t $l "vol.pole.leave_help"}}{{end}}</p>
+  <form method="post" action="{{$pole.URL}}/leave" class="mt-2" data-confirm="{{t $l "vol.pole.leave_confirm"}}"><button class="btn-danger">{{t $l "vol.pole.leave"}}</button></form>
+</details>
+{{end}}
+{{end}}

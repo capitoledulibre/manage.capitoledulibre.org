@@ -270,3 +270,53 @@
     });
   });
 })();
+
+// Volunteer space helpers, wired with data attributes since the content
+// security policy forbids inline scripts.
+(() => {
+  // A checkbox that submits its form when ticked (slot task lists).
+  document.addEventListener("change", (event) => {
+    const box = event.target;
+    if (box.matches && box.matches("[data-autosubmit]")) box.form.requestSubmit();
+  });
+
+  // A read-only field selected as a whole on focus (subscription links).
+  document.addEventListener("focusin", (event) => {
+    if (event.target.matches && event.target.matches("[data-select-on-focus]")) event.target.select();
+  });
+
+  // A "Copy" button copying the value of the field data-copy points at.
+  document.addEventListener("click", (event) => {
+    const btn = event.target.closest && event.target.closest("[data-copy]");
+    if (!btn) return;
+
+    const field = document.querySelector(btn.dataset.copy);
+    if (!field) return;
+
+    const label = btn.textContent;
+    const done = (text) => {
+      btn.textContent = text;
+      setTimeout(() => (btn.textContent = label), 2500);
+    };
+
+    // The Clipboard API needs a secure context: select the text otherwise.
+    const fallback = () => {
+      field.select();
+      done("Ctrl/⌘ + C");
+    };
+
+    if (!navigator.clipboard || !navigator.clipboard.writeText) return fallback();
+    navigator.clipboard.writeText(field.value).then(() => done(btn.dataset.copied || "✓"), fallback);
+  });
+
+  // After htmx replaces a slot card, keyboard focus would fall back to the
+  // page: put it on the matching control of the new card.
+  document.addEventListener("htmx:afterSwap", (event) => {
+    const target = event.detail && event.detail.target;
+    if (!target || (document.activeElement && document.activeElement !== document.body)) return;
+
+    const card = (target.id && document.getElementById(target.id)) || target;
+    const next = card.querySelector && card.querySelector("[data-autofocus], button");
+    if (next) next.focus({ preventScroll: true });
+  });
+})();

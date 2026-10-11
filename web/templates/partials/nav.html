@@ -8,6 +8,15 @@
   <a class="nav-link {{if eq $p "/partners/managers"}}nav-link-active{{end}}" href="/partners/managers">{{t .Lang "nav.managers"}}</a>
 {{end}}
 
+{{define "volunteer_nav"}}
+  {{with .Vol.Event}}
+  {{$p := $.Path}}{{$base := printf "/volunteers/%s" .Slug}}
+  <a class="nav-link {{if eq $p $base}}nav-link-active{{end}}" href="{{$base}}">{{t $.Lang "vol.nav.poles"}}</a>
+  <a class="nav-link {{if eq $p (printf "%s/slots" $base)}}nav-link-active{{end}}" href="{{$base}}/slots">{{t $.Lang "vol.nav.open"}}</a>
+  <a class="nav-link {{if eq $p (printf "%s/me" $base)}}nav-link-active{{end}}" href="{{$base}}/me">{{t $.Lang "vol.nav.me"}}</a>
+  {{end}}
+{{end}}
+
 {{define "admin_nav"}}
   <a class="nav-link {{if eq .Nav "pipeline"}}nav-link-active{{end}}" href="/admin/">Pipeline</a>
   <a class="nav-link {{if eq .Nav "partners"}}nav-link-active{{end}}" href="/admin/organizations">Partenaires</a>
@@ -229,6 +238,12 @@
       <svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0z"/></svg>
       {{t $l "menu.profile"}}
     </a>
+    {{range .Spaces}}
+    <a href="{{.URL}}" class="menu-item" role="menuitem">
+      <svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M3 4a1 1 0 0 1 1-1h5v6H3zm8-1h5a1 1 0 0 1 1 1v3h-6zM3 11h6v6H4a1 1 0 0 1-1-1zm8-2h6v7a1 1 0 0 1-1 1h-5z"/></svg>
+      {{t $l .Label}}
+    </a>
+    {{end}}
     <div class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700">
       <span class="inline-flex items-center gap-2">
         <svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M10 2a8 8 0 1 0 0 16V2z"/><path fill-rule="evenodd" d="M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm0 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/></svg>

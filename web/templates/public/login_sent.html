@@ -2,7 +2,12 @@
 <div class="card mx-auto max-w-md text-center">
   <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-2xl">✉️</div>
   <h1 class="text-xl font-semibold">{{t .Lang "login.sent_title"}}</h1>
+  {{if .D.Volunteer}}
+  <p class="mt-3 text-sm text-gray-600">{{t .Lang "vol.login.sent_body" .D.Email}}</p>
+  <a class="link mt-6 inline-block text-sm" href="/volunteers/login?next={{.D.Next}}&amp;email={{.D.Email}}">{{t .Lang "vol.login.wrong_address"}}</a>
+  {{else}}
   <p class="mt-3 text-sm text-gray-600">{{t .Lang "login.sent_body" .D.Email}}</p>
   <a class="link mt-6 inline-block text-sm" href="/">{{t .Lang "login.back"}}</a>
+  {{end}}
 </div>
 {{end}}

@@ -60,6 +60,14 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) error {
 			return nil
 		}
 
+		if ok, err := s.volunteerSpaceOpen(r, c.Person); ok || err != nil {
+			if err == nil {
+				http.Redirect(w, r, "/volunteers/", http.StatusSeeOther)
+			}
+
+			return err
+		}
+
 		p := s.page(r, "home.title")
 		p.D = c.Person
 
@@ -71,37 +79,58 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
 	email := store.NormalizeEmail(r.FormValue("email"))
+	// next is where to go once signed in; the volunteer login form sets it.
+	next := safeRedirect(r.FormValue("next"), "")
 	p := s.page(r, "login.title")
 
 	if !validEmail(email) {
+		if strings.HasPrefix(next, "/volunteers/") {
+			p.Title = "vol.login.title"
+			d := s.loginContext(r, next)
+			d["Error"], d["Email"] = "login.invalid_email", email
+			p.D = d
+
+			return s.render(w, r, "volunteer/login", p)
+		}
+
 		p.D = map[string]any{"Error": "login.invalid_email", "Email": email}
 
 		return s.render(w, r, "public/login", p)
 	}
 
 	// The response is identical whether the email is known or not, so the
-	// form cannot be used to discover managers.
-	if err := s.sendLoginLink(r, email, rc(r).Lang); err != nil {
+	// form cannot be used to discover who is known.
+	if err := s.sendLoginLink(r, email, rc(r).Lang, next); err != nil {
 		slog.Error("send login link", "email", email, "err", err)
 	}
 
-	p.D = map[string]any{"Email": email}
+	p.D = map[string]any{"Email": email, "Volunteer": strings.HasPrefix(next, "/volunteers/"), "Next": next}
 
 	return s.render(w, r, "public/login_sent", p)
 }
 
-func (s *Server) sendLoginLink(r *http.Request, email, lang string) error {
+func (s *Server) sendLoginLink(r *http.Request, email, lang, next string) error {
 	ctx := r.Context()
 
-	// Only known people get a link; the answer on screen is the same either
-	// way, so the form does not tell who is known.
+	// Known people get a link. So does anyone while an edition takes
+	// volunteers: signing in is how a newcomer volunteers, and the person is
+	// only created once the link is used, so a mistyped address leaves
+	// nothing behind. The answer on screen is the same either way.
 	person, err := s.store.PersonByEmail(ctx, email)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
 
-	if err != nil {
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		if _, err := s.store.CurrentVolunteerEvent(ctx); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return nil
+			}
+
+			return err
+		}
+	case err != nil:
 		return err
+	default:
+		lang = person.Lang
 	}
 
 	n, err := s.store.CountRecentMagicTokens(ctx, email, time.Hour)
@@ -120,13 +149,26 @@ func (s *Server) sendLoginLink(r *http.Request, email, lang string) error {
 		return err
 	}
 
-	lang = person.Lang
+	link := s.cfg.BaseURL + "/auth/" + token
+	if next != "" {
+		link += "?next=" + url.QueryEscape(next)
+	}
 
 	return s.mailer.Send(pmail.Message{
 		To:      []string{email},
 		Subject: i18n.T(lang, "mail.login.subject"),
-		Body:    i18n.T(lang, "mail.login.body", s.cfg.BaseURL+"/auth/"+token, int(loginTokenTTL.Minutes())),
+		Body:    i18n.T(lang, "mail.login.body", link, int(loginTokenTTL.Minutes())),
 	})
+}
+
+// volunteerSpaceOpen tells whether the volunteer space has something for a
+// person: an edition taking volunteers, or a part they already play in one.
+func (s *Server) volunteerSpaceOpen(r *http.Request, p *store.Person) (bool, error) {
+	if _, err := s.store.CurrentVolunteerEvent(r.Context()); !errors.Is(err, store.ErrNotFound) {
+		return err == nil, err
+	}
+
+	return s.store.IsVolunteer(r.Context(), p.ID)
 }
 
 // sendInvite emails a long-lived magic link to a newly added manager.
@@ -159,7 +201,7 @@ func (s *Server) magicConfirm(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	p.D = map[string]any{"Email": email, "Token": r.PathValue("token")}
+	p.D = map[string]any{"Email": email, "Token": r.PathValue("token"), "Next": safeRedirect(r.URL.Query().Get("next"), "")}
 
 	return s.render(w, r, "public/login_confirm", p)
 }
@@ -179,12 +221,10 @@ func (s *Server) magicConsume(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	// A newcomer's person is created now that the address is proven.
 	person, err := s.store.PersonByEmail(ctx, email)
 	if errors.Is(err, store.ErrNotFound) {
-		p := s.page(r, "login.title")
-		p.D = map[string]any{"Error": "login.link_invalid"}
-
-		return s.render(w, r, "public/login", p)
+		person, err = s.store.EnsureVolunteer(ctx, email, "", "", rc(r).Lang)
 	}
 
 	if err != nil {
@@ -215,7 +255,19 @@ func (s *Server) magicConsume(w http.ResponseWriter, r *http.Request) error {
 	_ = s.store.TouchPersonLogin(ctx, person.ID)
 	s.setCookie(w, personCookie, token, personSessionTTL)
 
+	next := safeRedirect(r.FormValue("next"), "")
+
+	// A volunteer without a name is asked for it first: it is what the pole
+	// managers see.
+	if person.Name == "" && (strings.HasPrefix(next, "/volunteers/") || (next == "" && len(managers) == 0)) {
+		http.Redirect(w, r, "/volunteers/welcome?next="+url.QueryEscape(safeRedirect(next, "/volunteers/")), http.StatusSeeOther)
+
+		return nil
+	}
+
 	switch {
+	case next != "":
+		http.Redirect(w, r, next, http.StatusSeeOther)
 	case len(managers) > 1:
 		http.Redirect(w, r, "/partners/choose", http.StatusSeeOther)
 	case len(managers) == 1:

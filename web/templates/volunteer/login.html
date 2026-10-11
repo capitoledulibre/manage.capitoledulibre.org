@@ -1,0 +1,38 @@
+{{define "content"}}
+{{$d := .D}}
+<div class="mx-auto max-w-md">
+  {{with $d.Pole}}
+  {{/* Reached through a pole's link: name the destination, otherwise the
+       first contact with the volunteer space is a bare form. */}}
+  <div class="pole-c{{.Color}} mb-6 flex items-center gap-4 rounded-lg bg-surface p-4 shadow-sm ring-1 ring-gray-200">
+    {{template "pole_icon" (dict "Pole" . "Big" true)}}
+    <div>
+      <p class="text-xs text-gray-500">{{t $.Lang "vol.login.invited_to"}}</p>
+      <p class="text-lg font-semibold">{{.Name}}</p>
+      <p class="text-sm text-gray-600">{{$d.Event.Name}}{{with dateSpan $.Lang $d.Event.StartsOn $d.Event.EndsOn}} · {{.}}{{end}}</p>
+    </div>
+  </div>
+  {{end}}
+  <div class="card">
+    {{if $d.Pole}}
+    <h1 class="text-xl font-semibold">{{t .Lang "vol.login.heading_pole"}}</h1>
+    {{else}}
+    <p class="text-sm font-medium text-brand-700">{{.Site.Name}}</p>
+    <h1 class="text-2xl font-bold tracking-tight">{{t .Lang "vol.login.heading"}}</h1>
+    {{with $d.Event}}<p class="mt-1 text-sm text-gray-600">{{.Name}}{{with dateSpan $.Lang .StartsOn .EndsOn}} · {{.}}{{end}}</p>{{end}}
+    {{end}}
+    <p class="mt-4 text-sm text-gray-700">{{t .Lang "vol.login.intro"}}</p>
+    {{with $d.Error}}<div class="alert mt-4 bg-red-50 text-red-800" role="alert">{{t $.Lang .}}</div>{{end}}
+    <form method="post" action="/login" class="mt-4 space-y-4">
+      <input type="hidden" name="next" value="{{$d.Next}}">
+      <div>
+        <label class="label" for="email">{{t .Lang "login.email"}}</label>
+        <input class="input" id="email" type="email" name="email" value="{{$d.Email}}" required autofocus autocomplete="email" placeholder="{{t .Lang "vol.login.placeholder"}}">
+      </div>
+      <button class="btn w-full">{{t .Lang "login.submit"}}</button>
+    </form>
+    <p class="help mt-4">{{if $d.Pole}}{{t .Lang "vol.login.first_visit_pole"}}{{else}}{{t .Lang "vol.login.first_visit"}}{{end}}</p>
+    {{with $d.Managers}}<p class="help">{{tn $.Lang "vol.managers" (len .)}} {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+  </div>
+</div>
+{{end}}

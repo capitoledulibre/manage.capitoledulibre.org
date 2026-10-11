@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -216,18 +217,26 @@ func (s *Server) clearCookie(w http.ResponseWriter, name string) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: s.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode})
 }
 
-// flash stores a one-shot message key displayed on the next page.
-func (s *Server) flash(w http.ResponseWriter, key string) {
-	s.setCookie(w, flashCookie, key, time.Minute)
+// flash stores a one-shot message displayed on the next page: an i18n key
+// and the arguments of its text.
+func (s *Server) flash(w http.ResponseWriter, key string, args ...string) {
+	s.setCookie(w, flashCookie, url.QueryEscape(strings.Join(append([]string{key}, args...), "\x1f")), time.Minute)
 }
 
-func (s *Server) popFlash(w http.ResponseWriter, r *http.Request) string {
+func (s *Server) popFlash(w http.ResponseWriter, r *http.Request) (string, []string) {
 	ck, err := r.Cookie(flashCookie)
 	if err != nil {
-		return ""
+		return "", nil
 	}
 
 	s.clearCookie(w, flashCookie)
 
-	return ck.Value
+	v, err := url.QueryUnescape(ck.Value)
+	if err != nil {
+		return "", nil
+	}
+
+	parts := strings.Split(v, "\x1f")
+
+	return parts[0], parts[1:]
 }

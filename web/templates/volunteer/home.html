@@ -1,0 +1,119 @@
+{{define "content"}}
+{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}
+<section class="mb-8 flex flex-wrap items-center gap-4">
+  {{with $e.LogoFile}}<img src="/volunteer-images/{{.}}" alt="" class="h-16 w-16 rounded-lg object-contain">{{end}}
+  <div class="flex-1">
+    <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.home.hello" $d.FirstName}}</h1>
+    <p class="mt-1 text-sm text-gray-600">{{$e.Name}}{{with dateSpan $l $e.StartsOn $e.EndsOn}} · {{.}}{{end}}
+      {{if eq $e.VolunteerStatus "frozen"}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{t $l "vol.home.frozen"}}</span>{{end}}
+      {{if eq $e.VolunteerStatus "draft"}}<span class="badge ml-1 bg-amber-100 text-amber-800">{{t $l "vol.home.draft"}}</span>{{end}}
+    </p>
+  </div>
+  {{/* A big "0" greeted every newcomer: the count only shows once there is
+       something to count. */}}
+  {{with $d.MySlots}}
+  <a href="/volunteers/{{$e.Slug}}/me" class="rounded-lg bg-surface px-4 py-2 text-center shadow-sm ring-1 ring-gray-200 hover:bg-gray-50">
+    <span class="block text-2xl font-bold">{{len .}}</span>
+    <span class="text-xs text-gray-600">{{tn $l "vol.home.my_count" (len .)}}</span>
+  </a>
+  {{end}}
+</section>
+
+{{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages)}}
+
+{{if $d.Returning}}
+<section class="card mb-8">
+  <h2 class="card-title">{{t $l "vol.home.returning_title"}}</h2>
+  <p class="text-sm text-gray-700">{{tn $l "vol.home.returning_intro" (len $d.Returning) $d.PrevEvent.Name}}</p>
+  <ul class="mt-4 space-y-3">
+    {{range $d.Returning}}
+    <li class="pole-c{{.Pole.Color}} flex flex-wrap items-center gap-3">
+      {{template "pole_icon" (dict "Pole" .Pole)}}
+      <strong class="flex-1">{{.Pole.Name}}</strong>
+      {{if .Pole.IsOpen}}
+      <form method="post" action="{{.Pole.URL}}/join"><button class="btn btn-sm">{{t $l "vol.home.join_again"}}</button></form>
+      {{else}}
+      <span class="text-xs text-gray-500">{{with named .Coverage.Managers}}{{t $l "vol.home.ask_named"}} {{range $i, $m := .}}{{if $i}}{{t $l "vol.or"}}{{end}}{{$m.Name}}{{end}}{{else}}{{t $l "vol.home.ask_manager"}}{{end}}</span>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+  <p class="help mt-4">{{t $l "vol.home.returning_other"}} <a class="link" href="/volunteers/{{$e.Slug}}/slots">{{t $l "vol.home.open_link"}}</a></p>
+</section>
+{{else if not $d.Joined}}
+<section class="card mb-8">
+  <h2 class="card-title">{{t $l "vol.home.steps_title"}}</h2>
+  <ol class="list-decimal space-y-2 pl-5 text-sm text-gray-700">
+    <li>{{t $l "vol.home.step1"}} <a class="link" href="/volunteers/{{$e.Slug}}/slots">{{t $l "vol.home.open_link"}}</a></li>
+    <li>{{t $l "vol.home.step2"}}</li>
+  </ol>
+  <p class="help mt-3">{{with $e.VolunteerFreezeAt}}{{t $l "vol.home.until" (deadline $l .)}}{{else}}{{t $l "vol.home.while_open"}}{{end}}</p>
+</section>
+{{end}}
+
+{{if $d.Joined}}
+<section class="mb-8">
+  <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+    <h2 class="text-lg font-semibold">{{t $l "vol.home.upcoming"}}</h2>
+    <a class="link text-sm" href="/volunteers/{{$e.Slug}}/me">{{t $l "vol.home.all_planning"}} →</a>
+  </div>
+  {{with $d.Upcoming}}
+  <div class="space-y-2">{{range .}}{{template "slot_row" (dict "Lang" $l "Slot" . "ShowDay" true)}}{{end}}</div>
+  {{else}}
+  <p class="text-sm text-gray-600">{{t $l "vol.home.no_upcoming"}} <a class="link" href="/volunteers/{{$e.Slug}}/slots">{{t $l "vol.home.open_link"}}</a></p>
+  {{end}}
+  {{template "waiting_list" (dict "Lang" $l "Slots" $d.Waiting)}}
+</section>
+{{end}}
+
+<div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+  <h2 class="text-lg font-semibold">{{t $l "vol.home.poles"}}</h2>
+  {{if eq $e.VolunteerStatus "open"}}<a class="link text-sm" href="/volunteers/{{$e.Slug}}/slots">{{t $l "vol.home.all_open"}} →</a>{{end}}
+</div>
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {{range $d.Poles}}
+  <article class="pole-card pole-c{{.Pole.Color}} flex flex-col">
+    <div class="flex items-start gap-3">
+      {{template "pole_icon" (dict "Pole" .Pole)}}
+      <div class="min-w-0">
+        <h3 class="font-semibold text-gray-900">{{.Pole.Name}}</h3>
+        <div class="mt-1 flex flex-wrap gap-1">
+          {{if .Pole.IsDefault}}<span class="badge bg-gray-100 text-gray-700">{{t $l "vol.pole.everyone"}}</span>
+          {{/* Private and invitation poles differ for managers (a link or
+               adding people by hand), not for the volunteer: either way they
+               cannot join alone. */}}
+          {{else if or (eq .Pole.AccessMode "private") (eq .Pole.AccessMode "invitation")}}<span class="badge bg-blue-100 text-blue-800">{{t $l "vol.pole.on_invitation"}}</span>
+          {{else if eq .Pole.AccessMode "restricted"}}<span class="badge bg-red-100 text-red-800">{{t $l "vol.pole.restricted"}}</span>{{end}}
+          {{if and .Member (not .Pole.IsDefault)}}<span class="badge bg-green-100 text-green-800">✓ {{t $l "vol.pole.member"}}</span>{{end}}
+        </div>
+      </div>
+    </div>
+    <div class="mt-3 flex-1 text-sm text-gray-700">{{with .Pole.Description}}{{nl2br .}}{{end}}</div>
+    {{with named .Coverage.Managers}}<p class="help">{{tn $l "vol.managers" (len .)}} {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+    {{if .Coverage.Slots}}
+    <p class="help">{{tn $l "vol.pole.slots" .Coverage.Slots}} ·
+      {{if gt .Missing 0}}<span class="font-medium text-amber-800">{{tn $l "vol.pole.missing" .Missing}}</span>{{else}}<span class="font-medium text-green-800">{{t $l "vol.pole.complete"}}</span>{{end}}</p>
+    <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200" aria-hidden="true"><div class="slot-bar h-1.5" style="width: {{.Coverage.Percent}}%"></div></div>
+    {{else}}
+    <p class="help">{{t $l "vol.pole.no_slots"}}</p>
+    {{end}}
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      {{/* The default pole is everyone's: there is nothing to join, a
+           sign-up on one of its slots is enough. */}}
+      {{if or .Member .Pole.IsDefault}}
+        <a href="{{.Pole.URL}}" class="btn btn-sm">{{t $l "vol.pole.see_slots"}}</a>
+      {{else if .Pole.IsOpen}}
+        <form method="post" action="{{.Pole.URL}}/join"><button class="btn btn-sm">{{t $l "vol.pole.join"}}</button></form>
+        <a href="{{.Pole.URL}}" class="btn-secondary btn-sm">{{t $l "vol.pole.see_slots"}}</a>
+      {{else if eq .Pole.AccessMode "private"}}
+        <span class="text-xs text-gray-500">{{t $l "vol.pole.ask_link"}}</span>
+      {{else if .Manage}}
+        <a href="{{.Pole.URL}}" class="btn-secondary btn-sm">{{t $l "vol.pole.see_slots"}}</a>
+      {{else}}
+        <span class="text-xs text-gray-500">{{t $l "vol.pole.ask_add"}}</span>
+      {{end}}
+    </div>
+  </article>
+  {{end}}
+</div>
+{{end}}

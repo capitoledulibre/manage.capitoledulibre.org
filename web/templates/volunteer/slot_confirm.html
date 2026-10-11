@@ -1,0 +1,14 @@
+{{define "content"}}
+{{$c := .D}}{{$l := .Lang}}
+<div class="card mx-auto max-w-md">
+  <h1 class="text-xl font-semibold">{{t $l "vol.overlap.title"}}</h1>
+  <p class="mt-3 text-sm text-gray-700">{{t $l "vol.overlap.page_intro" (clock $c.Slot.StartsAt) (clock $c.Slot.EndsAt)}}</p>
+  <ul class="mt-2 list-disc pl-5 text-sm">{{range $c.Overlaps}}<li>{{.PoleName}}{{with .Title}} – {{.}}{{end}} ({{clock .StartsAt}} – {{clock .EndsAt}})</li>{{end}}</ul>
+  <p class="help mt-3">{{t $l "vol.overlap.help"}}</p>
+  <form method="post" action="{{$c.Slot.URL}}/signup" class="mt-4 flex flex-wrap gap-2">
+    <input type="hidden" name="force" value="1"><input type="hidden" name="back" value="{{$c.Back}}">
+    <button class="btn">{{t $l "vol.overlap.confirm"}}</button>
+    <a href="{{$c.Back}}" class="btn-secondary">{{t $l "confirm.cancel"}}</a>
+  </form>
+</div>
+{{end}}

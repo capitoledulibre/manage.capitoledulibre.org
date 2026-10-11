@@ -141,6 +141,64 @@
   .alert {
     @apply rounded-md p-4 text-sm;
   }
+  /* Volunteer space. Each pole has a colour of a fixed palette, set by
+     .pole-c0 … .pole-c7 on an ancestor and read through --pole (accents)
+     and --pole-strong (text). */
+  .pole-c0 { --pole: #4f5fd6; --pole-strong: #4a5bd5; }
+  .pole-c1 { --pole: #e8590c; --pole-strong: #b34409; }
+  .pole-c2 { --pole: #2b8a3e; --pole-strong: #257635; }
+  .pole-c3 { --pole: #d6336c; --pole-strong: #c2275d; }
+  .pole-c4 { --pole: #1098ad; --pole-strong: #0c7282; }
+  .pole-c5 { --pole: #f08c00; --pole-strong: #985800; }
+  .pole-c6 { --pole: #7048e8; --pole-strong: #6f47e8; }
+  .pole-c7 { --pole: #0ca678; --pole-strong: #097656; }
+  :root.dark .pole-c0 { --pole: #8f9bf0; --pole-strong: #8f9bf0; }
+  :root.dark .pole-c1 { --pole: #f08c4f; --pole-strong: #f08c4f; }
+  :root.dark .pole-c2 { --pole: #69c17a; --pole-strong: #69c17a; }
+  :root.dark .pole-c3 { --pole: #ef7fa6; --pole-strong: #ef7fa6; }
+  :root.dark .pole-c4 { --pole: #4cc9dc; --pole-strong: #4cc9dc; }
+  :root.dark .pole-c5 { --pole: #f5b342; --pole-strong: #f5b342; }
+  :root.dark .pole-c6 { --pole: #a68bf5; --pole-strong: #a68bf5; }
+  :root.dark .pole-c7 { --pole: #4cc9a4; --pole-strong: #4cc9a4; }
+  .pole-icon {
+    @apply inline-flex shrink-0 items-center justify-center rounded-lg;
+    background: color-mix(in srgb, var(--pole, var(--color-brand-500)) 13%, var(--color-surface));
+    color: var(--pole-strong, var(--color-brand-700));
+  }
+  .pole-card {
+    @apply rounded-lg bg-surface p-5 shadow-sm ring-1 ring-gray-200;
+    border-top: 3px solid var(--pole, var(--color-brand-500));
+  }
+  .slot-card {
+    @apply rounded-lg bg-surface px-4 py-3 shadow-sm ring-1 ring-gray-200;
+    border-left: 3px solid var(--pole, var(--color-gray-300));
+  }
+  .slot-mine {
+    background: color-mix(in srgb, var(--color-green-50) 70%, var(--color-surface));
+  }
+  .slot-full {
+    @apply opacity-80;
+  }
+  .slot-dot {
+    @apply inline-block h-2.5 w-2.5 rounded-full ring-1 ring-gray-300 ring-inset;
+  }
+  .slot-dot-on {
+    background: var(--pole, var(--color-brand-500));
+    box-shadow: none;
+  }
+  .slot-bar {
+    background: var(--pole, var(--color-brand-500));
+  }
+  .filter {
+    @apply rounded-full px-3 py-1 text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-100;
+  }
+  .filter-on {
+    @apply bg-brand-50 text-brand-800 ring-brand-600;
+  }
+  /* htmx marks the element of a pending request. */
+  .htmx-request .btn, .htmx-request .btn-secondary {
+    @apply opacity-60;
+  }
   .checker {
     background-image: linear-gradient(45deg, var(--color-gray-200) 25%, transparent 25%), linear-gradient(-45deg, var(--color-gray-200) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-gray-200) 75%), linear-gradient(-45deg, transparent 75%, var(--color-gray-200) 75%);
     background-size: 16px 16px;

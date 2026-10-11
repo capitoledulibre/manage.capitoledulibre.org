@@ -1,0 +1,22 @@
+{{define "content"}}
+{{$d := .D}}
+<div class="card mx-auto max-w-md">
+  <h1 class="text-xl font-semibold">{{t .Lang "vol.welcome.heading"}}</h1>
+  <p class="mt-2 text-sm text-gray-700">{{t .Lang "vol.welcome.intro"}}</p>
+  {{with $d.Error}}<div class="alert mt-4 bg-red-50 text-red-800" role="alert">{{t $.Lang .}}</div>{{end}}
+  <form method="post" action="/volunteers/profile" class="mt-4 space-y-4">
+    <input type="hidden" name="welcome" value="1">
+    <input type="hidden" name="next" value="{{$d.Next}}">
+    <div>
+      <label class="label" for="name">{{t .Lang "vol.profile.name"}}</label>
+      <input class="input" id="name" name="name" required autofocus autocomplete="name" maxlength="200">
+    </div>
+    <div>
+      <label class="label" for="phone">{{t .Lang "vol.profile.phone"}} <span class="font-normal text-gray-500">{{t .Lang "vol.welcome.phone_help"}}</span></label>
+      <input class="input" id="phone" type="tel" name="phone" autocomplete="tel" maxlength="40">
+    </div>
+    <button class="btn w-full">{{with $d.Pole}}{{t $.Lang "vol.welcome.continue_pole" .Name}}{{else}}{{t .Lang "vol.welcome.continue"}}{{end}}</button>
+  </form>
+  <p class="help mt-4">{{t .Lang "vol.welcome.later"}}</p>
+</div>
+{{end}}

@@ -1,0 +1,31 @@
+{{define "content"}}
+{{$d := .D}}
+<div class="card mx-auto max-w-lg">
+  <h1 class="text-xl font-semibold">{{t .Lang "vol.profile.title"}}</h1>
+  {{with $d.Error}}<div class="alert mt-4 bg-red-50 text-red-800" role="alert">{{t $.Lang .}}</div>{{end}}
+  <form method="post" action="/volunteers/profile" class="mt-4 space-y-4">
+    <input type="hidden" name="next" value="{{$d.Next}}">
+    <div>
+      <label class="label" for="email">{{t .Lang "login.email"}}</label>
+      <input class="input bg-gray-50 text-gray-500" id="email" type="email" value="{{.Person.Email}}" disabled>
+    </div>
+    <div>
+      <label class="label" for="name">{{t .Lang "vol.profile.name"}}</label>
+      <input class="input" id="name" name="name" value="{{.Person.Name}}" required autocomplete="name" maxlength="200">
+    </div>
+    <div>
+      <label class="label" for="phone">{{t .Lang "vol.profile.phone"}}</label>
+      <input class="input" id="phone" type="tel" name="phone" value="{{.Person.Phone}}" autocomplete="tel" maxlength="40">
+      <p class="help">{{t .Lang "vol.profile.phone_help"}}</p>
+    </div>
+    {{if $d.PoleManager}}
+    <input type="hidden" name="share_phone_shown" value="1">
+    <div>
+      <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="share_phone" value="1" class="h-4 w-4 accent-brand-600" {{if .Person.SharePhone}}checked{{end}}> {{t .Lang "vol.profile.share_phone"}}</label>
+      <p class="help">{{t .Lang "vol.profile.share_phone_help"}}</p>
+    </div>
+    {{end}}
+    <button class="btn">{{t .Lang "vol.save"}}</button>
+  </form>
+</div>
+{{end}}

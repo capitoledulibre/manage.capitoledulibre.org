@@ -1,0 +1,174 @@
+{{/* Partials of the volunteer space. The pole colour (pole-c0 … pole-c7) is
+     set on an ancestor and read through the --pole variables. */}}
+
+{{/* pole_icon shows a pole's image, emoji or initials. Expects Pole and
+     Big (larger, for page headings). */}}
+{{define "pole_icon"}}
+{{if .Pole.ImageFile}}<img src="/volunteer-images/{{.Pole.ImageFile}}" alt="" class="pole-icon {{if .Big}}h-14 w-14{{else}}h-10 w-10{{end}} object-cover">
+{{else if .Pole.Icon}}<span class="pole-icon {{if .Big}}h-14 w-14 text-3xl{{else}}h-10 w-10 text-xl{{end}}" aria-hidden="true">{{.Pole.Icon}}</span>
+{{else}}<span class="pole-icon {{if .Big}}h-14 w-14 text-lg{{else}}h-10 w-10 text-sm{{end}} font-bold" aria-hidden="true">{{.Pole.Initials}}</span>{{end}}
+{{end}}
+
+{{/* person_initials stands for a person in a list; the name is always
+     written next to it. Expects a *store.Person. */}}
+{{define "person_initials"}}<span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden="true">{{.Initials}}</span>{{end}}
+
+{{/* vol_messages lists notices. Expects Lang and Messages. */}}
+{{define "vol_messages"}}
+{{range .Messages}}
+<div class="mb-4 rounded-lg border-l-4 border-brand-500 bg-brand-50 px-4 py-3 text-sm text-gray-900">
+  <div>{{nl2br .Body}}</div>
+  <p class="mt-2 text-xs text-gray-500">{{with .Author}}{{.}} · {{end}}{{datetime $.Lang .CreatedAt}}</p>
+</div>
+{{end}}
+{{end}}
+
+{{/* slot_row is one of the person's slots, in a list. Expects Lang and
+     Slot; Badge replaces the "Details" link. */}}
+{{define "slot_row"}}
+<article class="slot-card pole-c{{.Slot.PoleColor}} slot-mine">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+    <div class="w-28 shrink-0 font-semibold tabular-nums">{{clock .Slot.StartsAt}}<span class="text-gray-400"> – </span>{{clock .Slot.EndsAt}}</div>
+    <div class="min-w-0 flex-1">
+      <a class="font-medium text-gray-900 hover:underline" href="{{.Slot.URL}}">{{.Slot.PoleName}}{{with .Slot.Title}} – {{.}}{{end}}</a>
+      {{with .Slot.LocationName}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{.}}</span>{{end}}
+      {{if .ShowDay}}<p class="text-xs text-gray-500 first-letter:uppercase">{{dayName .Lang .Slot.StartsAt}}</p>{{end}}
+    </div>
+    {{if .Badge}}<span class="badge bg-amber-100 text-amber-800">{{.Badge}}</span>
+    {{else}}<a href="{{.Slot.URL}}" class="btn-secondary btn-sm">{{t .Lang "vol.details"}}</a>{{end}}
+  </div>
+</article>
+{{end}}
+
+{{/* waiting_list lists the slots the person waits for. Expects Lang and
+     Slots. */}}
+{{define "waiting_list"}}
+{{with .Slots}}
+<section class="mt-8">
+  <h2 class="text-lg font-semibold">{{t $.Lang "vol.waitlist.title"}}</h2>
+  <p class="help mb-3">{{t $.Lang "vol.waitlist.help"}}</p>
+  <div class="space-y-2">
+    {{range .}}{{template "slot_row" (dict "Lang" $.Lang "Slot" . "ShowDay" true "Badge" (t $.Lang "vol.waitlist.badge"))}}{{end}}
+  </div>
+</section>
+{{end}}
+{{end}}
+
+{{/* slot_card is a slot with what the person can do about it, re-rendered
+     in place by htmx after each action. Expects a slotCardData (or a dict
+     with the same keys). */}}
+{{define "slot_card"}}
+{{$l := .Lang}}
+{{/* The card is replaced in place, which announces nothing: the outcome
+     goes to the live region of the layout. */}}
+{{if .Announce}}<div id="announcer" class="sr-only" role="status" aria-live="polite" hx-swap-oob="true">{{.Announce}}</div>{{end}}
+<article id="slot-{{.Slot.UID}}" class="slot-card pole-c{{.Pole.Color}}{{if .Slot.Mine}} slot-mine{{else if .Slot.IsFull}} slot-full{{end}}">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+    {{if not .Compact}}
+    <div class="w-28 shrink-0 font-semibold tabular-nums">{{clock .Slot.StartsAt}}<span class="text-gray-400"> – </span>{{clock .Slot.EndsAt}}</div>
+    <div class="min-w-0 flex-1">
+      {{/* On a pole's page every card is that pole's: the title names what
+           tells the slots apart, the title or else the location. */}}
+      <a href="{{.Slot.URL}}" class="inline-flex items-center gap-2 font-medium text-gray-900 hover:underline">
+        {{- if .ShowPole}}{{.Pole.Name}}{{with .Slot.Title}} – {{.}}{{end}}
+        {{- else if .Slot.Title}}{{.Slot.Title}}
+        {{- else if .Slot.LocationName}}{{.Slot.LocationName}}
+        {{- else}}{{.Pole.Name}}{{end -}}
+      </a>
+      {{if and .Slot.LocationName (or .ShowPole .Slot.Title)}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{.Slot.LocationName}}</span>{{end}}
+      {{/* Tasks are ticked on the day by the people on the slot. */}}
+      {{if and .Slot.TaskCount .Slot.Mine}}<p class="text-xs text-gray-500">{{tn $l "vol.slot.tasks_done" .Slot.TaskCount .Slot.TaskDone}}</p>{{end}}
+    </div>
+    {{end}}
+    <div class="flex items-center gap-2 text-xs text-gray-600">
+      {{if le .Slot.Capacity 10}}
+      <span class="flex gap-1" aria-hidden="true">{{range seq .Slot.Capacity}}<i class="slot-dot{{if le . $.Slot.Filled}} slot-dot-on{{end}}"></i>{{end}}</span>
+      {{else}}
+      <span class="h-2 w-20 overflow-hidden rounded-full bg-gray-200" aria-hidden="true"><i class="slot-bar block h-2" style="width: {{pct .Slot.Filled .Slot.Capacity}}%"></i></span>
+      {{end}}
+      <span><span aria-hidden="true">{{.Slot.Filled}}/{{.Slot.Capacity}}</span><span class="sr-only">{{tn $l "vol.slot.filled_sr" .Slot.Filled .Slot.Capacity}}</span></span>
+    </div>
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+      {{if .Slot.Mine}}
+        <span class="badge bg-green-100 text-green-800">✓ {{t $l "vol.slot.signed_up"}}</span>
+        {{/* State and action apart: one button carrying both read as a
+             status pill and was ambiguous to screen readers. */}}
+        {{if not .Locked}}{{template "slot_action" (dict "Lang" $l "Card" . "Action" "unsignup" "Label" (t $l "vol.slot.unsignup") "Class" "btn-secondary btn-sm")}}{{end}}
+      {{else if .Locked}}<span class="text-xs text-gray-500">{{t $l "vol.slot.closed"}}</span>
+      {{/* A public pole needs no separate join step: signing up joins it. */}}
+      {{else if and (not .Member) (not .Pole.IsOpen)}}<span class="text-xs text-gray-500">{{t $l "vol.slot.invitation_only"}}</span>
+      {{else if and (not .Member) .Slot.IsFull}}<span class="badge bg-gray-100 text-gray-700">{{t $l "vol.slot.full"}}</span>
+      {{else if .Slot.IsFull}}
+        {{/* A full slot used to be a dead end: the waiting list turns the
+             moment someone is motivated into a filled hole later. */}}
+        {{if .Waiting}}
+          <span class="badge bg-amber-100 text-amber-800">{{t $l "vol.waitlist.badge"}}</span>
+          {{template "slot_action" (dict "Lang" $l "Card" . "Action" "waitlist/delete" "Label" (t $l "vol.slot.waitlist_leave") "Class" "btn-secondary btn-sm")}}
+        {{else}}
+          <span class="badge bg-gray-100 text-gray-700">{{t $l "vol.slot.full"}}</span>
+          {{template "slot_action" (dict "Lang" $l "Card" . "Action" "waitlist" "Label" (t $l "vol.slot.waitlist_join") "Class" "btn-secondary btn-sm")}}
+        {{end}}
+      {{else}}
+        {{template "slot_action" (dict "Lang" $l "Card" . "Action" "signup" "Label" (t $l "vol.slot.signup") "Class" "btn btn-sm")}}
+      {{end}}
+    </div>
+  </div>
+  {{with .Error}}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{.}}</p>{{end}}
+  {{if .Overlaps}}
+  <div class="mt-3 rounded-md bg-amber-50 px-3 py-3 text-sm text-amber-900" role="alert">
+    <p>{{t $l "vol.overlap.intro"}}
+      {{range .Overlaps}}<strong>{{.PoleName}}{{with .Title}} – {{.}}{{end}} ({{clock .StartsAt}}–{{clock .EndsAt}})</strong> {{end}}</p>
+    <div class="mt-3 flex flex-wrap gap-2">
+      {{template "slot_action" (dict "Lang" $l "Card" . "Action" "signup" "Force" true "Label" (t $l "vol.overlap.confirm") "Class" "btn btn-sm")}}
+      <a href="{{.Back}}" class="btn-secondary btn-sm" hx-get="{{.Back}}" hx-select="#slot-{{.Slot.UID}}" hx-target="#slot-{{.Slot.UID}}" hx-swap="outerHTML">{{t $l "confirm.cancel"}}</a>
+    </div>
+  </div>
+  {{end}}
+</article>
+{{end}}
+
+{{/* slot_action is one button acting on a slot: a plain form, which htmx
+     upgrades to swap the card in place. Expects Card, Action, Label, Class
+     and Force. */}}
+{{define "slot_action"}}
+{{$id := printf "#slot-%s" .Card.Slot.UID}}
+<form method="post" action="{{.Card.Slot.URL}}/{{.Action}}"
+      hx-post="{{.Card.Slot.URL}}/{{.Action}}" hx-target="{{$id}}" hx-swap="outerHTML" hx-disabled-elt="find button">
+  <input type="hidden" name="back" value="{{.Card.Back}}">
+  {{if .Force}}<input type="hidden" name="force" value="1">{{end}}
+  <button class="{{.Class}}" data-autofocus>{{.Label}}</button>
+</form>
+{{end}}
+
+{{/* task_list is the checklist of a slot. Expects Lang, Tasks, CanTick,
+     Slot and Announce. */}}
+{{define "task_list"}}
+{{$l := .Lang}}
+{{if .Announce}}<div id="announcer" class="sr-only" role="status" aria-live="polite" hx-swap-oob="true">{{.Announce}}</div>{{end}}
+<ul id="tasks" class="space-y-2">
+  {{range .Tasks}}
+  <li>
+    {{if $.CanTick}}
+    <form method="post" action="/volunteers/{{$.Slot.EventSlug}}/{{$.Slot.PoleSlug}}/tasks/{{.UID}}/toggle"
+          hx-post="/volunteers/{{$.Slot.EventSlug}}/{{$.Slot.PoleSlug}}/tasks/{{.UID}}/toggle" hx-target="#tasks" hx-swap="outerHTML"
+          class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" class="h-4 w-4 accent-brand-600" {{if .Done}}checked{{end}} data-autosubmit>
+        <span class="{{if .Done}}text-gray-500 line-through{{end}}">{{.Label}}</span>
+      </label>
+      <noscript><button class="btn-secondary btn-sm">{{t $l "vol.tasks.toggle"}}</button></noscript>
+      {{if .Done}}<span class="text-xs text-gray-500">{{t $l "vol.tasks.done_by" .DoneBy (clock .DoneAt)}}</span>{{end}}
+    </form>
+    {{else}}
+    <span class="inline-flex items-center gap-2 text-sm">
+      <input type="checkbox" class="h-4 w-4" disabled {{if .Done}}checked{{end}} aria-label="{{.Label}}">
+      <span class="{{if .Done}}text-gray-500 line-through{{end}}">{{.Label}}</span>
+    </span>
+    {{if .Done}}<span class="ml-2 text-xs text-gray-500">{{t $l "vol.tasks.done_by" .DoneBy (clock .DoneAt)}}</span>{{end}}
+    {{end}}
+  </li>
+  {{else}}
+  <li class="text-sm text-gray-500">{{t $l "vol.tasks.none"}}</li>
+  {{end}}
+</ul>
+{{end}}

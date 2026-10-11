@@ -1,0 +1,47 @@
+{{define "content"}}
+{{$d := .D}}{{$l := .Lang}}{{$v := $d.V}}{{$pole := $v.Pole}}{{$s := $d.Slot}}
+<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="{{$pole.URL}}">← {{$pole.Name}}</a></nav>
+<div class="pole-c{{$pole.Color}} mb-6 flex flex-wrap items-center gap-4">
+  {{template "pole_icon" (dict "Pole" $pole)}}
+  <div class="flex-1">
+    <h1 class="text-2xl font-bold tracking-tight">{{$pole.Name}}{{with $s.Title}} – {{.}}{{end}}</h1>
+    <p class="text-sm text-gray-700"><span class="first-letter:uppercase inline-block">{{dayName $l $s.StartsAt}}</span> · <strong>{{clock $s.StartsAt}} – {{clock $s.EndsAt}}</strong>
+      {{with $s.LocationName}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{.}}</span>{{end}}</p>
+  </div>
+</div>
+
+{{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages)}}
+
+{{template "slot_card" $d.Card}}
+
+<div class="mt-8 grid gap-8 md:grid-cols-2">
+  <section>
+    <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.slot.volunteers" $s.Filled $s.Capacity}}</h2>
+    {{with $d.Volunteers}}
+    <ul class="space-y-2">
+      {{range .}}<li class="flex items-center gap-2 text-sm">{{template "person_initials" .}}<span>{{.Label}}{{if and $v.Manage .Phone}} <span class="text-gray-500">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
+    </ul>
+    {{else}}<p class="text-sm text-gray-500">{{t $l "vol.slot.nobody"}}</p>{{end}}
+    {{if gt $s.Missing 0}}<p class="help mt-2">{{tn $l "vol.slot.places_left" $s.Missing}}</p>{{end}}
+  </section>
+  <section>
+    <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.tasks.title"}}</h2>
+    {{template "task_list" (dict "Lang" $l "Tasks" $d.Tasks "CanTick" $d.CanTick "Slot" $s)}}
+    {{if and $d.Tasks (not $d.CanTick)}}<p class="help mt-2">{{t $l "vol.tasks.signup_to_tick"}}</p>{{end}}
+  </section>
+</div>
+
+{{with $d.Contacts}}
+<section class="mt-8">
+  <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.slot.contacts"}}</h2>
+  <ul class="space-y-3">
+    {{range .}}
+    <li class="flex items-start gap-3 text-sm">{{template "person_initials" .}}
+      <span><strong>{{.Name}}</strong> <span class="text-gray-500">{{t $l "vol.slot.pole_manager"}}</span><br>
+        <a class="link" href="mailto:{{.Email}}">{{.Email}}</a>{{if and .SharePhone .Phone}} · <a class="link" href="tel:{{telHref .Phone}}">{{phone .Phone}}</a>{{end}}</span>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+{{end}}

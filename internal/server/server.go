@@ -127,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 
 	s.publicRoutes(mux)
 	s.partnerRoutes(mux)
+	s.volunteerRoutes(mux)
 	s.adminRoutes(mux)
 
 	protection := http.NewCrossOriginProtection()

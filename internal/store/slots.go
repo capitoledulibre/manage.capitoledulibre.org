@@ -32,6 +32,19 @@ type Slot struct {
 	TaskDone  int
 }
 
+// URL is the volunteer page of the slot.
+func (s *Slot) URL() string {
+	return "/volunteers/" + s.EventSlug + "/" + s.PoleSlug + "/slots/" + s.UID
+}
+
+// ManageURL is the edit page of the slot.
+func (s *Slot) ManageURL() string {
+	return "/volunteers/" + s.EventSlug + "/" + s.PoleSlug + "/manage/slots/" + s.UID
+}
+
+// PoleColor is the palette index of the slot's pole, as Pole.Color.
+func (s *Slot) PoleColor() int { return int(s.PoleID % 8) }
+
 // Missing is the number of volunteers still needed.
 func (s *Slot) Missing() int { return max(s.Capacity-s.Filled, 0) }
 

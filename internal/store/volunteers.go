@@ -243,6 +243,37 @@ func (s *Store) CopyVolunteerSide(ctx context.Context, srcEventID, dstEventID in
 
 // --- a person as a volunteer ----------------------------------------------
 
+// IsVolunteer tells whether the person joined a pole or coordinates an
+// edition, whichever the edition.
+func (s *Store) IsVolunteer(ctx context.Context, personID int64) (bool, error) {
+	return s.exists(ctx, `SELECT 1 FROM pole_members WHERE person_id = ?1
+		UNION ALL SELECT 1 FROM event_coordinators WHERE person_id = ?1`, personID)
+}
+
+// ListCoordinatedEvents returns the editions the person coordinates, the
+// most recent first.
+func (s *Store) ListCoordinatedEvents(ctx context.Context, personID int64) ([]*Event, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+eventCols+` FROM events
+		WHERE id IN (SELECT event_id FROM event_coordinators WHERE person_id = ?) ORDER BY year DESC, id DESC`, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*Event
+
+	for rows.Next() {
+		e, err := scanEvent(rows)
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, e)
+	}
+
+	return out, rows.Err()
+}
+
 // EnsureVolunteer returns the person with this address, creating them when
 // needed, and fills their name and phone when still empty: what the person
 // entered is never overwritten.
@@ -321,6 +352,16 @@ func (s *Store) FileInUse(ctx context.Context, file string) (bool, error) {
 	return s.exists(ctx, `SELECT 1 FROM poles WHERE image_file = ?1
 		UNION ALL SELECT 1 FROM events WHERE logo_file = ?1
 		UNION ALL SELECT 1 FROM people WHERE avatar_file = ?1`, file)
+}
+
+// VolunteerImageInUse tells whether a stored file is the image of a pole or
+// the logo of an edition.
+func (s *Store) VolunteerImageInUse(ctx context.Context, file string) (bool, error) {
+	if file == "" {
+		return false, nil
+	}
+
+	return s.exists(ctx, `SELECT 1 FROM poles WHERE image_file = ?1 UNION ALL SELECT 1 FROM events WHERE logo_file = ?1`, file)
 }
 
 // SearchPeople returns one page of the people matching q on the name or the

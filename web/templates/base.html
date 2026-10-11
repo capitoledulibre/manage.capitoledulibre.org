@@ -3,11 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{if eq .Area "admin"}}{{.Title}}{{else}}{{t .Lang .Title}}{{end}} · {{.Site.Name}}</title>
+  <title>{{if .TitleText}}{{.TitleText}}{{else if eq .Area "admin"}}{{.Title}}{{else}}{{t .Lang .Title}}{{end}} · {{.Site.Name}}</title>
   {{with .Site.LogoURL}}<link rel="icon" href="{{.}}">{{end}}
   <script src="{{asset "/static/js/theme.js"}}"></script>
   <link rel="stylesheet" href="{{asset "/static/css/app.css"}}">
   <script src="{{asset "/static/js/app.js"}}" defer></script>
+  {{if eq .Area "volunteer"}}<script src="{{asset "/static/vendor/htmx/htmx.min.js"}}" defer></script>{{end}}
 </head>
 <body class="flex min-h-full flex-col text-gray-900">
   {{if .Impersonating}}
@@ -20,7 +21,7 @@
   {{end}}
   <header class="border-b border-gray-200 bg-surface">
     <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-      <a href="{{if eq .Area "admin"}}/admin/{{else if eq .Area "partner"}}/p/{{else}}/{{end}}" class="flex items-center gap-2 font-bold text-gray-900">
+      <a href="{{if eq .Area "admin"}}/admin/{{else if eq .Area "partner"}}/partners/{{else if eq .Area "volunteer"}}/volunteers/{{else}}/{{end}}" class="flex items-center gap-2 font-bold text-gray-900">
         {{if .Site.LogoURL}}
           <img src="{{.Site.LogoURL}}" alt="" class="h-8 max-w-24 object-contain">
         {{else}}
@@ -28,11 +29,12 @@
         {{end}}
         <span>{{.Site.Name}}{{if eq .Area "admin"}} <span class="font-normal text-gray-500">· Admin</span>{{end}}</span>
       </a>
-      <nav class="flex flex-1 flex-wrap items-center gap-1">
+      <nav class="order-last -mx-3 flex w-full flex-wrap items-center gap-1 sm:order-none sm:mx-0 sm:w-auto sm:flex-1">
         {{if eq .Area "partner"}}{{template "partner_nav" .}}{{end}}
+        {{if eq .Area "volunteer"}}{{template "volunteer_nav" .}}{{end}}
         {{if and (eq .Area "admin") .Admin}}{{template "admin_nav" .}}{{end}}
       </nav>
-      <div class="flex items-center gap-3 text-sm">
+      <div class="ml-auto flex items-center gap-3 text-sm sm:ml-0">
         {{if ne .Area "admin"}}
           {{if eq .Lang "fr"}}<a class="link inline-flex items-center gap-1.5" href="/lang/en?next={{.RequestURI}}" hreflang="en" lang="en">{{template "flag" "en"}}English</a>{{else}}<a class="link inline-flex items-center gap-1.5" href="/lang/fr?next={{.RequestURI}}" hreflang="fr" lang="fr">{{template "flag" "fr"}}Français</a>{{end}}
         {{end}}
@@ -41,7 +43,10 @@
             "ProfileURL" "/admin/profile" "LogoutAction" "/admin/logout")}}
         {{else if and (eq .Area "partner") .Manager (not .Impersonating)}}
           {{template "user_menu" (dict "Page" . "Name" .Manager.Label "Email" .Manager.Email "Initials" .Manager.Initials
-            "ProfileURL" "/partners/managers#profile" "LogoutAction" "/logout")}}
+            "ProfileURL" "/partners/managers#profile" "LogoutAction" "/logout" "Spaces" .Spaces)}}
+        {{else if and (eq .Area "volunteer") .Person}}
+          {{template "user_menu" (dict "Page" . "Name" .Person.Label "Email" .Person.Email "Initials" .Person.Initials
+            "ProfileURL" "/volunteers/profile" "LogoutAction" (or (and .StaffPerson "/admin/logout") "/logout") "Spaces" .Spaces)}}
         {{else}}
           {{template "theme_switch" .}}
         {{end}}
@@ -49,13 +54,18 @@
     </div>
   </header>
   <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-    {{if .Flash}}
-    <div class="alert mb-6 {{if or (eq .Flash "flash.upload_bad_logo") (eq .Flash "flash.upload_bad_pdf") (eq .Flash "flash.upload_too_large") (eq .Flash "flash.upload_missing") (eq .Flash "flash.last_manager") (eq .Flash "flash.invalid_email") (eq .Flash "flash.confirm_mismatch")}}bg-red-50 text-red-800{{else}}bg-green-50 text-green-800{{end}}" role="status">
-      {{t .Lang .Flash}}
+    {{if .FlashText}}
+    <div class="alert mb-6 {{if .FlashError}}bg-red-50 text-red-800{{else}}bg-green-50 text-green-800{{end}}" role="status">
+      {{.FlashText}}
     </div>
     {{end}}
     {{template "content" .}}
   </main>
+  {{if eq .Area "volunteer"}}
+  {{/* htmx swaps replace a card in place, which announces nothing: the
+       fragments write their outcome here (hx-swap-oob). */}}
+  <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
+  {{end}}
   <dialog id="confirm-dialog" class="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg bg-surface p-0 text-gray-900 shadow-xl ring-1 ring-gray-200 backdrop:bg-black/50" aria-labelledby="confirm-dialog-title">
     <form method="dialog" class="p-6">
       <h2 id="confirm-dialog-title" class="text-base font-semibold">{{t .Lang "confirm.title"}}</h2>
