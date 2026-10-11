@@ -33,6 +33,7 @@
     </form>
     <p class="help mt-4">{{if $d.Pole}}{{t .Lang "vol.login.first_visit_pole"}}{{else}}{{t .Lang "vol.login.first_visit"}}{{end}}</p>
     {{with $d.Managers}}<p class="help">{{tn $.Lang "vol.managers" (len .)}} {{range $i, $m := .}}{{if $i}}, {{end}}{{$m.Name}}{{end}}</p>{{end}}
+    <p class="mt-6 border-t border-gray-200 pt-4 text-sm"><a class="link" href="/">← {{t .Lang "door.back"}}</a></p>
   </div>
 </div>
 {{end}}

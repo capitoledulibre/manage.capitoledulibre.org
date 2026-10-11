@@ -1,4 +1,4 @@
--- The volunteer module, ported from benevoles.example.org, which had
+-- The volunteer module, ported from the former volunteer application, which had
 -- no data to carry over: its tables are created in their final shape. Rows
 -- that show in URLs or forms carry a uid, as everywhere in manage.
 

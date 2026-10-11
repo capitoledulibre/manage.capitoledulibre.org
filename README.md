@@ -1,14 +1,14 @@
-# Example Conf — manage
+# manage
 
-The application the organizers run Example Conf with: one place for the
-whole event instead of data copied from one platform to another. It brings
+An application to run an event — a conference, a free software meeting — in
+one place instead of data copied from one platform to another. It brings
 together what used to be two applications:
 
 - **partners**: sponsors follow their partnership and the organizers manage
   the sponsor pipeline (described below);
 - **volunteers**: volunteers join poles (teams) and sign up on shifts, pole
-  leads and the coordination of each edition run the planning. It comes from
-  benevoles.example.org, whose history this repository keeps.
+  leads and the coordination of each edition run the planning. This
+  repository keeps the history of both former applications.
 
 One person is one e-mail address, whatever they come for: a partner contact
 who also volunteers logs in once and goes from one space to the other from
@@ -161,7 +161,7 @@ Everything is configured with environment variables; see
 | Variable | Description |
 | --- | --- |
 | `MANAGE_BASE_URL` | Public URL, used in emails and logo URLs |
-| `MANAGE_SITE_NAME` | Event name in pages and emails (default: Example Conf) |
+| `MANAGE_SITE_NAME` | Event name in pages and emails (default: « Mon événement ») |
 | `MANAGE_SITE_URL` | Event website, linked in the footer |
 | `MANAGE_CONTACT_EMAIL` | Contact address shown to partners, default sender |
 | `MANAGE_VOLUNTEER_CONTACT_EMAIL` | Contact address shown to volunteers and set as Reply-To of their e-mails (default: `MANAGE_CONTACT_EMAIL`) |
@@ -182,7 +182,7 @@ Everything is configured with environment variables; see
 curl -H "Authorization: Bearer $MANAGE_EXPORT_TOKEN" \
   "https://manage.example.org/api/partners.json?event=example-conf-2026"
 # or, on the server:
-partners export -event example-conf-2026 -o partners.json
+manage export -event example-conf-2026 -o partners.json
 ```
 
 Without `event`, the current edition is exported. Only confirmed partners
@@ -223,21 +223,6 @@ The format is pinned by `internal/export/testdata/export.golden.json`. After
 an intentional change, run `go test ./internal/export -update` and review the
 diff.
 
-## Importing the previous Django data
-
-The previous application (Django) stored editions, levels, perks and
-partners. They can be imported once:
-
-```sh
-manage import-django -dry-run /path/to/old/db.sqlite3   # show what would be imported
-manage import-django /path/to/old/db.sqlite3
-```
-
-Partnerships are imported as confirmed. Organizations are matched by name
-regardless of case, spaces and punctuation ("DataBene" reuses "Data Bene"),
-the organizer of an edition is skipped and the placeholder city "Somewhere" is
-dropped. Running it again creates nothing.
-
 ## Deployment
 
 ```sh
@@ -259,12 +244,12 @@ time zone.
 
 ### Coming from the two former applications
 
-- **partners.example.org**: point `MANAGE_DATA_DIR` at its data
+- **the partner application**: point `MANAGE_DATA_DIR` at its data
   directory (or copy it). Its `partners.db` is renamed `manage.db` on the
   first start and migrated in place: each manager and staff member becomes a
   person, editions get their volunteer side (in draft) and a default pole.
   Sessions are reset, so everyone logs in again. Take a copy first.
-- **benevoles.example.org**: its database is not imported (nothing
+- **the volunteer application**: its database is not imported (nothing
   to keep). Rename its environment variables to the `MANAGE_` ones above;
   the staff OIDC client and its redirect URL `…/admin/callback` stay the
   same, only the host changes.
@@ -282,7 +267,7 @@ docker exec manage /manage backup /data/backup-$(date +%F).db
 ## Layout
 
 ```
-cmd/manage/          entry point: serve, export, import-django, backup
+cmd/manage/          entry point: serve, export, backup
 internal/config/     environment configuration
 internal/store/      SQLite schema (migrations/), models and queries
 internal/server/     HTTP handlers: public, partner, volunteer, admin, OIDC, reminders

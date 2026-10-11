@@ -15,7 +15,9 @@ import (
 )
 
 // DefaultSiteName is the event name used when MANAGE_SITE_NAME is unset.
-const DefaultSiteName = "Example Conf"
+// Nothing about a given event is built in: its name, website and addresses
+// all come from the configuration.
+const DefaultSiteName = "Mon événement"
 
 type Config struct {
 	// Listen is the HTTP listen address, e.g. ":8080".
@@ -93,8 +95,8 @@ func Load() (*Config, error) {
 		SMTPPassword:          env("MANAGE_SMTP_PASSWORD", ""),
 		SMTPTLS:               env("MANAGE_SMTP_TLS", "starttls"),
 		SiteName:              env("MANAGE_SITE_NAME", DefaultSiteName),
-		SiteURL:               strings.TrimRight(env("MANAGE_SITE_URL", "https://conf.example.org"), "/"),
-		ContactEmail:          env("MANAGE_CONTACT_EMAIL", "partners@example.org"),
+		SiteURL:               strings.TrimRight(env("MANAGE_SITE_URL", ""), "/"),
+		ContactEmail:          env("MANAGE_CONTACT_EMAIL", ""),
 		SiteLogo:              env("MANAGE_SITE_LOGO", ""),
 		VolunteerContactEmail: env("MANAGE_VOLUNTEER_CONTACT_EMAIL", ""),
 		StaffNotifyEmails:     envList("MANAGE_STAFF_NOTIFY_EMAILS"),
@@ -112,7 +114,10 @@ func Load() (*Config, error) {
 	}
 
 	// The sender defaults to the event name and contact address.
-	c.MailFrom = env("MANAGE_MAIL_FROM", (&mail.Address{Name: c.SiteName, Address: c.ContactEmail}).String())
+	c.MailFrom = env("MANAGE_MAIL_FROM", "")
+	if c.MailFrom == "" && c.ContactEmail != "" {
+		c.MailFrom = (&mail.Address{Name: c.SiteName, Address: c.ContactEmail}).String()
+	}
 
 	port, err := strconv.Atoi(env("MANAGE_SMTP_PORT", "587"))
 	if err != nil {
@@ -189,6 +194,10 @@ const MinExportTokenLength = 32
 func (c *Config) ValidateServe() error {
 	if !c.Dev && !c.OIDCEnabled() {
 		return fmt.Errorf("OIDC is not configured (MANAGE_OIDC_ISSUER, MANAGE_OIDC_CLIENT_ID, MANAGE_OIDC_CLIENT_SECRET); set MANAGE_DEV=1 for local development")
+	}
+
+	if c.SMTPHost != "" && c.MailFrom == "" {
+		return fmt.Errorf("e-mails need a sender: set MANAGE_MAIL_FROM or MANAGE_CONTACT_EMAIL")
 	}
 
 	if c.ExportToken != "" && len(c.ExportToken) < MinExportTokenLength {

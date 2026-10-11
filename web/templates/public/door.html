@@ -1,0 +1,24 @@
+{{define "content"}}
+{{/* The site root: one door for everyone, each person picks theirs. */}}
+<div class="mx-auto max-w-4xl py-6">
+  <h1 class="text-center text-3xl font-bold tracking-tight">{{t .Lang "door.heading"}}</h1>
+  <p class="mx-auto mt-3 max-w-2xl text-center text-gray-600">{{t .Lang "door.intro"}}</p>
+  <div class="mt-10 grid gap-4 {{if .D.Staff}}md:grid-cols-3{{else}}md:grid-cols-2{{end}}">
+    {{template "door" (dict "Lang" .Lang "Href" "/partners/login" "Title" (t .Lang "door.partner") "Text" (t .Lang "door.partner_text") "Icon" "M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M8 7h4M8 11h4M8 15h4M2 21h20")}}
+    {{template "door" (dict "Lang" .Lang "Href" "/volunteers/login" "Title" (t .Lang "door.volunteer") "Text" (t .Lang "door.volunteer_text") "Icon" "M12 21s-7-4.4-9.3-9A5.4 5.4 0 0 1 12 6a5.4 5.4 0 0 1 9.3 6C19 16.6 12 21 12 21z")}}
+    {{if .D.Staff}}{{template "door" (dict "Lang" .Lang "Href" "/admin/login" "Title" (t .Lang "door.staff") "Text" (t .Lang "door.staff_text") "Icon" "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z")}}{{end}}
+  </div>
+  <p class="mt-8 text-center text-sm text-gray-500">{{t .Lang "door.one_account"}}</p>
+</div>
+{{end}}
+
+{{define "door"}}
+<a href="{{.Href}}" class="card group flex flex-col items-start gap-3 transition hover:ring-2 hover:ring-brand-600 focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:outline-none">
+  <span class="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+    <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{.Icon}}"/></svg>
+  </span>
+  <span class="text-lg font-semibold text-gray-900">{{.Title}}</span>
+  <span class="text-sm text-gray-600">{{.Text}}</span>
+  <span class="mt-auto text-sm font-medium text-brand-700 group-hover:underline">{{t .Lang "door.go"}} →</span>
+</a>
+{{end}}

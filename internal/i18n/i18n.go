@@ -10,7 +10,7 @@ import (
 
 // site is the event name substituted for "{site}" in messages, set with
 // SetSite.
-var site = "Example Conf"
+var site = "Mon événement"
 
 // SetSite sets the event name used in messages. It is called once at
 // startup.
@@ -121,6 +121,18 @@ var messages = map[string][2]string{
 	"error.home":        {"Retour à l'accueil", "Back to home"},
 
 	// Login.
+	"door.title":              {"Espace de gestion", "Management area"},
+	"door.heading":            {"Espace de gestion · {site}", "{site} management area"},
+	"door.intro":              {"Partenaires, bénévoles et équipe d'organisation\u00a0: choisissez votre espace. Pas de mot de passe, un lien de connexion vous est envoyé par e-mail.", "Partners, volunteers and organising team: pick your area. No password, a login link is e-mailed to you."},
+	"door.partner":            {"Je suis partenaire", "I am a partner"},
+	"door.partner_text":       {"Suivre votre partenariat, vos documents, votre logo et les personnes présentes.", "Follow your partnership, your documents, your logo and your attendees."},
+	"door.volunteer":          {"Je suis bénévole", "I am a volunteer"},
+	"door.volunteer_text":     {"Rejoindre une équipe, choisir vos créneaux et retrouver votre planning.", "Join a team, pick your slots and find your schedule."},
+	"door.staff":              {"Je fais partie de l'organisation", "I am on the organising team"},
+	"door.staff_text":         {"L'administration des partenaires et des bénévoles, avec votre compte de l'organisation.", "The administration of partners and volunteers, with your organisation account."},
+	"door.go":                 {"Continuer", "Continue"},
+	"door.one_account":        {"Une même adresse e-mail vous connecte partout\u00a0: partenaire et bénévole à la fois, vous passez d'un espace à l'autre depuis votre menu.", "One e-mail address logs you in everywhere: both partner and volunteer, you go from one area to the other from your menu."},
+	"door.back":               {"Choisir un autre espace", "Pick another area"},
 	"login.title":             {"Connexion", "Log in"},
 	"login.heading":           {"Espace partenaires · {site}", "{site} partner area"},
 	"login.intro":             {"Merci de soutenir {site} ! Cet espace vous permet de suivre votre partenariat de bout en bout.", "Thank you for supporting {site}! This area lets you follow your partnership from start to finish."},
@@ -132,8 +144,6 @@ var messages = map[string][2]string{
 	"login.email":             {"Adresse email", "Email address"},
 	"login.submit":            {"Recevoir un lien de connexion", "Send me a login link"},
 	"login.help":              {"Pas de mot de passe : nous vous envoyons un lien de connexion à usage unique.", "No password: we email you a single-use login link."},
-	"login.volunteer":         {"Vous êtes bénévole ?", "Volunteering?"},
-	"login.volunteer_link":    {"Espace bénévole →", "Volunteer area →"},
 	"login.too_many":          {"Trop de demandes de connexion depuis votre réseau. Vérifiez votre boîte mail, puis réessayez dans un quart d'heure.", "Too many login requests from your network. Check your inbox, then try again in a quarter of an hour."},
 	"login.invalid_email":     {"Adresse email invalide.", "Invalid email address."},
 	"login.link_invalid":      {"Ce lien de connexion est invalide ou a expiré. Demandez-en un nouveau.", "This login link is invalid or has expired. Please request a new one."},

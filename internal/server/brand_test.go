@@ -30,10 +30,13 @@ func TestSiteIdentity(t *testing.T) {
 	// Pages show the configured identity, and the logo replaces the
 	// initials.
 	_, body := e.get(e.client(), "/")
+	mustContain(t, body, "Espace de gestion · PyConFR 100%")
+
+	_, body = e.get(e.client(), "/partners/login")
 	mustContain(t, body, "<title>Connexion · PyConFR 100%</title>", "Espace partenaires · PyConFR 100%",
 		`href="https://www.pycon.fr">www.pycon.fr</a>`, "mailto:sponsors@pycon.fr", `src="/brand/logo?v=`, `rel="icon"`)
 
-	if strings.Contains(body, "Example") {
+	if strings.Contains(body, config.DefaultSiteName) {
 		t.Error("the default event name leaks into pages")
 	}
 
@@ -66,8 +69,9 @@ func TestSiteIdentity(t *testing.T) {
 func TestSiteDefaultsAndInitials(t *testing.T) {
 	e := newEnv(t)
 
+	// Without configuration, a neutral name and its initials.
 	_, body := e.get(e.client(), "/")
-	mustContain(t, body, "Example Conf", ">EC<")
+	mustContain(t, body, config.DefaultSiteName, ">"+siteInitials(config.DefaultSiteName)+"<")
 
 	if code, _ := e.get(e.client(), "/brand/logo"); code != 404 {
 		t.Errorf("logo without configuration: %d", code)
@@ -174,4 +178,25 @@ func TestUserMenu(t *testing.T) {
 	if strings.Contains(body, "data-menu") {
 		t.Error("the staff view of a partner must not show the partner's user menu")
 	}
+}
+
+// TestDoor: the site root lets each visitor pick their space.
+func TestDoor(t *testing.T) {
+	e := newEnv(t)
+	c := e.client()
+
+	_, body := e.get(c, "/")
+	mustContain(t, body, "Espace de gestion · "+config.DefaultSiteName, "Je suis partenaire", "Je suis bénévole", "Je fais partie de l&#39;organisation",
+		`href="/partners/login"`, `href="/volunteers/login"`, `href="/admin/login"`)
+
+	_, body = e.get(c, "/partners/login")
+	mustContain(t, body, `action="/login"`, `href="/"`)
+
+	// An anonymous visit of the partner space lands on its login.
+	_, body = e.get(c, "/partners/attendees")
+	mustContain(t, body, "Espace partenaires", `action="/login"`)
+
+	e.get(c, "/lang/en")
+	_, body = e.get(c, "/")
+	mustContain(t, body, config.DefaultSiteName+" management area", "I am a volunteer")
 }

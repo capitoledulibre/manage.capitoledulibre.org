@@ -15,7 +15,7 @@ import (
 func TestValidEmail(t *testing.T) {
 	for email, want := range map[string]bool{
 		"alice@acme.test":                  true,
-		"alice.martin+conf@acme.fr":         true,
+		"alice.martin+conf@acme.fr":        true,
 		"a@b.co\r\nbcc:c@d.co":             false,
 		"a@b.co\nx":                        false,
 		"a@b.co\x00":                       false,

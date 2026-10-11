@@ -1,5 +1,5 @@
-// Command manage runs the management application of an event (Example du
-// Libre by default): partners, volunteers and the staff administration.
+// Command manage runs the management application of an event: partners,
+// volunteers and the staff administration.
 package main
 
 import (
@@ -20,7 +20,6 @@ import (
 	"manage/internal/config"
 	"manage/internal/export"
 	"manage/internal/files"
-	"manage/internal/importer"
 	"manage/internal/mail"
 	"manage/internal/server"
 	"manage/internal/store"
@@ -39,8 +38,6 @@ func main() {
 		err = serve()
 	case "export":
 		err = exportCmd(os.Args[2:])
-	case "import-django":
-		err = importDjangoCmd(os.Args[2:])
 	case "backup":
 		err = backupCmd(os.Args[2:])
 	case "help", "-h", "--help":
@@ -60,8 +57,6 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `Usage:
   manage [serve]                        run the web server
   manage export [-event slug] [-o f]    write the partners JSON export
-  manage import-django [-dry-run] db    import editions, levels, perks and
-                                        partners from the old Django database
   manage backup [path]                  write a consistent copy of the
                                         database, safe while the server runs
 
@@ -269,46 +264,4 @@ func exportCmd(args []string) error {
 	enc.SetIndent("", "  ")
 
 	return enc.Encode(doc)
-}
-
-func importDjangoCmd(args []string) error {
-	fl := flag.NewFlagSet("import-django", flag.ExitOnError)
-	dryRun := fl.Bool("dry-run", false, "show what would be imported without writing")
-
-	if err := fl.Parse(args); err != nil {
-		return err
-	}
-
-	if fl.NArg() != 1 {
-		return errors.New("usage: manage import-django [-dry-run] <path to the Django db.sqlite3>")
-	}
-
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-
-	st, err := open(ctx, cfg)
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-
-	r, err := importer.Django(ctx, st, fl.Arg(0), *dryRun, os.Stdout)
-	if err != nil {
-		return err
-	}
-
-	mode := "imported"
-	if *dryRun {
-		mode = "dry run, nothing written"
-	}
-
-	fmt.Printf("\n%s: editions %d new / %d existing, levels %d / %d, perks %d / %d, organizations %d / %d, partnerships %d / %d, organizers skipped %d\n",
-		mode, r.EventsCreated, r.EventsReused, r.LevelsCreated, r.LevelsReused, r.PerksCreated, r.PerksReused,
-		r.OrgsCreated, r.OrgsReused, r.PartnershipsCreated, r.PartnershipsExists, r.OrganizersSkipped)
-
-	return nil
 }

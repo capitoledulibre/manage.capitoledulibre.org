@@ -53,8 +53,15 @@ func TestSiteDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if c.SiteName != DefaultSiteName || c.SiteURL != "https://conf.example.org" || c.MailFrom != `"Example Conf" <partners@example.org>` {
-		t.Errorf("defaults: %q %q %q", c.SiteName, c.SiteURL, c.MailFrom)
+	// Nothing about a given event is built in.
+	if c.SiteName != DefaultSiteName || c.SiteURL != "" || c.ContactEmail != "" || c.MailFrom != "" {
+		t.Errorf("defaults: %q %q %q %q", c.SiteName, c.SiteURL, c.ContactEmail, c.MailFrom)
+	}
+
+	// Sending e-mails takes a sender.
+	c.Dev, c.SMTPHost = true, "smtp.example.org"
+	if err := c.ValidateServe(); err == nil {
+		t.Error("SMTP without a sender is accepted")
 	}
 
 	t.Setenv("MANAGE_SITE_NAME", "PyConFR")

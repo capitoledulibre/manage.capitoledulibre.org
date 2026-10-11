@@ -81,7 +81,7 @@
     <div class="mx-auto flex max-w-6xl flex-wrap justify-between gap-2 px-4 py-4 text-xs text-gray-500">
       <span>{{.Site.Name}}{{with .Site.URL}} · <a class="hover:underline" href="{{.}}">{{trimScheme .}}</a>{{end}}</span>
       {{if eq .Area "volunteer"}}<span>{{with .Site.VolunteerContactEmail}}<a class="hover:underline" href="mailto:{{.}}">{{.}}</a>{{end}}</span>
-      {{else if ne .Area "admin"}}<span><a class="hover:underline" href="/jobs">{{t .Lang "nav.jobs_public"}}</a> · {{with .Site.ContactEmail}}<a class="hover:underline" href="mailto:{{.}}">{{.}}</a>{{end}}</span>{{end}}
+      {{else if ne .Area "admin"}}<span><a class="hover:underline" href="/jobs">{{t .Lang "nav.jobs_public"}}</a>{{with .Site.ContactEmail}} · <a class="hover:underline" href="mailto:{{.}}">{{.}}</a>{{end}}</span>{{end}}
     </div>
   </footer>
 </body>

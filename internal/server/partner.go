@@ -66,7 +66,14 @@ func (s *Server) requirePerson(next handlerFunc) handlerFunc {
 func (s *Server) requireOrg(next handlerFunc) handlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if rc(r).Org == nil {
-			http.Redirect(w, r, "/", http.StatusSeeOther)
+			// Someone signed in is sent where their roles lead; anyone else
+			// to the partners' login.
+			to := "/partners/login"
+			if rc(r).Person != nil {
+				to = "/"
+			}
+
+			http.Redirect(w, r, to, http.StatusSeeOther)
 
 			return nil
 		}

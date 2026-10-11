@@ -28,6 +28,7 @@ const (
 
 func (s *Server) publicRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /{$}", s.wrap(s.loginPage))
+	mux.Handle("GET /partners/login", s.wrap(s.partnerLogin))
 	mux.Handle("POST /login", s.wrap(s.loginSubmit))
 	mux.Handle("GET /auth/{token}", s.wrap(s.magicConfirm))
 	mux.Handle("POST /auth/{token}", s.wrap(s.magicConsume))
@@ -76,6 +77,21 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) error {
 		p.D = c.Person
 
 		return s.render(w, r, "public/home", p)
+	}
+
+	// Someone not signed in picks their door: partner, volunteer or staff.
+	p := s.page(r, "door.title")
+	p.D = map[string]any{"Staff": s.oidc != nil || s.cfg.DevAdminLogin()}
+
+	return s.render(w, r, "public/door", p)
+}
+
+// partnerLogin is the login form of the partner space.
+func (s *Server) partnerLogin(w http.ResponseWriter, r *http.Request) error {
+	if rc(r).Person != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+
+		return nil
 	}
 
 	return s.render(w, r, "public/login", s.page(r, "login.title"))

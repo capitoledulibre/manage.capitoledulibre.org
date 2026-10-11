@@ -71,7 +71,8 @@ func newSite(cfg *config.Config, logo *brandLogo) Site {
 }
 
 // siteInitials abbreviates the event name: the first letter of each word,
-// keeping its case ("Example Conf" gives "EC"), at most three letters.
+// keeping its case ("Example Conf" gives "EC", "Rencontres du Libre" gives
+// "RdL"), at most three letters.
 func siteInitials(name string) string {
 	var out []rune
 
