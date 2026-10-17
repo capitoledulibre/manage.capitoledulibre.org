@@ -36,6 +36,7 @@ func (s *Server) volunteerRoutes(mux *http.ServeMux) {
 
 	vol("GET /volunteers/{event}", s.eventHome)
 	vol("GET /volunteers/{event}/planning", s.planningPage)
+	vol("POST /volunteers/{event}/details", s.volunteerDetailsSave)
 	vol("GET /volunteers/{event}/me.ics", s.myPlanningICS)
 	vol("POST /volunteers/{event}/me/calendar/reset", s.calendarReset)
 
@@ -335,9 +336,18 @@ func (s *Server) eventHome(w http.ResponseWriter, r *http.Request) error {
 
 	prev, returning := s.returningPoles(r, e, cards)
 
+	// What the edition asks its volunteers for the t-shirts and meals.
+	var details *store.VolunteerDetails
+
+	if len(members) > 0 && e.AsksVolunteers() {
+		if details, err = s.store.GetVolunteerDetails(ctx, e.ID, person.ID); err != nil {
+			return err
+		}
+	}
+
 	p := s.page(r, "vol.home.title")
 	p.D = map[string]any{
-		"Event": e, "Poles": cards, "Messages": messages, "MySlots": mine, "Upcoming": upcoming,
+		"Event": e, "Poles": cards, "Messages": messages, "MySlots": mine, "Upcoming": upcoming, "Details": details,
 		"Joined": len(members) > 0, "Waiting": waiting, "PrevEvent": prev, "Returning": returning,
 		"Coordinator": coordinator, "FirstName": firstName(person.Name, person.Email), "Focus": focus,
 	}

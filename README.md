@@ -72,8 +72,15 @@ when they first use their link, while an edition takes volunteers):
   freeze date) and history, and a slot generator (days, hours per day,
   places, with a preview)
 - the edition, for its coordinators: coverage of every pole, volunteer list
-  with CSV export, messages to all, volunteer status (draft, open, frozen,
-  archived), coordinators, an edition prepared from another
+  with the hours each signed up for and CSV export, messages to all,
+  volunteer status (draft, open, frozen, archived), coordinators, an
+  edition prepared from another
+- logistics: the edition lists its t-shirt sizes and meals; each volunteer
+  answers from its home page (size, meals taken, optional dietary needs,
+  seen by the coordination only), and the coordination gets the counts and
+  a CSV for the caterer and the t-shirt order
+- reminders in one click: to the volunteers on no slot yet, and to those
+  on a slot who have not answered the logistics
 - nobody loses a shift silently: moving or deleting a shift, taking someone
   off or out of a pole e-mails them; a withdrawal less than 48 hours ahead
   warns the leads; a recap of the next day's shifts goes out every evening

@@ -37,6 +37,10 @@ type Event struct {
 	LogoFile          string
 	// PurgedAt is when the personal data of the edition was purged.
 	PurgedAt *time.Time
+	// What the edition provides its volunteers, one per line: t-shirt
+	// sizes and meals. Empty asks nothing.
+	TshirtSizes string
+	Meals       string
 }
 
 // Volunteer statuses of an edition.
@@ -69,7 +73,7 @@ func (e *Event) AttendeesLocked() bool {
 
 const eventCols = `id, slug, name, year, starts_on, ends_on, is_current, logo_deadline, attendees_deadline,
 	brochure_fr_file, brochure_en_file, guide_fr_file, guide_en_file, payment_info, payment_mention, created_at,
-	volunteer_status, volunteer_freeze_at, logo_file, purged_at`
+	volunteer_status, volunteer_freeze_at, logo_file, purged_at, tshirt_sizes, meals`
 
 func scanEvent(row interface{ Scan(...any) error }) (*Event, error) {
 	var (
@@ -79,7 +83,7 @@ func scanEvent(row interface{ Scan(...any) error }) (*Event, error) {
 
 	err := row.Scan(&e.ID, &e.Slug, &e.Name, &e.Year, &starts, &ends, &e.IsCurrent, &logoDL, &attendeeDL,
 		&e.BrochureFRFile, &e.BrochureENFile, &e.GuideFRFile, &e.GuideENFile, &e.PaymentInfo, &e.PaymentMention, &e.CreatedAt,
-		&e.VolunteerStatus, &freeze, &e.LogoFile, &purged)
+		&e.VolunteerStatus, &freeze, &e.LogoFile, &purged, &e.TshirtSizes, &e.Meals)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -173,8 +177,8 @@ func (s *Store) SaveVolunteerSettings(ctx context.Context, e *Event) error {
 		return ErrBadInput
 	}
 
-	_, err := s.db.ExecContext(ctx, `UPDATE events SET volunteer_status = ?, volunteer_freeze_at = ? WHERE id = ?`,
-		e.VolunteerStatus, nullTime(e.VolunteerFreezeAt), e.ID)
+	_, err := s.db.ExecContext(ctx, `UPDATE events SET volunteer_status = ?, volunteer_freeze_at = ?, tshirt_sizes = ?, meals = ? WHERE id = ?`,
+		e.VolunteerStatus, nullTime(e.VolunteerFreezeAt), cleanLines(e.TshirtSizes), cleanLines(e.Meals), e.ID)
 
 	return err
 }

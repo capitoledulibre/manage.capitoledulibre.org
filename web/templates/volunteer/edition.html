@@ -21,7 +21,7 @@
 </dl>
 
 <nav class="mb-6 flex flex-wrap gap-1 border-b border-gray-200" aria-label="{{t $l "vol.coord.sections"}}">
-  {{range $tab := list "poles" "messages" "settings" "history"}}
+  {{range $tab := list "poles" "logistics" "messages" "settings" "history"}}
   <a href="?tab={{$tab}}" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq $tab $d.Tab}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq $tab $d.Tab}}aria-current="page"{{end}}>{{t $l (printf "vol.coord.tab_%s" $tab)}}</a>
   {{end}}
 </nav>
@@ -100,6 +100,50 @@
 </form>
 {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages "Manage" $base "Back" (printf "%s?tab=messages" $base))}}
 
+{{else if eq $d.Tab "logistics"}}
+{{with $d.Logistics}}
+{{if not $e.AsksVolunteers}}
+<p class="card text-sm text-gray-700">{{t $l "vol.logi.none"}} <a class="link" href="?tab=settings">{{t $l "vol.coord.tab_settings"}}</a></p>
+{{else}}
+<p class="help mb-4">{{tn $l "vol.logi.intro" (len .Lines)}}</p>
+<div class="mb-6 flex flex-wrap gap-2">
+  <a class="btn-secondary btn-sm" href="{{$base}}/logistics.csv">{{t $l "vol.logi.csv"}}</a>
+  {{if .Unanswered}}
+  <form method="post" action="{{$base}}/remind" data-confirm="{{tn $l "vol.logi.remind_confirm" (len .Unanswered)}}">
+    <input type="hidden" name="audience" value="details">
+    <button class="btn btn-sm">{{tn $l "vol.logi.remind" (len .Unanswered)}}</button>
+  </form>
+  {{end}}
+</div>
+<div class="mb-8 grid gap-6 md:grid-cols-2">
+  {{with .Sizes}}
+  <section class="card">
+    <h2 class="card-title">{{t $l "vol.details.tshirt"}}</h2>
+    <table class="table"><tbody>{{range .}}<tr><td>{{.Name}}</td><td class="text-right font-semibold tabular-nums">{{.Count}}</td></tr>{{end}}</tbody></table>
+  </section>
+  {{end}}
+  {{with .Meals}}
+  <section class="card">
+    <h2 class="card-title">{{t $l "vol.details.meals"}}</h2>
+    <table class="table"><tbody>{{range .}}<tr><td>{{.Name}}</td><td class="text-right font-semibold tabular-nums">{{.Count}}</td></tr>{{end}}</tbody></table>
+  </section>
+  {{end}}
+</div>
+{{with .Dietary}}
+<section class="mb-8">
+  <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.logi.dietary"}}</h2>
+  <ul class="space-y-1 text-sm">{{range .}}<li><strong>{{.Volunteer.Person.Label}}</strong>{{with .Details.Meals}} <span class="text-gray-500">({{range $i, $m := .}}{{if $i}}, {{end}}{{$m}}{{end}})</span>{{end}}&nbsp;: {{.Details.Dietary}}</li>{{end}}</ul>
+</section>
+{{end}}
+{{with .Unanswered}}
+<section class="mb-8">
+  <h2 class="mb-3 text-lg font-semibold">{{tn $l "vol.logi.unanswered" (len .)}}</h2>
+  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{$x.Volunteer.Person.Label}}{{end}}</p>
+</section>
+{{end}}
+{{if .Idle}}<p class="help">{{tn $l "vol.logi.idle" .Idle}} <a class="link" href="{{$base}}/volunteers?filter=idle">{{t $l "vol.logi.idle_link"}}</a></p>{{end}}
+{{end}}
+{{end}}
 {{else if eq $d.Tab "history"}}
 {{template "vol_log" (dict "Lang" $l "Entries" $d.History)}}
 
@@ -122,6 +166,17 @@
       <label class="label" for="ev-freeze">{{t $l "vol.coord.freeze"}}</label>
       <input id="ev-freeze" class="input max-w-xs" type="datetime-local" name="freeze_at" value="{{inputDT $e.VolunteerFreezeAt}}">
       <p class="help">{{t $l "vol.coord.freeze_help"}}</p>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div>
+        <label class="label" for="ev-tshirts">{{t $l "vol.coord.tshirt_sizes"}}</label>
+        <textarea id="ev-tshirts" class="input" name="tshirt_sizes" rows="5" placeholder="S&#10;M&#10;L&#10;XL">{{$e.TshirtSizes}}</textarea>
+      </div>
+      <div>
+        <label class="label" for="ev-meals">{{t $l "vol.coord.meals"}}</label>
+        <textarea id="ev-meals" class="input" name="meals" rows="5" placeholder="{{t $l "vol.coord.meals_placeholder"}}">{{$e.Meals}}</textarea>
+      </div>
+      <p class="help sm:col-span-2">{{t $l "vol.coord.logistics_help"}}</p>
     </div>
     <button class="btn">{{t $l "vol.save"}}</button>
     <p class="help">{{t $l "vol.coord.edition_help"}}</p>

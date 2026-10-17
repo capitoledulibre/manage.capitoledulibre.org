@@ -2,8 +2,22 @@
 {{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/volunteers/%s/edition" $e.Slug}}
 <nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="{{$base}}">← {{$e.Name}}</a></nav>
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-  <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.coord.volunteers"}} <span class="font-normal text-gray-500">({{len $d.Volunteers}})</span></h1>
+  <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.coord.volunteers"}} <span class="font-normal text-gray-500">({{$d.Total}})</span></h1>
   <a href="{{$base}}/volunteers.csv" class="btn-secondary">{{t $l "vol.coord.csv"}}</a>
+</div>
+
+{{/* The ones to write to before the event: on no slot yet. */}}
+<div class="mb-6 flex flex-wrap items-center gap-3">
+  <nav class="flex gap-2 text-sm" aria-label="{{t $l "vol.coord.filter"}}">
+    <a href="{{$base}}/volunteers" class="filter {{if not $d.OnlyIdle}}filter-on{{end}}" {{if not $d.OnlyIdle}}aria-current="true"{{end}}>{{t $l "vol.coord.all_volunteers"}}</a>
+    <a href="{{$base}}/volunteers?filter=idle" class="filter {{if $d.OnlyIdle}}filter-on{{end}}" {{if $d.OnlyIdle}}aria-current="true"{{end}}>{{tn $l "vol.coord.idle" $d.Idle}}</a>
+  </nav>
+  {{if and $d.Idle $d.Open}}
+  <form method="post" action="{{$base}}/remind" data-confirm="{{tn $l "vol.coord.remind_idle_confirm" $d.Idle}}">
+    <input type="hidden" name="audience" value="idle">
+    <button class="btn btn-sm">{{tn $l "vol.coord.remind_idle" $d.Idle}}</button>
+  </form>
+  {{else if $d.Idle}}<span class="help">{{t $l "vol.coord.remind_closed"}}</span>{{end}}
 </div>
 
 <details class="card mb-6">
@@ -30,7 +44,7 @@
 </div>
 <div class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{t $l "vol.coord.volunteers"}}">
 <table class="table" id="volunteers-table">
-  <thead><tr><th>{{t $l "vol.manage.col_name"}}</th><th>{{t $l "login.email"}}</th><th>{{t $l "vol.profile.phone"}}</th><th>{{t $l "vol.coord.stat_poles"}}</th><th>{{t $l "vol.manage.col_slots"}}</th><th><span class="sr-only">{{t $l "vol.manage.col_actions"}}</span></th></tr></thead>
+  <thead><tr><th>{{t $l "vol.manage.col_name"}}</th><th>{{t $l "login.email"}}</th><th>{{t $l "vol.profile.phone"}}</th><th>{{t $l "vol.coord.stat_poles"}}</th><th>{{t $l "vol.manage.col_slots"}}</th><th>{{t $l "vol.coord.col_hours"}}</th><th><span class="sr-only">{{t $l "vol.manage.col_actions"}}</span></th></tr></thead>
   <tbody>
   {{range $d.Volunteers}}
   <tr>
@@ -39,6 +53,7 @@
     <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
     <td class="text-xs">{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</td>
     <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0</span>{{else}}{{.SlotCount}}{{end}}</td>
+    <td class="whitespace-nowrap tabular-nums">{{if .Minutes}}{{.Hours}}{{else}}<span class="text-gray-400">—</span>{{end}}</td>
     {{/* Folded, and with no pole preselected: one click on a row used to
          add the person to the first pole. */}}
     <td class="text-right">

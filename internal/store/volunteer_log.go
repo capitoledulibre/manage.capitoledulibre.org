@@ -30,6 +30,7 @@ const (
 	LogCoordinatorOut = "coordinator_out" // the actor removed the subject from it
 	LogTaskDone       = "task_done"       // the actor ticked a task (Title) of a slot
 	LogTaskUndone     = "task_undone"     // the actor unticked it
+	LogReminded       = "reminded"        // the actor wrote to Count volunteers: Title "idle" or "details"
 	LogStatus         = "status"          // the actor set the volunteer status, Title holds it
 	LogRegistered     = "registered"      // the actor registered the subject
 	LogMessagePosted  = "message_posted"  // the actor posted a message, Count people e-mailed

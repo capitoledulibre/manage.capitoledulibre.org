@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -115,23 +116,38 @@ func (s *Store) GetVolunteerStats(ctx context.Context, eventID int64) (*Voluntee
 	return &st, nil
 }
 
-// EventVolunteer is a volunteer of an edition with the poles they joined.
+// EventVolunteer is a volunteer of an edition with the poles they joined,
+// and what they signed up for: slots, and the time they add up to.
 type EventVolunteer struct {
 	Person    *Person
 	Poles     []string
 	SlotCount int
+	Minutes   int
+}
+
+// Hours renders the time signed up for, "6 h" or "4 h 30".
+func (v *EventVolunteer) Hours() string {
+	h, m := v.Minutes/60, v.Minutes%60
+	if m == 0 {
+		return strconv.Itoa(h) + "\u00a0h"
+	}
+
+	return strconv.Itoa(h) + "\u00a0h\u00a0" + strconv.Itoa(m)
 }
 
 // ListEventVolunteers returns everyone who joined a pole of an edition.
 func (s *Store) ListEventVolunteers(ctx context.Context, eventID int64) ([]*EventVolunteer, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+peCols+`, GROUP_CONCAT(p.name, char(31)),
 			(SELECT COUNT(*) FROM signups sg JOIN slots s ON s.id = sg.slot_id JOIN poles p2 ON p2.id = s.pole_id
+			 WHERE p2.event_id = ? AND sg.person_id = pe.id),
+			(SELECT COALESCE(SUM(CAST(ROUND((julianday(s.ends_at) - julianday(s.starts_at)) * 1440) AS INTEGER)), 0)
+			 FROM signups sg JOIN slots s ON s.id = sg.slot_id JOIN poles p2 ON p2.id = s.pole_id
 			 WHERE p2.event_id = ? AND sg.person_id = pe.id)
 		FROM people pe
 		JOIN pole_members pm ON pm.person_id = pe.id
 		JOIN poles p ON p.id = pm.pole_id AND p.event_id = ?
 		GROUP BY pe.id
-		ORDER BY pe.name COLLATE NOCASE, pe.email COLLATE NOCASE`, eventID, eventID)
+		ORDER BY pe.name COLLATE NOCASE, pe.email COLLATE NOCASE`, eventID, eventID, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +161,7 @@ func (s *Store) ListEventVolunteers(ctx context.Context, eventID int64) ([]*Even
 			poles sql.NullString
 		)
 
-		if v.Person, err = scanPerson(rows, &poles, &v.SlotCount); err != nil {
+		if v.Person, err = scanPerson(rows, &poles, &v.SlotCount, &v.Minutes); err != nil {
 			return nil, err
 		}
 
@@ -550,6 +566,7 @@ func (s *Store) LeaveVolunteering(ctx context.Context, personID int64) (freed []
 			`DELETE FROM pole_managers WHERE person_id = ?`,
 			`DELETE FROM event_coordinators WHERE person_id = ?`,
 			`DELETE FROM volunteer_reminders WHERE person_id = ?`,
+			`DELETE FROM volunteer_details WHERE person_id = ?`,
 			`UPDATE people SET phone = '', share_phone = 0, calendar_token = NULL WHERE id = ?`,
 		} {
 			if _, err := tx.ExecContext(ctx, q, personID); err != nil {

@@ -39,6 +39,8 @@ func (s *Server) coordinationRoutes(mux *http.ServeMux) {
 	c("GET "+base+"/volunteers", s.coordinationVolunteers)
 	c("GET "+base+"/volunteers.csv", s.coordinationVolunteersCSV)
 	c("GET "+base+"/signups.csv", s.coordinationSignupsCSV)
+	c("GET "+base+"/logistics.csv", s.coordinationLogisticsCSV)
+	c("POST "+base+"/remind", s.coordinationRemind)
 	c("POST "+base+"/volunteers", s.coordinationVolunteerAdd)
 	c("POST "+base+"/volunteers/{person}/join", s.coordinationVolunteerJoin)
 }
@@ -145,14 +147,22 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	tab := r.URL.Query().Get("tab")
-	if tab != "messages" && tab != "settings" && tab != "history" {
+	if tab != "messages" && tab != "settings" && tab != "history" && tab != "logistics" {
 		tab = "poles"
 	}
 
-	var history []*store.LogEntry
+	var (
+		history []*store.LogEntry
+		logi    *logistics
+	)
 
-	if tab == "history" {
+	switch tab {
+	case "history":
 		if history, err = s.store.ListEventLog(ctx, e.ID); err != nil {
+			return err
+		}
+	case "logistics":
+		if logi, err = s.logistics(r, e); err != nil {
 			return err
 		}
 	}
@@ -163,7 +173,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 		"Event": e, "Tab": tab, "Coverage": coverage, "Stats": stats, "Messages": messages,
 		"Coordinators": coordinators, "Targets": targets, "Others": others, "Staff": rc(r).Admin != nil,
 		"Modes": store.PoleModes, "Statuses": []string{store.VolunteersDraft, store.VolunteersOpen, store.VolunteersFrozen, store.VolunteersArchived},
-		"MaxImage": maxPoleImageSize, "History": history,
+		"MaxImage": maxPoleImageSize, "History": history, "Logistics": logi,
 	}
 
 	return s.render(w, r, "volunteer/edition", p)
@@ -180,6 +190,7 @@ func (s *Server) coordinationSettings(w http.ResponseWriter, r *http.Request) er
 	before := e.VolunteerStatus
 	e.VolunteerStatus = r.FormValue("status")
 	e.VolunteerFreezeAt = formTimePtr(r, "freeze_at")
+	e.TshirtSizes, e.Meals = r.FormValue("tshirt_sizes"), r.FormValue("meals")
 
 	if err := s.store.SaveVolunteerSettings(r.Context(), e); err != nil {
 		if errors.Is(err, store.ErrBadInput) {
@@ -539,8 +550,25 @@ func (s *Server) coordinationVolunteers(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
+	// The volunteers on no slot yet: the ones to write to before the event.
+	var idle []*store.EventVolunteer
+
+	for _, v := range volunteers {
+		if v.SlotCount == 0 {
+			idle = append(idle, v)
+		}
+	}
+
+	onlyIdle := r.URL.Query().Get("filter") == "idle"
+
+	shown := volunteers
+	if onlyIdle {
+		shown = idle
+	}
+
 	p := s.page(r, "vol.coord.volunteers")
-	p.D = map[string]any{"Event": e, "Volunteers": volunteers, "Poles": poles}
+	p.D = map[string]any{"Event": e, "Volunteers": shown, "Total": len(volunteers), "Idle": len(idle), "OnlyIdle": onlyIdle,
+		"Open": e.VolunteerStatus == store.VolunteersOpen, "Poles": poles}
 
 	return s.render(w, r, "volunteer/volunteers", p)
 }
@@ -560,10 +588,11 @@ func (s *Server) coordinationVolunteersCSV(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Disposition", `attachment; filename="volunteers-`+e.Slug+`.csv"`)
 
 	cw := csv.NewWriter(w)
-	_ = cw.Write([]string{"name", "email", "phone", "poles", "slots"})
+	_ = cw.Write([]string{"name", "email", "phone", "poles", "slots", "minutes"})
 
 	for _, v := range volunteers {
-		_ = cw.Write([]string{csvSafe(v.Person.Name), v.Person.Email, csvSafe(v.Person.Phone), csvSafe(strings.Join(v.Poles, ", ")), strconv.Itoa(v.SlotCount)})
+		_ = cw.Write([]string{csvSafe(v.Person.Name), csvSafe(v.Person.Email), csvSafe(v.Person.Phone), csvSafe(strings.Join(v.Poles, ", ")),
+			strconv.Itoa(v.SlotCount), strconv.Itoa(v.Minutes)})
 	}
 
 	cw.Flush()

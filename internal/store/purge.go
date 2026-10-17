@@ -24,7 +24,8 @@ type PurgeResult struct {
 //   - the attendees of its partnerships (names, e-mails, dietary
 //     requirements) and the change log of those partnerships;
 //   - on the volunteer side, the sign-ups, waiting lists, members, leads and
-//     coordinators, and who ticked a task or wrote a message;
+//     coordinators, their t-shirt sizes, meals and dietary needs, and who
+//     ticked a task or wrote a message;
 //   - the names in its volunteer history, which keeps its counts;
 //   - then the people left with no part in anything, unless they logged in
 //     after the edition ended: a newcomer of the next edition stays.
@@ -60,6 +61,7 @@ func (s *Store) PurgeEvent(ctx context.Context, eventID int64, ended time.Time) 
 		for _, q := range []string{
 			`DELETE FROM activity WHERE partnership_id IN (` + partnerships + `)`,
 			`DELETE FROM waitlist WHERE slot_id IN (` + slots + `)`,
+			`DELETE FROM volunteer_details WHERE event_id = ?`,
 			`DELETE FROM pole_members WHERE pole_id IN (` + poles + `)`,
 			`DELETE FROM pole_managers WHERE pole_id IN (` + poles + `)`,
 			`DELETE FROM event_coordinators WHERE event_id = ?`,

@@ -46,6 +46,41 @@
 
 {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages)}}
 
+{{/* The t-shirt and the meals: asked of every volunteer of the edition,
+     outlined until answered. */}}
+{{with $d.Details}}
+<section id="details" class="card mb-8 {{if not .Answered}}ring-2 ring-brand-600{{end}}" aria-labelledby="details-title">
+  <h2 id="details-title" class="card-title">{{t $l "vol.details.title"}}</h2>
+  <p class="help mb-4">{{if .Answered}}{{t $l "vol.details.thanks"}}{{else}}{{t $l "vol.details.intro"}}{{end}}</p>
+  <form method="post" action="/volunteers/{{$e.Slug}}/details" class="space-y-4">
+    {{with $e.TshirtSizeList}}
+    <div>
+      <label class="label" for="d-tshirt">{{t $l "vol.details.tshirt"}}</label>
+      <select id="d-tshirt" class="input max-w-xs" name="tshirt">
+        <option value="">{{t $l "vol.details.no_tshirt"}}</option>
+        {{range .}}<option value="{{.}}" {{if eq . $d.Details.Tshirt}}selected{{end}}>{{.}}</option>{{end}}
+      </select>
+    </div>
+    {{end}}
+    {{with $e.MealList}}
+    <fieldset>
+      <legend class="label">{{t $l "vol.details.meals"}}</legend>
+      <div class="flex flex-wrap gap-2">
+        {{range .}}<label class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-200 has-[>input:checked]:bg-brand-50 has-[>input:checked]:ring-brand-600"><input type="checkbox" name="meal" value="{{.}}" class="accent-brand-600" {{if $d.Details.Takes .}}checked{{end}}> {{.}}</label>{{end}}
+      </div>
+      <p class="help mt-1">{{t $l "vol.details.meals_help"}}</p>
+    </fieldset>
+    <div>
+      <label class="label" for="d-dietary">{{t $l "vol.details.dietary"}}</label>
+      <input id="d-dietary" class="input" name="dietary" value="{{$d.Details.Dietary}}" maxlength="300" placeholder="{{t $l "vol.details.dietary_placeholder"}}">
+      <p class="help">{{t $l "vol.details.dietary_help"}}</p>
+    </div>
+    {{end}}
+    <button class="btn">{{t $l "vol.save"}}</button>
+  </form>
+</section>
+{{end}}
+
 {{if $d.Returning}}
 <section class="card mb-8">
   <h2 class="card-title">{{t $l "vol.home.returning_title"}}</h2>
