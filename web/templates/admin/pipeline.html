@@ -90,7 +90,7 @@
               <span class="w-9 text-right text-xs text-gray-500 tabular-nums">{{.Progress.Percent}}%</span>
             </div>
           </td>
-          <td>{{template "doc_pill" (dict "Done" .P.QuoteSignedAt "Sent" (or .P.QuoteFile .P.QuoteSentAt) "DoneLabel" "Signé" "SentLabel" "Envoyé")}}</td>
+          <td>{{template "doc_pill" (dict "Done" .P.QuoteSignedAt "Sent" (or .P.QuoteFile .P.QuoteSentAt) "DoneLabel" "Signé" "SentLabel" (or (and .P.SignedQuoteFile "Signé, à valider") "Envoyé"))}}</td>
           <td>{{template "doc_pill" (dict "Done" .P.InvoicePaidAt "Sent" (or .P.InvoiceFile .P.InvoiceSentAt) "DoneLabel" "Payée" "SentLabel" "Envoyée")}}</td>
           <td>{{if .Org.LogoFile}}<span class="logo-chip inline-flex max-w-full"><img src="{{logoURL .Org.LogoFile}}" alt="Logo {{.Org.Name}}" class="h-6 max-w-full object-contain object-left"></span>{{else}}<span class="text-gray-400">—</span>{{end}}</td>
           <td class="text-right tabular-nums">{{.Attendees}}</td>

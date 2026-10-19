@@ -70,7 +70,8 @@ func computeProgress(p *store.Partnership, org *store.Organization, e *store.Eve
 		pr.Todos = append(pr.Todos, Todo{Key: "todo.logo", Link: "/partners/logo", Deadline: e.LogoDeadline})
 	}
 
-	if quoteSent && p.QuoteSignedAt == nil {
+	// Once sent back signed, it waits for the staff, not for the partner.
+	if quoteSent && p.QuoteSignedAt == nil && p.SignedQuoteFile == "" {
 		pr.Todos = append(pr.Todos, Todo{Key: "todo.sign_quote", Link: documentLink(e, p, "quote")})
 	}
 

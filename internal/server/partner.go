@@ -385,8 +385,8 @@ func (s *Server) partnerDocument(w http.ResponseWriter, r *http.Request) error {
 }
 
 // partnerSignedQuote takes the quote back signed: the to-do asked for it
-// without a way to send it. It counts as signed today, and the staff hears
-// of it.
+// without a way to send it. The staff hears of it and checks it before
+// marking the quote signed.
 func (s *Server) partnerSignedQuote(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
@@ -420,11 +420,6 @@ func (s *Server) partnerSignedQuote(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	p.SignedQuoteFile = name
-
-	if p.QuoteSignedAt == nil {
-		today := time.Now().UTC().Truncate(24 * time.Hour)
-		p.QuoteSignedAt = &today
-	}
 
 	if err := s.store.UpdatePartnership(ctx, p); err != nil {
 		return err

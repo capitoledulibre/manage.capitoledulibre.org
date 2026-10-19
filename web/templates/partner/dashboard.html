@@ -93,6 +93,7 @@
           {{if $p.QuoteFile}}<a class="link mt-2 inline-block text-sm" href="/partners/documents/{{$pc.Event.Slug}}/quote">{{t $l "doc.view"}}</a>{{else}}<p class="mt-2 text-xs text-gray-500">{{t $l "doc.not_available"}}</p>{{end}}
           {{/* Sent back signed from here, or by e-mail. */}}
           {{if $p.SignedQuoteFile}}<a class="link mt-1 block text-sm" href="/partners/documents/{{$pc.Event.Slug}}/signed_quote">{{t $l "doc.view_signed"}}</a>
+          {{if not $p.QuoteSignedAt}}<p class="mt-1 text-xs text-gray-600">{{t $l "doc.signed_checking"}}</p>{{end}}
           {{else if and (or $p.QuoteFile $p.QuoteSentAt) (not $p.QuoteSignedAt)}}
           <div class="mt-3">
           {{template "upload" (dict "Lang" $l "ID" "up-signed-quote" "Action" (printf "/partners/documents/%s/signed-quote" $pc.Event.Slug) "Field" "file"

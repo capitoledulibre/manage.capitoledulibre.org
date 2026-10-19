@@ -139,9 +139,9 @@
             {{template "doc_check" (dict "Lang" "fr" "Done" $p.InvoicePaidAt "Date" $p.InvoicePaidAt "Label" "Payée")}}
           {{end}}
         </ul>
-        {{if and (eq $kind "quote") $p.SignedQuoteFile}}<p class="mb-3 text-sm">Signé par le partenaire : <a class="link" href="/admin/files/{{$p.SignedQuoteFile}}">voir le devis signé</a></p>{{end}}
+        {{if and (eq $kind "quote") $p.SignedQuoteFile}}<p class="mb-3 text-sm">{{if $p.QuoteSignedAt}}Signé par le partenaire{{else}}<strong>Reçu signé du partenaire, à vérifier</strong>{{end}} : <a class="link" href="/admin/files/{{$p.SignedQuoteFile}}">voir le devis signé</a></p>{{end}}
         {{if and (eq $kind "quote") (or $p.QuoteFile $p.QuoteSentAt) (not $p.QuoteSignedAt)}}
-        <form method="post" action="{{$base}}/mark" class="mb-3"><input type="hidden" name="what" value="quote_signed"><button class="btn-secondary btn-sm">Marquer signé aujourd'hui</button></form>
+        <form method="post" action="{{$base}}/mark" class="mb-3"><input type="hidden" name="what" value="quote_signed"><button class="{{if $p.SignedQuoteFile}}btn{{else}}btn-secondary{{end}} btn-sm">{{if $p.SignedQuoteFile}}Valider la signature{{else}}Marquer signé aujourd'hui{{end}}</button></form>
         {{else if and (eq $kind "invoice") (or $p.InvoiceFile $p.InvoiceSentAt) (not $p.InvoicePaidAt)}}
         <form method="post" action="{{$base}}/mark" class="mb-3"><input type="hidden" name="what" value="invoice_paid"><button class="btn-secondary btn-sm">Marquer payée aujourd'hui</button></form>
         {{end}}

@@ -54,7 +54,7 @@ var actionLabels = map[string]string{
 	"attendee.added":        "Participant ajouté",
 	"attendee.deleted":      "Participant supprimé",
 	"attendee.updated":      "Participant modifié",
-	"quote.signed_uploaded": "Devis signé déposé par le partenaire",
+	"quote.signed_uploaded": "Devis signé déposé par le partenaire, à valider",
 	"job.saved":             "Offre d'emploi enregistrée",
 	"job.deleted":           "Offre d'emploi supprimée",
 	"manager.invited":       "Manager invité",

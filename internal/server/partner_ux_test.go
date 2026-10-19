@@ -166,10 +166,15 @@ func TestPartnerSendsSignedQuote(t *testing.T) {
 	mustContain(t, body, "Envoyer le devis signé", "Déposez-le signé")
 
 	_, body = e.upload(alice, signed, nil, "file", "devis.pdf", pdf)
-	mustContain(t, body, "le devis signé est bien reçu", "Voir le devis signé envoyé")
+	mustContain(t, body, "le devis signé est bien reçu", "Voir le devis signé envoyé", "en cours de vérification")
 
+	if strings.Contains(body, "Nous retourner le devis signé") {
+		t.Error("the to-do still asks for the signed quote")
+	}
+
+	// It waits for the staff to check it.
 	p, _ := e.st.GetPartnership(ctx, f.acmeP.ID)
-	if p.SignedQuoteFile == "" || p.QuoteSignedAt == nil {
+	if p.SignedQuoteFile == "" || p.QuoteSignedAt != nil {
 		t.Fatalf("signed quote: %+v", p)
 	}
 
@@ -178,5 +183,14 @@ func TestPartnerSendsSignedQuote(t *testing.T) {
 	}
 
 	_, body = e.get(admin, partnershipURL(f.acme, f.event))
-	mustContain(t, body, "voir le devis signé", p.SignedQuoteFile)
+	mustContain(t, body, "à vérifier", p.SignedQuoteFile, "Valider la signature")
+
+	_, body = e.get(admin, "/admin/events/"+f.event.Slug)
+	mustContain(t, body, "Signé, à valider")
+
+	e.post(admin, partnershipURL(f.acme, f.event)+"/mark", url.Values{"what": {"quote_signed"}})
+
+	if p, _ = e.st.GetPartnership(ctx, f.acmeP.ID); p.QuoteSignedAt == nil {
+		t.Error("the staff's check does not mark it signed")
+	}
 }
