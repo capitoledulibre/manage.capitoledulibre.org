@@ -273,8 +273,8 @@ func (s *Server) partnerNotes(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	p := pc.Partnership
-	p.PONumber = strings.TrimSpace(r.FormValue("po_number"))
-	p.PartnerNotes = strings.TrimSpace(r.FormValue("partner_notes"))
+	p.PONumber = formEdit(r, "po_number", p.PONumber)
+	p.PartnerNotes = formEdit(r, "partner_notes", p.PartnerNotes)
 
 	if err := s.store.UpdatePartnership(r.Context(), p); err != nil {
 		return err

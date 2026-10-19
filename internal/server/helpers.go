@@ -21,6 +21,22 @@ func formInt(r *http.Request, name string) int {
 	return n
 }
 
+// formEdit returns a text field as edited in the form, or current when the
+// form left it as it was shown, which its "<name>_was" twin carries: a form
+// shared by staff and partner, saved later, must not undo what the other
+// changed in the meantime.
+func formEdit(r *http.Request, name, current string) string {
+	v := cleanText(r.FormValue(name))
+	if was, ok := r.Form[name+"_was"]; ok && v == cleanText(was[0]) {
+		return current
+	}
+
+	return v
+}
+
+// cleanText trims a text field, with the line ends a browser sends as CRLF.
+func cleanText(v string) string { return strings.TrimSpace(strings.ReplaceAll(v, "\r\n", "\n")) }
+
 // parseDate parses an HTML date input value.
 func parseDate(v string) *time.Time {
 	t, err := time.Parse("2006-01-02", strings.TrimSpace(v))

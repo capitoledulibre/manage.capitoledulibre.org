@@ -52,8 +52,12 @@
         <div><label class="label" for="invoice_sent_at">Facture envoyée</label><input class="input" id="invoice_sent_at" name="invoice_sent_at" type="date" value="{{inputDate $p.InvoiceSentAt}}"></div>
         <div><label class="label" for="invoice_paid_at">Facture payée</label><input class="input" id="invoice_paid_at" name="invoice_paid_at" type="date" value="{{inputDate $p.InvoicePaidAt}}"></div>
       </div>
+      {{/* The partner edits these two as well: the values shown go along,
+           so a field left untouched keeps what the partner wrote since. */}}
+      <input type="hidden" name="po_number_was" value="{{$p.PONumber}}">
+      <input type="hidden" name="partner_notes_was" value="{{$p.PartnerNotes}}">
       <div><label class="label" for="po_number">Bon de commande</label><input class="input" id="po_number" name="po_number" value="{{$p.PONumber}}"></div>
-      <div><label class="label" for="partner_notes">Notes du partenaire (visibles par lui)</label><textarea class="input" id="partner_notes" name="partner_notes" rows="3">{{$p.PartnerNotes}}</textarea></div>
+      <div><label class="label" for="partner_notes">Message du partenaire (il le voit et le modifie)</label><textarea class="input" id="partner_notes" name="partner_notes" rows="3">{{$p.PartnerNotes}}</textarea></div>
       <div><label class="label" for="internal_notes">Notes internes (staff uniquement)</label><textarea class="input" id="internal_notes" name="internal_notes" rows="4">{{$p.InternalNotes}}</textarea></div>
       <button class="btn">Enregistrer</button>
     </form>

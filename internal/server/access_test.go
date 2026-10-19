@@ -918,3 +918,38 @@ func TestNoNumericIDsInPages(t *testing.T) {
 	jobs, _ := e.st.ListJobOffers(ctx, f.acme.ID)
 	check(alice, "/partners/jobs/"+jobs[0].UID)
 }
+
+// TestPartnerNotesKept checks that the staff form, saved after the partner
+// wrote their message, keeps it when the staff did not touch it.
+func TestPartnerNotesKept(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	f := e.fixture(nil)
+	admin := e.adminClient()
+	alice := e.loginAs("alice@acme.test")
+	pid := partnershipURL(f.acme, f.event)
+
+	// The staff opens the page, the partner then writes, the staff saves.
+	_, body := e.get(admin, pid)
+	mustContain(t, body, `name="partner_notes_was" value=""`)
+
+	e.post(alice, "/partners/notes", url.Values{"event": {f.event.Slug}, "po_number": {"PO-123"}, "partner_notes": {"Il nous faut un bon de commande."},
+		"po_number_was": {""}, "partner_notes_was": {""}})
+	e.post(admin, pid, url.Values{"status": {"confirmed"}, "level": {f.level.UID},
+		"po_number": {""}, "po_number_was": {""}, "partner_notes": {""}, "partner_notes_was": {""}})
+
+	p, _ := e.st.GetPartnership(ctx, f.acmeP.ID)
+	if p.PONumber != "PO-123" || p.PartnerNotes != "Il nous faut un bon de commande." || p.Status != "confirmed" {
+		t.Fatalf("partner fields lost: %q %q %q", p.PONumber, p.PartnerNotes, p.Status)
+	}
+
+	// A field the staff did change is saved.
+	e.post(admin, pid, url.Values{"status": {"confirmed"}, "level": {f.level.UID},
+		"po_number": {"PO-124"}, "po_number_was": {"PO-123"}, "partner_notes": {"Il nous faut un bon de commande."},
+		"partner_notes_was": {"Il nous faut un bon de commande."}})
+
+	if p, _ = e.st.GetPartnership(ctx, f.acmeP.ID); p.PONumber != "PO-124" {
+		t.Fatalf("staff edit lost: %q", p.PONumber)
+	}
+}

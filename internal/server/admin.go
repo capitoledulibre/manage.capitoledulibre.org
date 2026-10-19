@@ -1459,13 +1459,13 @@ func (s *Server) adminPartnershipUpdate(w http.ResponseWriter, r *http.Request) 
 		p.OwnerAdminID = &owner.ID
 	}
 
-	p.PONumber = strings.TrimSpace(r.FormValue("po_number"))
+	p.PONumber = formEdit(r, "po_number", p.PONumber)
 	p.QuoteSentAt = parseDate(r.FormValue("quote_sent_at"))
 	p.QuoteSignedAt = parseDate(r.FormValue("quote_signed_at"))
 	p.InvoiceSentAt = parseDate(r.FormValue("invoice_sent_at"))
 	p.InvoicePaidAt = parseDate(r.FormValue("invoice_paid_at"))
 	p.FollowupAt = parseDate(r.FormValue("followup_at"))
-	p.PartnerNotes = strings.TrimSpace(r.FormValue("partner_notes"))
+	p.PartnerNotes = formEdit(r, "partner_notes", p.PartnerNotes)
 	p.InternalNotes = strings.TrimSpace(r.FormValue("internal_notes"))
 
 	if err := s.store.UpdatePartnership(ctx, p); err != nil {

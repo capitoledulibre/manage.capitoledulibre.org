@@ -138,6 +138,8 @@
       <h2 class="card-title">{{t $l "dashboard.notes"}}</h2>
       <form method="post" action="/partners/notes" class="space-y-4">
         <input type="hidden" name="event" value="{{$pc.Event.Slug}}">
+        <input type="hidden" name="po_number_was" value="{{$p.PONumber}}">
+        <input type="hidden" name="partner_notes_was" value="{{$p.PartnerNotes}}">
         <div>
           <label class="label" for="po_number">{{t $l "dashboard.po_number"}}</label>
           <input class="input" id="po_number" name="po_number" value="{{$p.PONumber}}">
