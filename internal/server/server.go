@@ -157,6 +157,20 @@ func (s *Server) wrap(h handlerFunc) http.Handler {
 
 // Handler returns the root HTTP handler.
 func (s *Server) Handler() http.Handler {
+	protection := http.NewCrossOriginProtection()
+
+	var h http.Handler = s.routes()
+	h = limitBodies(h)
+	h = s.withSession(h)
+	h = protection.Handler(h)
+	h = securityHeaders(h, s.cfg.SecureCookies())
+	h = logRequests(h)
+
+	return h
+}
+
+// routes registers every route of the application.
+func (s *Server) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	static, _ := fs.Sub(web.Static, "static")
@@ -173,16 +187,7 @@ func (s *Server) Handler() http.Handler {
 	s.volunteerRoutes(mux)
 	s.adminRoutes(mux)
 
-	protection := http.NewCrossOriginProtection()
-
-	var h http.Handler = mux
-	h = limitBodies(h)
-	h = s.withSession(h)
-	h = protection.Handler(h)
-	h = securityHeaders(h, s.cfg.SecureCookies())
-	h = logRequests(h)
-
-	return h
+	return mux
 }
 
 // Request bodies: a form fits in maxFormBody; an upload in maxUploadBody,
