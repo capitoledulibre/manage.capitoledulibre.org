@@ -65,7 +65,7 @@ func TestVolunteerUX(t *testing.T) {
 	mustOK(t, e.st.CreateSlot(ctx, &store.Slot{PoleID: f.accueil.ID, StartsAt: acc, EndsAt: acc.Add(time.Hour), Capacity: 1, Title: "Badges"}))
 
 	_, body = e.get(nina, home+"/planning?view=open&day=all")
-	mustContain(t, body, "Tous les pôles", "?pole=accueil", "bientôt")
+	mustContain(t, body, "Tous les pôles", "?pole=accueil", "dans moins de 48")
 
 	_, body = e.get(nina, home+"/planning?view=open&day=all&pole=accueil")
 	mustContain(t, body, ">Accueil</a>", "Badges")

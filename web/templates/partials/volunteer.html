@@ -193,10 +193,14 @@
     </div>
     <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
       {{if .Slot.Mine}}
-        <span class="badge bg-green-100 text-green-800">✓ {{t $l "vol.slot.signed_up"}}</span>
+        {{/* After signing up, focus lands on the state, not on the button
+             undoing it: a second tap must not withdraw. */}}
+        <span class="badge bg-green-100 text-green-800" tabindex="-1" data-autofocus>✓ {{t $l "vol.slot.signed_up"}}</span>
         {{/* State and action apart: one button carrying both read as a
-             status pill and was ambiguous to screen readers. */}}
-        {{if not .Locked}}{{template "slot_action" (dict "Lang" $l "Card" . "Action" "unsignup" "Label" (t $l "vol.slot.unsignup") "Class" "btn-secondary btn-sm")}}{{end}}
+             status pill and was ambiguous to screen readers. Withdrawing
+             e-mails the waiting list, and the leads when it is late: it
+             asks first. */}}
+        {{if not .Locked}}{{template "slot_action" (dict "Lang" $l "Card" . "Action" "unsignup" "Label" (t $l "vol.slot.unsignup") "Class" "btn-secondary btn-sm" "Confirm" (t $l (or (and (late .Slot) "vol.slot.unsignup_confirm_late") "vol.slot.unsignup_confirm")))}}{{end}}
       {{else if .Locked}}<span class="text-xs text-gray-500">{{t $l "vol.slot.closed"}}</span>
       {{else if slotOver .Slot}}<span class="text-xs text-gray-500">{{t $l "vol.slot.over"}}</span>
       {{/* A public pole needs no separate join step: signing up joins it. */}}
@@ -246,12 +250,12 @@
 {{end}}
 
 {{/* slot_action is one button acting on a slot: a plain form, which htmx
-     upgrades to swap the card in place. Expects Card, Action, Label, Class
-     and Force. */}}
+     upgrades to swap the card in place. Expects Card, Action, Label, Class,
+     and optionally Force and Confirm (a question asked first). */}}
 {{define "slot_action"}}
 {{$id := printf "#slot-%s" .Card.Slot.UID}}
 <form method="post" action="{{.Card.Slot.URL}}/{{.Action}}"
-      hx-post="{{.Card.Slot.URL}}/{{.Action}}" hx-target="{{$id}}" hx-swap="outerHTML" hx-disabled-elt="find button">
+      hx-post="{{.Card.Slot.URL}}/{{.Action}}" hx-target="{{$id}}" hx-swap="outerHTML" hx-disabled-elt="find button"{{with .Confirm}} data-confirm="{{.}}"{{end}}>
   <input type="hidden" name="back" value="{{.Card.Back}}">
   {{if .Force}}<input type="hidden" name="force" value="1">{{end}}
   <button class="{{.Class}}" data-autofocus>{{.Label}}</button>

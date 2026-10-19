@@ -199,6 +199,10 @@ func TestVolunteerSignupFlow(t *testing.T) {
 	_, body = e.get(nina, f.buvette.URL())
 	mustContain(t, body, "Vous avez rejoint le pôle", "Inscrit·e")
 
+	// Withdrawing asks first, and focus goes to the state, not to the
+	// button undoing the sign-up.
+	mustContain(t, body, `data-confirm="Vous désinscrire de ce créneau`, `tabindex="-1" data-autofocus>✓`)
+
 	if strings.Contains(body, "Vous n&#39;êtes pas encore dans ce pôle") {
 		t.Error("the page still says the volunteer is not in the pole")
 	}

@@ -11,20 +11,51 @@
   const message = dialog.querySelector("[data-confirm-message]");
   const ok = dialog.querySelector("[data-confirm-ok]");
 
+  // What to do once confirmed.
   let pending = null;
 
-  document.addEventListener("submit", (event) => {
-    const form = event.target;
-    if (!form.dataset.confirm || form.dataset.confirmed === "yes") return;
-    if (form.dataset.confirmIf && !form.querySelector(form.dataset.confirmIf)) return;
+  const needsConfirm = (form) =>
+    form &&
+    form.dataset &&
+    form.dataset.confirm &&
+    form.dataset.confirmed !== "yes" &&
+    !(form.dataset.confirmIf && !form.querySelector(form.dataset.confirmIf));
 
-    event.preventDefault();
-    pending = { form, submitter: event.submitter };
-
+  const ask = (form, proceed) => {
+    pending = proceed;
     const danger = form.querySelector(".btn-danger") !== null;
     message.textContent = form.dataset.confirm;
     ok.className = danger ? "btn-danger-solid" : "btn";
     dialog.showModal();
+  };
+
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    // htmx sends its forms itself: they are asked on htmx:confirm.
+    if (!needsConfirm(form) || form.hasAttribute("hx-post")) return;
+
+    event.preventDefault();
+    const submitter = event.submitter;
+
+    // Submit again, keeping the button that was clicked, without asking a
+    // second time.
+    ask(form, () => {
+      form.dataset.confirmed = "yes";
+      if (submitter) {
+        form.requestSubmit(submitter);
+      } else {
+        form.requestSubmit();
+      }
+      delete form.dataset.confirmed;
+    });
+  });
+
+  document.addEventListener("htmx:confirm", (event) => {
+    const form = event.detail.elt;
+    if (!needsConfirm(form)) return;
+
+    event.preventDefault();
+    ask(form, () => event.detail.issueRequest(true));
   });
 
   dialog.addEventListener("close", () => {
@@ -32,20 +63,10 @@
     // reopened for another form.
     if (dialog.open) return;
 
-    const current = pending;
+    const proceed = pending;
     pending = null;
 
-    if (!current || dialog.returnValue !== "ok") return;
-
-    // Submit again, keeping the button that was clicked, without asking a
-    // second time.
-    current.form.dataset.confirmed = "yes";
-    if (current.submitter) {
-      current.form.requestSubmit(current.submitter);
-    } else {
-      current.form.requestSubmit();
-    }
-    delete current.form.dataset.confirmed;
+    if (proceed && dialog.returnValue === "ok") proceed();
   });
 
   // A click on the backdrop cancels.

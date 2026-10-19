@@ -388,6 +388,7 @@ var funcs = template.FuncMap{
 	// days. Highlighting every slot not yet full painted whole plannings
 	// amber, which drowned the signal.
 	"urgent":  func(sl *store.Slot) bool { return !sl.IsFull() && isLate(sl) },
+	"late":    isLate,
 	"phone":   formatPhone,
 	"telHref": telHref,
 	"nl2br": func(v string) template.HTML {
