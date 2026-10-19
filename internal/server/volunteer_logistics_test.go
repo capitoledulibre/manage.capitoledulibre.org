@@ -155,7 +155,7 @@ func TestLogisticsClosed(t *testing.T) {
 	}
 
 	_, body := e.get(nina, home)
-	mustContain(t, body, "Les inscriptions sont closes", "<fieldset class=\"space-y-4\" disabled>", `<option value="M" selected>`)
+	mustContain(t, body, `id="request-error"`, "Pas de connexion", "Les inscriptions sont closes", "<fieldset class=\"space-y-4\" disabled>", `<option value="M" selected>`)
 
 	if code, _ := e.post(admin, edition+"/remind", url.Values{"audience": {"details"}}); code != http.StatusBadRequest {
 		t.Errorf("reminder for a frozen edition: %d", code)

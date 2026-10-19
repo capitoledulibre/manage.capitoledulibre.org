@@ -70,6 +70,10 @@
        fragments write their outcome here (hx-swap-oob). */}}
   <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
   {{end}}
+  {{/* An htmx action that fails, offline or refused, says so here instead
+       of leaving the page as if it had worked. */}}
+  <div id="request-error" class="alert fixed inset-x-4 bottom-20 z-50 mx-auto hidden max-w-md bg-red-50 text-red-800 shadow-lg ring-1 ring-red-200 sm:bottom-6 print:hidden" role="alert"
+       data-offline="{{t .Lang "error.offline"}}" data-failed="{{t .Lang "error.request_failed"}}"></div>
   <dialog id="confirm-dialog" class="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg bg-surface p-0 text-gray-900 shadow-xl ring-1 ring-gray-200 backdrop:bg-black/50" aria-labelledby="confirm-dialog-title">
     <form method="dialog" class="p-6">
       <h2 id="confirm-dialog-title" class="text-base font-semibold">{{t .Lang "confirm.title"}}</h2>

@@ -395,6 +395,35 @@
   });
 })();
 
+// An htmx request that fails leaves the page as it was: the button comes
+// back and a ticked box stays ticked, as if it had worked. Say so, offline
+// (venue wifi) or refused, and untick what was not saved.
+(() => {
+  const box = document.getElementById("request-error");
+  if (!box) return;
+
+  let timer = null;
+
+  const fail = (event, text) => {
+    box.textContent = text;
+    box.classList.remove("hidden");
+    clearTimeout(timer);
+    timer = setTimeout(() => box.classList.add("hidden"), 8000);
+
+    const elt = event.detail && event.detail.elt;
+    const form = elt && (elt.closest ? elt.closest("form") : null);
+    if (form) {
+      form.querySelectorAll("input[data-autosubmit]").forEach((input) => (input.checked = !input.checked));
+    }
+  };
+
+  document.addEventListener("htmx:sendError", (event) => fail(event, box.dataset.offline));
+  document.addEventListener("htmx:responseError", (event) => fail(event, box.dataset.failed));
+  document.addEventListener("htmx:afterRequest", (event) => {
+    if (event.detail && event.detail.successful) box.classList.add("hidden");
+  });
+})();
+
 // A search field filtering the rows of a table (data-filter: the table),
 // with a live count (data-filter-count, data-one / data-other with %d).
 (() => {

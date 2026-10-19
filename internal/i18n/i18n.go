@@ -114,12 +114,14 @@ var messages = map[string][2]string{
 	"flash.upload_bad_pdf":       {"Seuls les fichiers PDF sont acceptés.", "Only PDF files are accepted."},
 
 	// Errors.
-	"error.title":       {"Erreur", "Error"},
-	"error.not_found":   {"Page introuvable", "Page not found"},
-	"error.forbidden":   {"Accès refusé", "Access denied"},
-	"error.bad_request": {"Requête invalide", "Invalid request"},
-	"error.internal":    {"Une erreur est survenue", "Something went wrong"},
-	"error.home":        {"Retour à l'accueil", "Back to home"},
+	"error.title":          {"Erreur", "Error"},
+	"error.not_found":      {"Page introuvable", "Page not found"},
+	"error.forbidden":      {"Accès refusé", "Access denied"},
+	"error.bad_request":    {"Requête invalide", "Invalid request"},
+	"error.internal":       {"Une erreur est survenue", "Something went wrong"},
+	"error.home":           {"Retour à l'accueil", "Back to home"},
+	"error.offline":        {"Pas de connexion\u00a0: rien n'a été enregistré. Réessayez une fois le réseau revenu.", "No connection: nothing was saved. Try again once you are back online."},
+	"error.request_failed": {"Ça n'a pas marché\u00a0: rien n'a été enregistré. Rechargez la page et réessayez.", "That did not work: nothing was saved. Reload the page and try again."},
 
 	// Login.
 	"door.title":              {"Espace de gestion", "Management area"},
