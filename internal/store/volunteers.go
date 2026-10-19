@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -134,14 +135,14 @@ type EventVolunteer struct {
 // for none, and not running the edition.
 func (v *EventVolunteer) Idle() bool { return v.SlotCount == 0 && !v.Waiting && !v.Staff }
 
-// Hours renders the time signed up for, "6 h" or "4 h 30".
+// Hours renders the time signed up for, "6 h", "4 h 30" or "4 h 05".
 func (v *EventVolunteer) Hours() string {
 	h, m := v.Minutes/60, v.Minutes%60
 	if m == 0 {
 		return strconv.Itoa(h) + "\u00a0h"
 	}
 
-	return strconv.Itoa(h) + "\u00a0h\u00a0" + strconv.Itoa(m)
+	return fmt.Sprintf("%d\u00a0h\u00a0%02d", h, m)
 }
 
 // ListEventVolunteers returns everyone who joined a pole of an edition.
@@ -220,7 +221,8 @@ func (s *Store) PersonPoles(ctx context.Context, eventID int64) (map[int64][]str
 
 // CopyVolunteerSide prepares an edition from another one: every pole is
 // copied (settings, locations, managers; no slots, no members), the
-// coordinators carry over, and the logo too when the target has none.
+// coordinators carry over, and so do the logo, the t-shirt sizes and the
+// meals, each when the target has none.
 func (s *Store) CopyVolunteerSide(ctx context.Context, srcEventID, dstEventID int64) error {
 	if srcEventID == dstEventID {
 		return ErrBadInput
@@ -265,8 +267,11 @@ func (s *Store) CopyVolunteerSide(ctx context.Context, srcEventID, dstEventID in
 			return err
 		}
 
-		_, err = tx.ExecContext(ctx, `UPDATE events SET logo_file = (SELECT logo_file FROM events WHERE id = ?)
-			WHERE id = ? AND logo_file = ''`, srcEventID, dstEventID)
+		_, err = tx.ExecContext(ctx, `UPDATE events AS d SET
+				logo_file = CASE d.logo_file WHEN '' THEN s.logo_file ELSE d.logo_file END,
+				tshirt_sizes = CASE d.tshirt_sizes WHEN '' THEN s.tshirt_sizes ELSE d.tshirt_sizes END,
+				meals = CASE d.meals WHEN '' THEN s.meals ELSE d.meals END
+			FROM events AS s WHERE d.id = ? AND s.id = ?`, dstEventID, srcEventID)
 
 		return err
 	})

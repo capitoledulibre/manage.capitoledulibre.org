@@ -120,8 +120,10 @@ func (s *Store) GetVolunteerDetails(ctx context.Context, eventID, personID int64
 	d = &VolunteerDetails{EventID: eventID, PersonID: personID}
 
 	err = s.db.QueryRowContext(ctx, `SELECT vd.tshirt FROM volunteer_details vd JOIN events e ON e.id = vd.event_id
-		WHERE vd.person_id = ? AND vd.event_id != ? AND vd.tshirt != '' ORDER BY e.year DESC, e.id DESC LIMIT 1`,
-		personID, eventID).Scan(&d.Tshirt)
+		JOIN events cur ON cur.id = ?
+		WHERE vd.person_id = ? AND vd.tshirt != '' AND (e.year < cur.year OR e.year = cur.year AND e.id < cur.id)
+		ORDER BY e.year DESC, e.id DESC LIMIT 1`,
+		eventID, personID).Scan(&d.Tshirt)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}

@@ -207,6 +207,15 @@ func TestCopyVolunteerSide(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The sizes carry over; the meals the target already lists stay.
+	src.TshirtSizes, src.Meals, dst.Meals = "S\nM", "Samedi midi", "Dimanche midi"
+	for _, e := range []*Event{src, dst} {
+		e.VolunteerStatus = VolunteersDraft
+		if err := s.SaveVolunteerSettings(ctx, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	pole := &Pole{EventID: src.ID, Name: "Accueil", AccessMode: PolePrivate, ImageFile: "accueil.png"}
 	if err := s.CreatePole(ctx, pole); err != nil {
 		t.Fatal(err)
@@ -264,6 +273,10 @@ func TestCopyVolunteerSide(t *testing.T) {
 		t.Fatalf("the logo carries over, got %q", got.LogoFile)
 	}
 
+	if got.TshirtSizes != "S\nM" || got.Meals != "Dimanche midi" {
+		t.Fatalf("logistics settings: %q %q", got.TshirtSizes, got.Meals)
+	}
+
 	if used, _ := s.FileInUse(ctx, "accueil.png"); !used {
 		t.Fatal("a shared image is in use")
 	}
@@ -278,6 +291,38 @@ func TestCopyVolunteerSide(t *testing.T) {
 	dup, err := s.CopyPole(ctx, pole.ID, src.ID)
 	if err != nil || dup.Name != "Accueil (copie)" || dup.Slug != "accueil-copie" {
 		t.Fatalf("CopyPole: %+v %v", dup, err)
+	}
+}
+
+func TestVolunteerDetailsPrefill(t *testing.T) {
+	ctx := context.Background()
+	s := openTestStore(t)
+
+	y25, y26, y27 := newEvent(t, s, "ec-2025", 2025), newEvent(t, s, "ec-2026", 2026), newEvent(t, s, "ec-2027", 2027)
+	p := newPerson(t, s, "nina@example.org")
+
+	for _, a := range []struct {
+		e    *Event
+		size string
+	}{{y25, "M"}, {y27, "L"}} {
+		if err := s.SaveVolunteerDetails(ctx, &VolunteerDetails{EventID: a.e.ID, PersonID: p.ID, Tshirt: a.size}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// The size offered again is the one of the latest earlier edition,
+	// never of a later one.
+	d, err := s.GetVolunteerDetails(ctx, y26.ID, p.ID)
+	if err != nil || d.Answered || d.Tshirt != "M" {
+		t.Fatalf("prefill: %+v %v", d, err)
+	}
+}
+
+func TestHours(t *testing.T) {
+	for minutes, want := range map[int]string{360: "6\u00a0h", 270: "4\u00a0h\u00a030", 245: "4\u00a0h\u00a005", 5: "0\u00a0h\u00a005"} {
+		if got := (&EventVolunteer{Minutes: minutes}).Hours(); got != want {
+			t.Errorf("Hours(%d) = %q, want %q", minutes, got, want)
+		}
 	}
 }
 
