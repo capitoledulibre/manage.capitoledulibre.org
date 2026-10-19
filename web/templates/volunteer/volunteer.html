@@ -1,0 +1,65 @@
+{{define "content"}}
+{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$v := $d.V}}{{$p := $v.Person}}{{$base := printf "/volunteers/%s/edition" $e.Slug}}
+<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="{{$base}}/volunteers">← {{t $l "vol.coord.volunteers"}}</a></nav>
+
+{{/* One volunteer of the edition, as the coordination needs them: who
+     they are, where they are expected, what they answered and what
+     happened to them. */}}
+<div class="mb-6 flex flex-wrap items-center gap-4">
+  {{template "person_avatar" $p}}
+  <div class="flex-1">
+    <h1 class="text-2xl font-bold tracking-tight">{{$p.Label}}</h1>
+    <p class="mt-1 text-sm text-gray-600"><a class="link" href="mailto:{{$p.Email}}">{{$p.Email}}</a>{{with $p.Phone}} · <a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</p>
+  </div>
+</div>
+
+<div class="mb-8 grid gap-4 sm:grid-cols-3">
+  <div class="card !p-4"><p class="text-xs text-gray-500">{{t $l "vol.coord.stat_poles"}}</p><p class="text-sm font-medium">{{range $i, $n := $v.Poles}}{{if $i}}, {{end}}{{$n}}{{end}}</p></div>
+  <div class="card !p-4"><p class="text-xs text-gray-500">{{t $l "vol.manage.col_slots"}}</p><p class="text-2xl font-bold">{{$v.SlotCount}}</p></div>
+  <div class="card !p-4"><p class="text-xs text-gray-500">{{t $l "vol.coord.col_hours"}}</p><p class="text-2xl font-bold">{{if $v.Minutes}}{{$v.Hours}}{{else}}—{{end}}</p></div>
+</div>
+
+<div class="grid gap-8 lg:grid-cols-3">
+  <div class="space-y-8 lg:col-span-2">
+    <section>
+      <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.person.slots"}}</h2>
+      {{with $d.Slots}}<div class="space-y-2">{{range .}}{{template "slot_row" (dict "Lang" $l "Slot" . "ShowDay" true)}}{{end}}</div>
+      {{else}}<p class="text-sm text-gray-600">{{t $l "vol.person.no_slot"}}</p>{{end}}
+    </section>
+    {{with $d.Waiting}}
+    <section>
+      <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.waitlist.title"}}</h2>
+      <div class="space-y-2">{{range .}}{{template "slot_row" (dict "Lang" $l "Slot" . "ShowDay" true "Badge" (t $l "vol.waitlist.badge"))}}{{end}}</div>
+    </section>
+    {{end}}
+    <section>
+      <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.coord.tab_history"}}</h2>
+      {{template "vol_log" (dict "Lang" $l "Entries" $d.History)}}
+    </section>
+  </div>
+  <div class="space-y-6">
+    {{with $d.Details}}
+    <section class="card">
+      <h2 class="card-title">{{t $l "vol.details.title"}}</h2>
+      {{if .Answered}}
+      <dl class="space-y-2 text-sm">
+        {{if $e.TshirtSizeList}}<div><dt class="text-gray-500">{{t $l "vol.details.tshirt"}}</dt><dd>{{or .Tshirt (t $l "vol.details.no_tshirt")}}</dd></div>{{end}}
+        {{if $e.MealList}}<div><dt class="text-gray-500">{{t $l "vol.details.meals"}}</dt><dd>{{range $i, $m := .Meals}}{{if $i}}, {{end}}{{$m}}{{else}}{{t $l "vol.details.no_meal"}}{{end}}</dd></div>{{end}}
+        {{with .Dietary}}<div><dt class="text-gray-500">{{t $l "vol.logi.dietary"}}</dt><dd>{{.}}</dd></div>{{end}}
+      </dl>
+      {{if .Outdated $e}}<p class="help mt-3">{{t $l "vol.logi.outdated_help"}}</p>{{end}}
+      {{else}}<p class="text-sm text-gray-600">{{t $l "vol.person.not_answered"}}</p>{{end}}
+    </section>
+    {{end}}
+    <section class="card">
+      <h2 class="card-title">{{t $l "vol.coord.add_to_pole"}}</h2>
+      <form method="post" action="{{$base}}/volunteers/{{$p.UID}}/join" class="flex flex-wrap gap-2">
+        <input type="hidden" name="back" value="{{$base}}/volunteers/{{$p.UID}}">
+        <label for="vp-pole" class="sr-only">{{t $l "vol.coord.add_to_pole"}}</label>
+        <select id="vp-pole" class="input w-auto" name="pole" required><option value="" disabled selected>{{t $l "vol.coord.pick_pole"}}</option>{{range $d.Poles}}{{if not .IsDefault}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}{{end}}</select>
+        <button class="btn btn-sm">{{t $l "vol.manage.add"}}</button>
+      </form>
+    </section>
+  </div>
+</div>
+{{end}}

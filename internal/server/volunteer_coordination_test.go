@@ -237,3 +237,59 @@ func TestLeaveVolunteering(t *testing.T) {
 		t.Fatal("still a volunteer")
 	}
 }
+
+func TestVolunteerPageAndBulk(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	admin := e.adminClient()
+	base := "/volunteers/" + f.event.Slug + "/edition"
+
+	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "0600000000", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, nina.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.morning.ID, nina.ID))
+
+	omar, err := e.st.EnsureVolunteer(ctx, "omar@example.org", "Omar", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, omar.ID))
+
+	// The list links to each person, and filters by pole.
+	_, body := e.get(admin, base+"/volunteers")
+	mustContain(t, body, base+"/volunteers/"+nina.UID, `form="bulk" name="person" value="`+omar.UID+`"`)
+
+	_, body = e.get(admin, base+"/volunteers?pole="+f.accueil.Slug)
+	if strings.Contains(body, "nina@example.org") {
+		t.Error("the pole filter keeps someone not in it")
+	}
+
+	// A person's page: slots, hours, history.
+	_, body = e.get(admin, base+"/volunteers/"+nina.UID)
+	mustContain(t, body, "Nina", "06 00 00 00 00", "Buvette", "2 h", f.morning.URL())
+
+	if code, _ := e.get(admin, base+"/volunteers/"+e.mustPersonUID("nobody@example.org")); code != http.StatusNotFound {
+		t.Errorf("someone not in the edition: %d", code)
+	}
+
+	// Both added to a pole at once.
+	_, body = e.post(admin, base+"/volunteers/join", url.Values{"pole": {f.accueil.Slug}, "person": {nina.UID, omar.UID}})
+	mustContain(t, body, "2 personnes ajoutées au pôle")
+
+	for _, p := range []*store.Person{nina, omar} {
+		if ok, _ := e.st.IsPoleMember(ctx, f.accueil.ID, p.ID); !ok {
+			t.Errorf("%s not added", p.Email)
+		}
+	}
+
+	_, body = e.get(admin, base+"/volunteers/"+nina.UID)
+	mustContain(t, body, "Accueil")
+}
+
+func (e *env) mustPersonUID(email string) string {
+	e.t.Helper()
+
+	p, err := e.st.EnsureVolunteer(context.Background(), email, "", "", "fr")
+	mustOK(e.t, err)
+
+	return p.UID
+}

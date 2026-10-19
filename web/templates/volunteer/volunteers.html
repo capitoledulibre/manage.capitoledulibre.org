@@ -8,10 +8,20 @@
 
 {{/* The ones to write to before the event: on no slot yet. */}}
 <div class="mb-6 flex flex-wrap items-center gap-3">
+  {{$pq := ""}}{{with $d.InPole}}{{$pq = printf "pole=%s" .Slug}}{{end}}
   <nav class="flex gap-2 text-sm" aria-label="{{t $l "vol.coord.filter"}}">
-    <a href="{{$base}}/volunteers" class="filter {{if not $d.OnlyIdle}}filter-on{{end}}" {{if not $d.OnlyIdle}}aria-current="true"{{end}}>{{t $l "vol.coord.all_volunteers"}}</a>
-    <a href="{{$base}}/volunteers?filter=idle" class="filter {{if $d.OnlyIdle}}filter-on{{end}}" {{if $d.OnlyIdle}}aria-current="true"{{end}}>{{tn $l "vol.coord.idle" $d.Idle}}</a>
+    <a href="{{$base}}/volunteers{{with $pq}}?{{.}}{{end}}" class="filter {{if not $d.OnlyIdle}}filter-on{{end}}" {{if not $d.OnlyIdle}}aria-current="true"{{end}}>{{t $l "vol.coord.all_volunteers"}}</a>
+    <a href="{{$base}}/volunteers?filter=idle{{with $pq}}&amp;{{.}}{{end}}" class="filter {{if $d.OnlyIdle}}filter-on{{end}}" {{if $d.OnlyIdle}}aria-current="true"{{end}}>{{tn $l "vol.coord.idle" $d.Idle}}</a>
   </nav>
+  <form method="get" action="{{$base}}/volunteers" class="flex items-center gap-2 text-sm">
+    {{if $d.OnlyIdle}}<input type="hidden" name="filter" value="idle">{{end}}
+    <label for="vf-pole" class="sr-only">{{t $l "vol.coord.col_pole"}}</label>
+    <select id="vf-pole" class="input w-auto" name="pole" data-autosubmit>
+      <option value="">{{t $l "vol.coord.every_pole"}}</option>
+      {{range $d.Poles}}<option value="{{.Slug}}" {{if and $d.InPole (eq .ID $d.InPole.ID)}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    <noscript><button class="btn-secondary btn-sm">{{t $l "dashboard.show"}}</button></noscript>
+  </form>
   {{if and $d.Idle $d.Open}}
   <form method="post" action="{{$base}}/remind" data-confirm="{{tn $l "vol.coord.remind_idle_confirm" $d.Idle}}">
     <input type="hidden" name="audience" value="idle">
@@ -36,6 +46,14 @@
 </details>
 
 {{if $d.Volunteers}}
+{{/* The boxes of the rows belong to this form (form="bulk"): each row
+     keeps its own menu, and forms cannot nest. */}}
+<form id="bulk" method="post" action="{{$base}}/volunteers/join" class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-surface p-3 text-sm ring-1 ring-gray-200">
+  <span class="text-gray-700">{{t $l "vol.coord.bulk"}}</span>
+  <label for="bulk-pole" class="sr-only">{{t $l "vol.coord.add_to_pole"}}</label>
+  <select id="bulk-pole" class="input w-auto" name="pole" required><option value="" disabled selected>{{t $l "vol.coord.pick_pole"}}</option>{{range $d.Poles}}{{if not .IsDefault}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}{{end}}</select>
+  <button class="btn btn-sm">{{t $l "vol.coord.bulk_add"}}</button>
+</form>
 <div class="mb-3 flex flex-wrap items-center gap-3">
   <label for="vol-filter" class="sr-only">{{t $l "vol.coord.filter"}}</label>
   <input id="vol-filter" class="input max-w-xs" type="search" placeholder="{{t $l "vol.coord.filter"}}" autocomplete="off"
@@ -44,11 +62,12 @@
 </div>
 <div class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{t $l "vol.coord.volunteers"}}">
 <table class="table" id="volunteers-table">
-  <thead><tr><th>{{t $l "vol.manage.col_name"}}</th><th>{{t $l "login.email"}}</th><th>{{t $l "vol.profile.phone"}}</th><th>{{t $l "vol.coord.stat_poles"}}</th><th>{{t $l "vol.manage.col_slots"}}</th><th>{{t $l "vol.coord.col_hours"}}</th><th><span class="sr-only">{{t $l "vol.manage.col_actions"}}</span></th></tr></thead>
+  <thead><tr><th><span class="sr-only">{{t $l "vol.coord.bulk_pick"}}</span></th><th>{{t $l "vol.manage.col_name"}}</th><th>{{t $l "login.email"}}</th><th>{{t $l "vol.profile.phone"}}</th><th>{{t $l "vol.coord.stat_poles"}}</th><th>{{t $l "vol.manage.col_slots"}}</th><th>{{t $l "vol.coord.col_hours"}}</th><th><span class="sr-only">{{t $l "vol.manage.col_actions"}}</span></th></tr></thead>
   <tbody>
   {{range $d.Volunteers}}
   <tr>
-    <td><span class="inline-flex items-center gap-2">{{template "person_avatar" .Person}}{{.Person.Label}}</span></td>
+    <td><input type="checkbox" form="bulk" name="person" value="{{.Person.UID}}" class="h-4 w-4 accent-brand-600" aria-label="{{t $l "vol.coord.bulk_pick"}} {{.Person.Label}}"></td>
+    <td><a class="link inline-flex items-center gap-2" href="{{$base}}/volunteers/{{.Person.UID}}">{{template "person_avatar" .Person}}{{.Person.Label}}</a></td>
     <td><a class="link" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
     <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
     <td class="text-xs">{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</td>

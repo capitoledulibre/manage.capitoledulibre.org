@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -43,6 +44,8 @@ func (s *Server) coordinationRoutes(mux *http.ServeMux) {
 	c("GET "+base+"/logistics.csv", s.coordinationLogisticsCSV)
 	c("POST "+base+"/remind", s.coordinationRemind)
 	c("POST "+base+"/volunteers", s.coordinationVolunteerAdd)
+	c("POST "+base+"/volunteers/join", s.coordinationVolunteersJoin)
+	c("GET "+base+"/volunteers/{person}", s.coordinationVolunteer)
 	c("POST "+base+"/volunteers/{person}/join", s.coordinationVolunteerJoin)
 }
 
@@ -575,9 +578,30 @@ func (s *Server) coordinationVolunteers(w http.ResponseWriter, r *http.Request) 
 		shown = idle
 	}
 
+	// One pole's volunteers, which both filters combine with.
+	var inPole *store.Pole
+
+	for _, p := range poles {
+		if p.Slug == r.URL.Query().Get("pole") {
+			inPole = p
+		}
+	}
+
+	if inPole != nil {
+		var kept []*store.EventVolunteer
+
+		for _, v := range shown {
+			if slices.Contains(v.Poles, inPole.Name) {
+				kept = append(kept, v)
+			}
+		}
+
+		shown = kept
+	}
+
 	p := s.page(r, "vol.coord.volunteers")
 	p.D = map[string]any{"Event": e, "Volunteers": shown, "Total": len(volunteers), "Idle": len(idle), "OnlyIdle": onlyIdle,
-		"Open": !e.SignupsLocked(nil, time.Now()), "Poles": poles}
+		"Open": !e.SignupsLocked(nil, time.Now()), "Poles": poles, "InPole": inPole}
 
 	return s.render(w, r, "volunteer/volunteers", p)
 }
@@ -690,6 +714,112 @@ func (s *Server) coordinationVolunteerJoin(w http.ResponseWriter, r *http.Reques
 
 	s.logVol(r, logPole(store.LogMemberAdded, pole, who))
 	s.flash(w, "flash.vol.member_joined", who.Label(), pole.Name)
+	http.Redirect(w, r, safeRedirect(r.FormValue("back"), "/volunteers/"+e.Slug+"/edition/volunteers"), http.StatusSeeOther)
+
+	return nil
+}
+
+// coordinationVolunteer is one volunteer of the edition, as the
+// coordination needs them: their poles, slots and waiting list, their
+// logistics answers and what happened to them.
+func (s *Server) coordinationVolunteer(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	e, err := s.coordinationEvent(r)
+	if err != nil {
+		return err
+	}
+
+	who, err := s.pathPerson(r)
+	if err != nil {
+		return err
+	}
+
+	volunteers, err := s.store.ListEventVolunteers(ctx, e.ID)
+	if err != nil {
+		return err
+	}
+
+	var v *store.EventVolunteer
+
+	for _, x := range volunteers {
+		if x.Person.ID == who.ID {
+			v = x
+		}
+	}
+
+	if v == nil {
+		return errNotFound
+	}
+
+	slots, err := s.store.ListPersonSlots(ctx, e.ID, who.ID)
+	if err != nil {
+		return err
+	}
+
+	waiting, err := s.store.ListPersonWaitlist(ctx, e.ID, who.ID)
+	if err != nil {
+		return err
+	}
+
+	history, err := s.store.ListPersonEventLog(ctx, e.ID, who.ID)
+	if err != nil {
+		return err
+	}
+
+	poles, err := s.store.ListPoles(ctx, e.ID)
+	if err != nil {
+		return err
+	}
+
+	var details *store.VolunteerDetails
+
+	if e.AsksVolunteers() {
+		if details, err = s.store.GetVolunteerDetails(ctx, e.ID, who.ID); err != nil {
+			return err
+		}
+	}
+
+	p := s.page(r, "vol.coord.volunteers")
+	p.TitleText = who.Label()
+	p.D = map[string]any{"Event": e, "V": v, "Slots": slots, "Waiting": waiting, "History": history, "Poles": poles, "Details": details}
+
+	return s.render(w, r, "volunteer/volunteer", p)
+}
+
+// coordinationVolunteersJoin adds the volunteers ticked in the list to a
+// pole at once.
+func (s *Server) coordinationVolunteersJoin(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	e, err := s.coordinationEvent(r)
+	if err != nil {
+		return err
+	}
+
+	pole, err := s.store.GetPoleBySlug(ctx, e.ID, r.FormValue("pole"))
+	if err != nil {
+		return err
+	}
+
+	added := 0
+
+	for _, uid := range r.Form["person"] {
+		who, err := s.store.GetPersonByUID(ctx, uid)
+		if err != nil {
+			return err
+		}
+
+		if err := s.store.JoinPole(ctx, pole.ID, who.ID); err != nil {
+			return err
+		}
+
+		s.logVol(r, logPole(store.LogMemberAdded, pole, who))
+
+		added++
+	}
+
+	s.flashCount(w, "flash.vol.members_joined", added, pole.Name)
 	http.Redirect(w, r, "/volunteers/"+e.Slug+"/edition/volunteers", http.StatusSeeOther)
 
 	return nil

@@ -133,6 +133,12 @@ func (s *Store) ListEventLog(ctx context.Context, eventID int64) ([]*LogEntry, e
 	return s.queryLog(ctx, `l.event_id = ?`, eventID)
 }
 
+// ListPersonEventLog returns the latest entries of an edition about a
+// person or by them.
+func (s *Store) ListPersonEventLog(ctx context.Context, eventID, personID int64) ([]*LogEntry, error) {
+	return s.queryLog(ctx, `l.event_id = ?1 AND (l.subject_id = ?2 OR l.actor_id = ?2)`, eventID, personID)
+}
+
 // ListPersonLog returns the latest entries about a person or by them, all
 // editions.
 func (s *Store) ListPersonLog(ctx context.Context, personID int64) ([]*LogEntry, error) {
