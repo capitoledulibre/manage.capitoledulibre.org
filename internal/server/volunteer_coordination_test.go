@@ -93,6 +93,11 @@ func TestCoordination(t *testing.T) {
 		t.Fatalf("copy into an edition not coordinated: %d", code)
 	}
 
+	// No e-mail about an edition volunteers cannot see.
+	if code, _ := e.post(e.adminClient(), "/volunteers/"+f.draft.Slug+"/edition/messages", url.Values{"body": {"Hello"}, "notify": {"1"}}); code != http.StatusBadRequest {
+		t.Errorf("e-mail about a draft edition: %d", code)
+	}
+
 	// Edition-wide message, e-mailed to every volunteer.
 	_, body = e.post(coco, base+"/messages", url.Values{"body": {"Briefing vendredi 18 h."}, "notify": {"1"}})
 	mustContain(t, body, "Message publié et envoyé à")

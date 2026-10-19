@@ -526,6 +526,12 @@ func (s *Server) managePoleMessage(w http.ResponseWriter, r *http.Request) error
 		return s.redirectTab(w, r, v.Pole, "messages")
 	}
 
+	// No e-mail about an edition volunteers cannot see: a draft, or last
+	// year's archived one.
+	if r.FormValue("notify") == "1" && !v.Event.VisibleToVolunteers() {
+		return errBadInput
+	}
+
 	if err := s.store.CreateMessage(ctx, &store.Message{EventID: v.Event.ID, PoleID: v.Pole.ID, Body: body}, rc(r).Person.ID); err != nil {
 		return err
 	}
@@ -567,6 +573,13 @@ func (s *Server) manageSlotMessage(w http.ResponseWriter, r *http.Request) error
 	}
 
 	body := strings.TrimSpace(r.FormValue("body"))
+
+	// No e-mail about an edition volunteers cannot see: a draft, or last
+	// year's archived one.
+	if r.FormValue("notify") == "1" && !v.Event.VisibleToVolunteers() {
+		return errBadInput
+	}
+
 	if body != "" {
 		if err := s.store.CreateMessage(ctx, &store.Message{EventID: v.Event.ID, PoleID: v.Pole.ID, SlotID: sl.ID, Body: body}, rc(r).Person.ID); err != nil {
 			return err

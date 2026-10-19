@@ -78,6 +78,13 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 		d["Members"], d["Coordinator"] = members, coordinator
 		d["CanAddMembers"] = coordinator || v.Pole.ManagersCanAdd()
 		d["InviteURL"] = s.cfg.BaseURL + v.Pole.URL() + "/join?key=" + url.QueryEscape(v.Pole.AccessKey)
+	case "messages":
+		members, err := s.store.ListPoleMembers(ctx, v.Pole.ID)
+		if err != nil {
+			return err
+		}
+
+		d["Recipients"] = len(members)
 	case "settings":
 		coordinator, err := s.coordinates(r, v.Event.ID)
 		if err != nil {

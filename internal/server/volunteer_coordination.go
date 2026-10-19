@@ -480,6 +480,12 @@ func (s *Server) coordinationMessage(w http.ResponseWriter, r *http.Request) err
 		return s.redirectCoordination(w, r, e, "messages")
 	}
 
+	// No e-mail about an edition volunteers cannot see: a draft, or last
+	// year's archived one.
+	if r.FormValue("notify") == "1" && !e.VisibleToVolunteers() {
+		return errBadInput
+	}
+
 	if err := s.store.CreateMessage(ctx, &store.Message{EventID: e.ID, Body: body}, rc(r).Person.ID); err != nil {
 		return err
 	}

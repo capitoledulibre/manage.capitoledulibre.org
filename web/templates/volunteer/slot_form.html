@@ -121,10 +121,10 @@
 
 <section id="messages" class="mt-10 max-w-2xl">
   <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.slot_form.messages"}}</h2>
-  <form method="post" action="{{$s.ManageURL}}/messages" class="card mb-4 space-y-3">
+  <form method="post" action="{{$s.ManageURL}}/messages" class="card mb-4 space-y-3" data-confirm="{{tn $l "vol.message.confirm" (len $d.Volunteers)}}" data-confirm-if="[name=notify]:checked">
     <label for="slot-msg" class="sr-only">{{t $l "vol.slot_form.messages"}}</label>
     <textarea id="slot-msg" class="input" name="body" rows="2" placeholder="{{t $l "vol.slot_form.message_placeholder"}}" required></textarea>
-    <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="notify" value="1" class="h-4 w-4 accent-brand-600"> {{t $l "vol.slot_form.message_notify"}}</label>
+    {{if $d.V.Event.VisibleToVolunteers}}<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="notify" value="1" class="h-4 w-4 accent-brand-600"> {{tn $l "vol.slot_form.message_notify" (len $d.Volunteers)}}</label>{{else}}<p class="help">{{t $l "vol.message.no_mail"}}</p>{{end}}
     <div><button class="btn-secondary btn-sm">{{t $l "vol.manage.publish"}}</button></div>
   </form>
   {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages "Manage" $pole.ManageURL "Back" (printf "%s#messages" $s.ManageURL))}}

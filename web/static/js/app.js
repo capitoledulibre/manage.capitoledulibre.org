@@ -1,5 +1,7 @@
 // Confirmation before submitting forms marked with data-confirm, using the
 // HTML <dialog> of the layout instead of the browser's window.confirm().
+// With data-confirm-if (a selector), only when the form has a match, such as
+// a ticked "also send an e-mail" box.
 // The dialog is styled like the rest of the page (themes, language) and turns
 // red when the form contains a destructive (.btn-danger) button.
 (() => {
@@ -14,6 +16,7 @@
   document.addEventListener("submit", (event) => {
     const form = event.target;
     if (!form.dataset.confirm || form.dataset.confirmed === "yes") return;
+    if (form.dataset.confirmIf && !form.querySelector(form.dataset.confirmIf)) return;
 
     event.preventDefault();
     pending = { form, submitter: event.submitter };

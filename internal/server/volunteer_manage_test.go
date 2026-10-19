@@ -158,7 +158,10 @@ func TestPoleManagement(t *testing.T) {
 		t.Fatalf("task not deleted: %d", len(tasks))
 	}
 
-	// Messages, e-mailed to the members.
+	// Messages, e-mailed to the members once confirmed.
+	_, body = e.get(lead, f.buvette.URL()+"?tab=messages")
+	mustContain(t, body, `data-confirm-if="[name=notify]:checked"`, "Prévenir aussi par e-mail les bénévoles du pôle (")
+
 	_, body = e.post(lead, manage+"/messages", url.Values{"body": {"Rendez-vous au bar à 8 h 45."}, "notify": {"1"}})
 	mustContain(t, body, "Message publié et envoyé à")
 	e.mailed("omar@example.org", "Rendez-vous au bar à 8 h 45.", "Message")

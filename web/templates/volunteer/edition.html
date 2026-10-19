@@ -92,10 +92,10 @@
 
 {{else if eq $d.Tab "messages"}}
 <p class="help mb-4">{{t $l "vol.coord.messages_help"}}</p>
-<form method="post" action="{{$base}}/messages" class="card mb-6 max-w-2xl space-y-3">
+<form method="post" action="{{$base}}/messages" class="card mb-6 max-w-2xl space-y-3" data-confirm="{{tn $l "vol.message.confirm" $d.Stats.Volunteers}}" data-confirm-if="[name=notify]:checked">
   <label for="ev-msg" class="label">{{t $l "vol.manage.message_label"}}</label>
   <textarea id="ev-msg" class="input" name="body" rows="3" required placeholder="{{t $l "vol.coord.message_placeholder"}}"></textarea>
-  <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="notify" value="1" class="h-4 w-4 accent-brand-600"> {{t $l "vol.coord.message_notify"}}</label>
+  {{if $e.VisibleToVolunteers}}<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="notify" value="1" class="h-4 w-4 accent-brand-600"> {{tn $l "vol.coord.message_notify" $d.Stats.Volunteers}}</label>{{else}}<p class="help">{{t $l "vol.message.no_mail"}}</p>{{end}}
   <div><button class="btn">{{t $l "vol.manage.publish"}}</button></div>
 </form>
 {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages "Manage" $base "Back" (printf "%s?tab=messages" $base))}}
