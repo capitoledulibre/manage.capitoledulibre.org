@@ -176,7 +176,7 @@ func TestAccessControl(t *testing.T) {
 
 	t.Run("the last manager cannot be removed", func(t *testing.T) {
 		_, body := e.post(bob, "/partners/managers/"+f.bob.UID+"/delete", nil)
-		mustContain(t, body, "dernier manager")
+		mustContain(t, body, "dernier contact")
 	})
 
 	t.Run("prospect logos are not public", func(t *testing.T) {
@@ -454,7 +454,7 @@ func TestAdminManagers(t *testing.T) {
 
 	// A duplicate email within the organization is refused.
 	_, body = e.post(admin, path, url.Values{"name": {"Alice"}, "email": {"carol@acme.test"}})
-	mustContain(t, body, "déjà manager")
+	mustContain(t, body, "déjà contact")
 
 	// Changing the email moves the contact to the person who owns the new
 	// address: the old one keeps their login, not the organization.
@@ -795,7 +795,7 @@ func TestPartnerFileNavigation(t *testing.T) {
 		`href="/admin/organizations/`+f.acme.Slug+`"`, "Voir l'édition 2025 comme le partenaire", `name="event" value="ec-2025"`)
 
 	_, body = e.get(admin, "/admin/organizations/"+f.acme.Slug)
-	mustContain(t, body, ">Partenaires</a>", "Voir comme le partenaire", "Managers")
+	mustContain(t, body, ">Partenaires</a>", "Voir comme le partenaire", "Contacts")
 
 	// The active menu section follows the page.
 	for path, want := range map[string]string{

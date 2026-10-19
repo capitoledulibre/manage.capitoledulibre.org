@@ -285,7 +285,7 @@ func TestRequestBodiesAreBounded(t *testing.T) {
 
 	// The address after the file was never reached: the form is refused as
 	// if it had none.
-	mustContain(t, string(page), "Adresse email invalide.")
+	mustContain(t, string(page), "Adresse e-mail invalide.")
 }
 
 func TestCalendarFeedIsSealed(t *testing.T) {

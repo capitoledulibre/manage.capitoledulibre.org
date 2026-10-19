@@ -75,7 +75,7 @@
             <input class="input sm:col-span-2" name="planned_at" type="date" value="{{inputDate .PlannedAt}}" aria-label="Date prévue">
             <input class="input sm:col-span-3" name="url" value="{{.URL}}" placeholder="Lien une fois publié" aria-label="Lien">
             <input class="input sm:col-span-6" name="note" value="{{.Note}}" placeholder="Note (ex. annonce sponsor Or)" aria-label="Note">
-            <label class="flex items-center gap-2 text-xs sm:col-span-4">{{if not .Published}}<input type="checkbox" name="notify" checked> Prévenir les managers quand le lien est ajouté{{else}}<span class="badge bg-green-100 text-green-800">publié</span>{{end}}</label>
+            <label class="flex items-center gap-2 text-xs sm:col-span-4">{{if not .Published}}<input type="checkbox" name="notify" checked> Prévenir les contacts quand le lien est ajouté{{else}}<span class="badge bg-green-100 text-green-800">publié</span>{{end}}</label>
             <button class="btn-secondary btn-sm sm:col-span-2">Enregistrer</button>
           </form>
           <form method="post" action="{{$base}}/posts/{{.UID}}/delete" class="mt-2 text-right" data-confirm="Supprimer ce post ?"><button class="btn-danger btn-sm">Supprimer</button></form>
@@ -87,7 +87,7 @@
         <input class="input sm:col-span-2" name="planned_at" type="date" aria-label="Date prévue">
         <input class="input sm:col-span-3" name="url" placeholder="Lien (si déjà publié)" aria-label="Lien">
         <input class="input sm:col-span-6" name="note" placeholder="Note" aria-label="Note">
-        <label class="flex items-center gap-2 text-xs sm:col-span-4"><input type="checkbox" name="notify" checked> Prévenir les managers si le lien est renseigné</label>
+        <label class="flex items-center gap-2 text-xs sm:col-span-4"><input type="checkbox" name="notify" checked> Prévenir les contacts si le lien est renseigné</label>
         <button class="btn btn-sm sm:col-span-2">Planifier un post</button>
       </form>
     </section>
@@ -97,7 +97,7 @@
       {{if .D.Attendees}}
       <div class="mb-4 overflow-x-auto">
         <table class="table">
-          <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Régime</th><th></th></tr></thead>
+          <thead><tr><th>Nom</th><th>E-mail</th><th>Rôle</th><th>Régime</th><th></th></tr></thead>
           <tbody>
             {{range .D.Attendees}}
             <tr>

@@ -44,7 +44,7 @@
 
   <div class="space-y-6">
     <section class="card">
-      <h2 class="card-title">Managers</h2>
+      <h2 class="card-title">Contacts</h2>
       <ul class="mb-4 divide-y divide-gray-100">
         {{range .D.Managers}}
         <li class="py-3 text-sm">
@@ -62,13 +62,13 @@
               <input class="input" name="name" value="{{.Name}}" placeholder="Nom" aria-label="Nom">
               <input class="input" name="email" type="email" required value="{{.Email}}" aria-label="Email">
               {{template "lang_picker" (dict "Name" "lang" "Selected" $lang "Label" "Langue des emails")}}
-              <p class="help">Changer l'email déconnecte ce manager.</p>
+              <p class="help">Changer l'e-mail déconnecte ce contact.</p>
               <button class="btn-secondary btn-sm">Enregistrer</button>
             </form>
           </details>
         </li>
         {{else}}
-        <li class="py-3 text-sm text-gray-500">Aucun manager.</li>
+        <li class="py-3 text-sm text-gray-500">Aucun contact.</li>
         {{end}}
       </ul>
       <form method="post" action="/admin/organizations/{{$o.Slug}}/managers" class="space-y-2">

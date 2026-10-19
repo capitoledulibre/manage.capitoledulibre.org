@@ -56,7 +56,7 @@ func TestPlanning(t *testing.T) {
 	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, omar.ID))
 
 	_, body = e.hx(omarC, f.overlap.URL()+"/signup", url.Values{"back": {planning + "?day=all"}})
-	mustContain(t, body, "Omar", `aria-label="Inscrits"`)
+	mustContain(t, body, "Omar", `aria-label="Inscrit·es"`)
 
 	// Views: mine, to fill.
 	_, body = e.get(omarC, planning+"?view=mine&day=all")
