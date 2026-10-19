@@ -94,7 +94,7 @@
 <details class="mt-10">
   <summary class="cursor-pointer text-sm text-gray-500">{{t $l "vol.pole.leave_title"}}</summary>
   <p class="help">{{if $d.Mine}}{{tn $l "vol.pole.leave_help_mine" $d.Mine}}{{else}}{{t $l "vol.pole.leave_help"}}{{end}}</p>
-  <form method="post" action="{{$pole.URL}}/leave" class="mt-2" data-confirm="{{t $l "vol.pole.leave_confirm"}}"><button class="btn-danger">{{t $l "vol.pole.leave"}}</button></form>
+  <form method="post" action="{{$pole.URL}}/leave" class="mt-2" data-confirm="{{if $d.Mine}}{{t $l "vol.pole.leave_confirm"}}{{else}}{{t $l "vol.pole.leave_confirm_none"}}{{end}}"><button class="btn-danger">{{t $l "vol.pole.leave"}}</button></form>
 </details>
 {{end}}
 

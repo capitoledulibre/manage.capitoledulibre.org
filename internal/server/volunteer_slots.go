@@ -485,6 +485,15 @@ func (s *Server) respondSlot(w http.ResponseWriter, r *http.Request, card *slotC
 	lang := rc(r).Lang
 
 	if isHX(r) {
+		// On the slot's own page, its people, places and tasks change
+		// along with the card: reload it, with the outcome as its flash.
+		if card.Compact && errKey == "" && doneKey != "" {
+			s.flash(w, doneKey, args...)
+			w.Header().Set("HX-Redirect", card.Back)
+
+			return nil
+		}
+
 		switch {
 		case errKey != "":
 			card.Error = i18n.T(lang, errKey, anys(args)...)
@@ -644,11 +653,22 @@ func (s *Server) slotWaitlistJoin(w http.ResponseWriter, r *http.Request) error 
 
 	card := s.slotCard(r, v, sl, false)
 
+	// As a sign-up does, waiting for a slot of a public pole joins it.
+	autoJoin := !v.Member && v.Pole.IsOpen()
+
 	switch {
-	case !v.Member:
+	case !v.Member && !autoJoin:
 		return s.respondSlot(w, r, card, "vol.err.join_first", "")
 	case v.Locked:
 		return s.respondSlot(w, r, card, "vol.err.locked", "")
+	}
+
+	if autoJoin {
+		if err := s.store.JoinPole(r.Context(), v.Pole.ID, rc(r).Person.ID); err != nil {
+			return err
+		}
+
+		s.logVol(r, logPole(store.LogJoined, v.Pole, rc(r).Person))
 	}
 
 	if err := s.store.JoinWaitlist(r.Context(), sl.ID, rc(r).Person.ID); err != nil {
@@ -656,6 +676,14 @@ func (s *Server) slotWaitlistJoin(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	s.logVol(r, logSlot(store.LogWaitlist, v.Pole, sl, rc(r).Person))
+
+	// Joining changes the whole page, as for a sign-up.
+	if autoJoin && isHX(r) {
+		s.flash(w, "vol.done.waitlist")
+		w.Header().Set("HX-Redirect", card.Back)
+
+		return nil
+	}
 
 	card.Waiting = true
 

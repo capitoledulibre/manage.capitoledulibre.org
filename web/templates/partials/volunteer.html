@@ -207,7 +207,6 @@
       {{else if slotOver .Slot}}<span class="text-xs text-gray-500">{{t $l "vol.slot.over"}}</span>
       {{/* A public pole needs no separate join step: signing up joins it. */}}
       {{else if and (not .Member) (not .Pole.IsOpen)}}<span class="text-xs text-gray-500">{{t $l "vol.slot.invitation_only"}}</span>
-      {{else if and (not .Member) .Slot.IsFull}}<span class="badge bg-gray-100 text-gray-700">{{t $l "vol.slot.full"}}</span>
       {{else if .Slot.IsFull}}
         {{/* A full slot used to be a dead end: the waiting list turns the
              moment someone is motivated into a filled hole later. */}}

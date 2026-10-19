@@ -78,7 +78,7 @@ func (s *Server) requireVolunteer(h handlerFunc) handlerFunc {
 		}
 
 		if c.Person == nil {
-			to := "/volunteers/login?next=" + url.QueryEscape(r.URL.RequestURI())
+			to := "/volunteers/login?next=" + url.QueryEscape(loginNext(r))
 			if isHX(r) {
 				w.Header().Set("HX-Redirect", to)
 				w.WriteHeader(http.StatusUnauthorized)
@@ -96,6 +96,26 @@ func (s *Server) requireVolunteer(h handlerFunc) handlerFunc {
 }
 
 func isHX(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
+
+// loginNext is where to come back after logging in: the page asked for, or,
+// for a form sent once the session had expired, the page it was sent from,
+// since its action only takes a POST.
+func loginNext(r *http.Request) string {
+	if r.Method == http.MethodGet {
+		return r.URL.RequestURI()
+	}
+
+	from := r.Header.Get("HX-Current-URL")
+	if from == "" {
+		from = r.Referer()
+	}
+
+	if u, err := url.Parse(from); err == nil && (u.Host == "" || u.Host == r.Host) {
+		return safeRedirect(u.RequestURI(), "/volunteers/")
+	}
+
+	return "/volunteers/"
+}
 
 // --- rights ---------------------------------------------------------------
 

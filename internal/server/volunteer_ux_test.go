@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -165,4 +166,48 @@ func TestDayOfEventNavigation(t *testing.T) {
 
 	_, body = e.get(nina, planning)
 	mustContain(t, body, "Un empêchement", f.morning.URL()+"#contacts")
+}
+
+func TestWaitlistJoinsOpenPoleAndExpiredSession(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+
+	// Nina fills the one place of the morning slot.
+	p, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, p.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.morning.ID, p.ID))
+
+	// Omar, not in the public pole yet, may wait for it: that joins him.
+	omar := e.loginAs("omar@example.org")
+	omarP, _ := e.st.PersonByEmail(ctx, "omar@example.org")
+
+	_, body := e.get(omar, f.buvette.URL())
+	mustContain(t, body, "Me prévenir si une place se libère")
+
+	e.post(omar, f.morning.URL()+"/waitlist", url.Values{"back": {f.buvette.URL()}})
+
+	if ok, _ := e.st.IsPoleMember(ctx, f.buvette.ID, omarP.ID); !ok {
+		t.Error("waiting for a slot of a public pole does not join it")
+	}
+
+	if ok, _ := e.st.OnWaitlist(ctx, f.morning.ID, omarP.ID); !ok {
+		t.Error("not on the waiting list")
+	}
+
+	// A form sent once logged out comes back to its page, not its action.
+	req, _ := http.NewRequest(http.MethodPost, e.srv.URL+f.overlap.URL()+"/signup", nil)
+	req.Header.Set("Referer", e.srv.URL+f.buvette.URL()+"?day=all")
+
+	c := e.client()
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+
+	resp, err := c.Do(req)
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if loc := resp.Header.Get("Location"); loc != "/volunteers/login?next="+url.QueryEscape(f.buvette.URL()+"?day=all") {
+		t.Errorf("login after an expired session: %q", loc)
+	}
 }

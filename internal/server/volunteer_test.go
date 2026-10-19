@@ -241,11 +241,23 @@ func TestVolunteerSignupFlow(t *testing.T) {
 	_, body = e.hx(omar, f.morning.URL()+"/signup", nil)
 	mustContain(t, body, "Complet", "Me prévenir si une place se libère")
 
-	_, body = e.hx(omar, f.morning.URL()+"/waitlist", nil)
+	_, body = e.hx(omar, f.morning.URL()+"/waitlist", url.Values{"back": {f.buvette.URL()}})
 	mustContain(t, body, "Ne plus attendre", "Vous serez prévenu·e par e-mail")
 
-	// Nina withdraws: Omar is told.
-	_, body = e.hx(nina, f.morning.URL()+"/unsignup", nil)
+	// Nina withdraws from the slot's own page: it reloads, as the people
+	// and places around the card changed too. Omar is told.
+	req, _ = http.NewRequest(http.MethodPost, e.srv.URL+f.morning.URL()+"/unsignup", nil)
+	req.Header.Set("HX-Request", "true")
+
+	resp, err = nina.Do(req)
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if resp.Header.Get("HX-Redirect") != f.morning.URL() {
+		t.Fatalf("htmx unsignup on the slot page: %q", resp.Header.Get("HX-Redirect"))
+	}
+
+	_, body = e.get(nina, f.morning.URL())
 	mustContain(t, body, "Désinscription enregistrée", "Je m&#39;inscris")
 
 	waitFor(t, func() bool {

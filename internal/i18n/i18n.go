@@ -460,6 +460,7 @@ var messages = map[string][2]string{
 	"vol.pole.leave_help_mine.one":   {"Vous serez désinscrit·e de votre créneau dans ce pôle.", "You will be taken off your slot in this team."},
 	"vol.pole.leave_help_mine.other": {"Vous serez désinscrit·e de vos %d créneaux dans ce pôle.", "You will be taken off your %d slots in this team."},
 	"vol.pole.leave_confirm":         {"Quitter ce pôle et annuler vos créneaux\u00a0?", "Leave this team and cancel your slots?"},
+	"vol.pole.leave_confirm_none":    {"Quitter ce pôle\u00a0?", "Leave this team?"},
 	"vol.pole.leave":                 {"Quitter le pôle", "Leave the team"},
 
 	"vol.join.title":   {"Rejoindre un pôle", "Join a team"},
