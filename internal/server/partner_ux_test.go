@@ -39,7 +39,7 @@ func TestPartnerTodosSayWhatIsMissing(t *testing.T) {
 	mustOK(t, e.st.UpdateOrganization(ctx, org))
 
 	_, body := e.get(alice, "/partners/")
-	mustContain(t, body, "Manque : Code postal")
+	mustContain(t, body, "Manque\u00a0: Code postal", ">Envoyer le logo<", `role="progressbar"`, `aria-current="page"`, "À faire\u00a0:")
 
 	_, body = e.get(alice, "/partners/organization")
 	mustContain(t, body, "pour la facture", `autocomplete="postal-code"`)

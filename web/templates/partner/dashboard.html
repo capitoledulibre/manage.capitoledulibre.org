@@ -12,10 +12,11 @@
     {{if gt (len $pc.Editions) 1}}
     <form method="get" action="/partners/" class="flex items-center gap-2">
       <label class="text-sm text-gray-600" for="event">{{t $l "dashboard.edition"}}</label>
-      <select class="input w-auto" id="event" name="event">
+      <select class="input w-auto" id="event" name="event" data-autosubmit>
         {{range $pc.Editions}}<option value="{{.Slug}}" {{if eq .ID $pc.Event.ID}}selected{{end}}>{{.Name}}</option>{{end}}
       </select>
-      <button class="btn-secondary btn-sm">OK</button>
+      {{/* The list submits on change; the button stays for no script. */}}
+      <noscript><button class="btn-secondary btn-sm">{{t $l "dashboard.show"}}</button></noscript>
     </form>
     {{end}}
   </div>
@@ -44,12 +45,12 @@
     {{range $pr.Steps}}
     <li class="flex items-start gap-2">
       {{if .Done}}
-        <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500 text-xs text-white">✓</span>
+        <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500 text-xs text-white" aria-hidden="true">✓</span>
       {{else}}
-        <span class="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-gray-300"></span>
+        <span class="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-gray-300" aria-hidden="true"></span>
       {{end}}
       <span class="text-sm {{if .Done}}text-gray-900{{else}}text-gray-500{{end}}">
-        {{t $l .Key}}
+        <span class="sr-only">{{if .Done}}{{t $l "a11y.done"}}{{else}}{{t $l "a11y.todo"}}{{end}} </span>{{t $l .Key}}
         <span class="block text-xs text-gray-400">{{if .Staff}}{{t $l "step.by_staff"}}{{else}}{{t $l "step.by_you"}}{{end}}</span>
       </span>
     </li>
@@ -73,7 +74,7 @@
             {{/* Signing happens off the site: say how to send it back. */}}
             {{if eq .Key "todo.sign_quote"}}{{with or (and $.D.Contact $.D.Contact.Email) $.Site.ContactEmail}}<span class="mt-0.5 block text-xs text-gray-600">{{t $l "todo.sign_quote_how" .}}</span>{{end}}{{end}}
           </span>
-          {{if .Link}}<a class="btn-secondary btn-sm" href="{{.Link}}">{{t $l "dashboard.do_it"}}</a>{{end}}
+          {{if .Link}}<a class="btn-secondary btn-sm" href="{{.Link}}">{{t $l (printf "%s_go" .Key)}}</a>{{end}}
         </li>
         {{end}}
       </ul>

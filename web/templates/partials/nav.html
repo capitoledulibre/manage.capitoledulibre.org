@@ -1,18 +1,18 @@
 {{define "partner_nav"}}
   {{$p := .Path}}
-  <a class="nav-link {{if eq $p "/partners/"}}nav-link-active{{end}}" href="/partners/{{.EventQuery}}">{{t .Lang "nav.dashboard"}}</a>
-  <a class="nav-link {{if eq $p "/partners/organization"}}nav-link-active{{end}}" href="/partners/organization">{{t .Lang "nav.organization"}}</a>
-  <a class="nav-link {{if eq $p "/partners/logo"}}nav-link-active{{end}}" href="/partners/logo">{{t .Lang "nav.logo"}}</a>
-  <a class="nav-link {{if eq $p "/partners/attendees"}}nav-link-active{{end}}" href="/partners/attendees{{.EventQuery}}">{{t .Lang "nav.attendees"}}</a>
-  <a class="nav-link {{if eq $p "/partners/jobs"}}nav-link-active{{end}}" href="/partners/jobs">{{t .Lang "nav.jobs"}}</a>
-  <a class="nav-link {{if eq $p "/partners/managers"}}nav-link-active{{end}}" href="/partners/managers">{{t .Lang "nav.managers"}}</a>
+  <a class="nav-link {{if eq $p "/partners/"}}nav-link-active{{end}}" {{if eq $p "/partners/"}}aria-current="page"{{end}} href="/partners/{{.EventQuery}}">{{t .Lang "nav.dashboard"}}</a>
+  <a class="nav-link {{if eq $p "/partners/organization"}}nav-link-active{{end}}" {{if eq $p "/partners/organization"}}aria-current="page"{{end}} href="/partners/organization">{{t .Lang "nav.organization"}}</a>
+  <a class="nav-link {{if eq $p "/partners/logo"}}nav-link-active{{end}}" {{if eq $p "/partners/logo"}}aria-current="page"{{end}} href="/partners/logo">{{t .Lang "nav.logo"}}</a>
+  <a class="nav-link {{if eq $p "/partners/attendees"}}nav-link-active{{end}}" {{if eq $p "/partners/attendees"}}aria-current="page"{{end}} href="/partners/attendees{{.EventQuery}}">{{t .Lang "nav.attendees"}}</a>
+  <a class="nav-link {{if eq $p "/partners/jobs"}}nav-link-active{{end}}" {{if eq $p "/partners/jobs"}}aria-current="page"{{end}} href="/partners/jobs">{{t .Lang "nav.jobs"}}</a>
+  <a class="nav-link {{if eq $p "/partners/managers"}}nav-link-active{{end}}" {{if eq $p "/partners/managers"}}aria-current="page"{{end}} href="/partners/managers">{{t .Lang "nav.managers"}}</a>
 {{end}}
 
 {{define "volunteer_nav"}}
   {{with .Vol.Event}}
   {{$p := $.Path}}{{$base := printf "/volunteers/%s" .Slug}}
-  <a class="nav-link {{if eq $p $base}}nav-link-active{{end}}" href="{{$base}}">{{t $.Lang "vol.nav.poles"}}</a>
-  <a class="nav-link {{if eq $p (printf "%s/planning" $base)}}nav-link-active{{end}}" href="{{$base}}/planning">{{t $.Lang "vol.nav.planning"}}</a>
+  <a class="nav-link {{if eq $p $base}}nav-link-active{{end}}" {{if eq $p $base}}aria-current="page"{{end}} href="{{$base}}">{{t $.Lang "vol.nav.poles"}}</a>
+  <a class="nav-link {{if eq $p (printf "%s/planning" $base)}}nav-link-active{{end}}" {{if eq $p (printf "%s/planning" $base)}}aria-current="page"{{end}} href="{{$base}}/planning">{{t $.Lang "vol.nav.planning"}}</a>
   {{if $.Vol.Coordinator}}<a class="nav-link {{if hasPrefix $p (printf "%s/edition" $base)}}nav-link-active{{end}}" href="{{$base}}/edition">{{t $.Lang "vol.nav.coordination"}}</a>{{end}}
   {{end}}
 {{end}}
@@ -41,11 +41,11 @@
 {{end}}
 
 {{define "admin_nav"}}
-  <a class="nav-link {{if eq .Nav "pipeline"}}nav-link-active{{end}}" href="/admin/">Pipeline</a>
+  <a class="nav-link {{if eq .Nav "pipeline"}}nav-link-active{{end}}" {{if eq .Nav "pipeline"}}aria-current="page"{{end}} href="/admin/">Pipeline</a>
   <a class="nav-link" href="/admin/volunteers">Bénévoles</a>
-  <a class="nav-link {{if eq .Nav "partners"}}nav-link-active{{end}}" href="/admin/organizations">Partenaires</a>
-  <a class="nav-link {{if eq .Nav "people"}}nav-link-active{{end}}" href="/admin/people">Personnes</a>
-  <a class="nav-link {{if eq .Nav "editions"}}nav-link-active{{end}}" href="/admin/events">Éditions</a>
+  <a class="nav-link {{if eq .Nav "partners"}}nav-link-active{{end}}" {{if eq .Nav "partners"}}aria-current="page"{{end}} href="/admin/organizations">Partenaires</a>
+  <a class="nav-link {{if eq .Nav "people"}}nav-link-active{{end}}" {{if eq .Nav "people"}}aria-current="page"{{end}} href="/admin/people">Personnes</a>
+  <a class="nav-link {{if eq .Nav "editions"}}nav-link-active{{end}}" {{if eq .Nav "editions"}}aria-current="page"{{end}} href="/admin/events">Éditions</a>
   <a class="nav-link" href="/jobs">Jobs publics</a>
 {{end}}
 
@@ -60,7 +60,9 @@
 </nav>
 {{end}}
 
-{{define "status_dot"}}<span class="h-2 w-2 shrink-0 rounded-full {{if eq . "confirmed"}}bg-green-500{{else if eq . "negotiating"}}bg-amber-500{{else if eq . "contacted"}}bg-blue-500{{else if eq . "declined"}}bg-red-500{{else}}bg-gray-400{{end}}" aria-hidden="true"></span>{{end}}
+{{/* status_dot is a partnership status as a coloured dot, named for
+     screen readers (staff side, in French). */}}
+{{define "status_dot"}}<span class="h-2 w-2 shrink-0 rounded-full {{if eq . "confirmed"}}bg-green-500{{else if eq . "negotiating"}}bg-amber-500{{else if eq . "contacted"}}bg-blue-500{{else if eq . "declined"}}bg-red-500{{else}}bg-gray-400{{end}}" aria-hidden="true"></span><span class="sr-only">{{if eq . "confirmed"}}Confirmé{{else if eq . "negotiating"}}En négociation{{else if eq . "contacted"}}Contacté{{else if eq . "declined"}}Décliné{{else}}Prospect{{end}} :</span>{{end}}
 
 {{/* fiche_header is the shared header of a partner file: breadcrumb, name,
      badges, actions and tabs (one per edition, plus "Organisation"). */}}
@@ -341,10 +343,10 @@
 {{define "doc_check"}}
   <li class="flex items-center gap-2 text-xs">
     {{if .Done}}
-      <span class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-500 text-[10px] text-white">✓</span>
-      <span class="text-gray-900">{{.Label}}{{with .Date}} · {{date $.Lang .}}{{end}}</span>
+      <span class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-500 text-[10px] text-white" aria-hidden="true">✓</span>
+      <span class="text-gray-900"><span class="sr-only">{{t $.Lang "a11y.done"}} </span>{{.Label}}{{with .Date}} · {{date $.Lang .}}{{end}}</span>
     {{else}}
-      <span class="h-4 w-4 shrink-0 rounded-full border-2 border-gray-300"></span>
+      <span class="h-4 w-4 shrink-0 rounded-full border-2 border-gray-300" aria-hidden="true"></span>
       <span class="text-gray-500">{{.Label}} · {{t .Lang "doc.awaiting"}}</span>
     {{end}}
   </li>
@@ -361,7 +363,7 @@
 {{define "price"}}{{if .P.Set}}{{money .P.Amount}} {{t .Lang (printf "tax.%s" .P.Tax)}}{{end}}{{end}}
 
 {{define "progress_bar"}}
-  <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+  <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Percent}}">
     <div class="h-2 rounded-full {{if .Ready}}bg-green-500{{else}}bg-brand-500{{end}}" style="width: {{.Percent}}%"></div>
   </div>
 {{end}}
