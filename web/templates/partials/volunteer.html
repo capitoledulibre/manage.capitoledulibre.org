@@ -107,11 +107,12 @@
      members table out of band. */}}
 {{define "member_added"}}
 {{template "member_search" .}}
-{{template "members_table" (dict "Lang" .Lang "Pole" .Pole "Members" .Members "OOB" true)}}
+{{template "members_table" (dict "Lang" .Lang "Pole" .Pole "Members" .Members "Slots" .Slots "OOB" true)}}
 {{end}}
 
 {{/* members_table lists the members of a pole. Expects Lang, Pole,
-     Members and OOB (out-of-band swap). */}}
+     Members, Slots (those still to come, to put a member on) and OOB
+     (out-of-band swap). */}}
 {{define "members_table"}}
 {{$l := .Lang}}
 <div id="members-table" {{if .OOB}}hx-swap-oob="true"{{end}} class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{t $l "vol.manage.tab_members"}}">
@@ -124,8 +125,22 @@
     <td><a class="link" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
     <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
     <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0<span class="sr-only"> · {{t $l "vol.manage.no_slot"}}</span></span>{{else}}{{.SlotCount}}{{end}}</td>
-    <td class="text-right">{{if not $.Pole.IsDefault}}
-      <form method="post" action="{{$.Pole.ManageURL}}/members/{{.Person.UID}}/delete" data-confirm="{{if .SlotCount}}{{tn $l "vol.manage.remove_confirm_slots" .SlotCount .Person.Label}}{{else}}{{t $l "vol.manage.remove_confirm" .Person.Label}}{{end}}">
+    <td class="whitespace-nowrap text-right">
+      {{$uid := .Person.UID}}{{with $.Slots}}{{$m := $.Pole.ManageURL}}
+      <details class="relative inline-block text-left" data-menu>
+        <summary class="btn-secondary btn-sm list-none">{{t $l "vol.manage.signup_on"}}</summary>
+        <form method="post" action="{{$m}}/members/{{$uid}}/signup" class="mt-2 ml-auto w-72 space-y-2 rounded-lg bg-surface p-3 shadow-lg ring-1 ring-gray-200">
+          <label for="ms-{{$uid}}" class="sr-only">{{t $l "vol.manage.signup_on"}}</label>
+          <select id="ms-{{$uid}}" class="input" name="slot" required>
+            <option value="" disabled selected>{{t $l "vol.manage.pick_slot"}}</option>
+            {{range .}}<option value="{{.UID}}">{{dayName $l .StartsAt}} {{clock .StartsAt}}–{{clock .EndsAt}}{{with .Title}} · {{.}}{{end}} ({{.Filled}}/{{.Capacity}})</option>{{end}}
+          </select>
+          <button class="btn btn-sm">{{t $l "vol.manage.signup_submit"}}</button>
+        </form>
+      </details>
+      {{end}}
+      {{if not $.Pole.IsDefault}}
+      <form method="post" action="{{$.Pole.ManageURL}}/members/{{.Person.UID}}/delete" class="inline-block" data-confirm="{{if .SlotCount}}{{tn $l "vol.manage.remove_confirm_slots" .SlotCount .Person.Label}}{{else}}{{t $l "vol.manage.remove_confirm" .Person.Label}}{{end}}">
         <button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button>
       </form>{{end}}</td>
   </tr>

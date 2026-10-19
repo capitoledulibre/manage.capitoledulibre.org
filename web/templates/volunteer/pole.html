@@ -155,7 +155,7 @@
   </section>
 
   <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.manage.members" (len $d.Members)}}</h2>
-  {{template "members_table" (dict "Lang" $l "Pole" $pole "Members" $d.Members)}}
+  {{template "members_table" (dict "Lang" $l "Pole" $pole "Members" $d.Members "Slots" $d.Slots)}}
 
 {{else if eq $d.Tab "messages"}}
   <p class="help mb-4">{{t $l "vol.manage.messages_help"}}</p>

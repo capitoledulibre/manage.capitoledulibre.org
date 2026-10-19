@@ -33,6 +33,7 @@ func (s *Server) poleManageRoutes(mux *http.ServeMux) {
 	m("GET "+base+"/people", s.managePeopleSearch)
 	m("POST "+base+"/members", s.manageMemberAdd)
 	m("POST "+base+"/members/{person}/delete", s.manageMemberRemove)
+	m("POST "+base+"/members/{person}/signup", s.manageMemberSignup)
 	m("POST "+base+"/managers", s.manageManagerAdd)
 	m("POST "+base+"/managers/{person}/delete", s.manageManagerRemove)
 	m("POST "+base+"/locations", s.manageLocationAdd)
@@ -318,6 +319,10 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		if d["Members"], err = s.store.ListPoleMembers(ctx, v.Pole.ID); err != nil {
+			return err
+		}
+
+		if d["Slots"], err = s.upcomingPoleSlots(r, v.Pole.ID); err != nil {
 			return err
 		}
 
@@ -1186,8 +1191,22 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	// What else they do at that time, as a volunteer signing up is told;
-	// the lead decides, so it only warns.
+	if err := s.signUpByLead(w, r, v, sl, who); err != nil {
+		return err
+	}
+
+	http.Redirect(w, r, sl.ManageURL()+"#volunteers", http.StatusSeeOther)
+
+	return nil
+}
+
+// signUpByLead puts a member of the pole on a slot, even a full one, tells
+// them by e-mail, and says so to the lead: with the other slot they are
+// already on at that time, if any, as a volunteer signing up is told; the
+// lead decides, so it only warns.
+func (s *Server) signUpByLead(w http.ResponseWriter, r *http.Request, v *poleView, sl *store.Slot, who *store.Person) error {
+	ctx := r.Context()
+
 	overlaps, err := s.store.OverlappingSlots(ctx, who.ID, v.Pole.ID, sl.ID, sl.StartsAt, sl.EndsAt)
 	if err != nil {
 		return err
@@ -1210,9 +1229,64 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 	} else {
 		s.flash(w, "flash.vol.volunteer_added", who.Label(), v.Pole.Name)
 	}
-	http.Redirect(w, r, sl.ManageURL()+"#volunteers", http.StatusSeeOther)
 
 	return nil
+}
+
+// upcomingPoleSlots are the slots of a pole still to come, the ones a
+// member can be put on.
+func (s *Server) upcomingPoleSlots(r *http.Request, poleID int64) ([]*store.Slot, error) {
+	all, err := s.store.ListSlots(r.Context(), poleID, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []*store.Slot
+
+	for _, sl := range all {
+		if sl.EndsAt.After(time.Now()) {
+			out = append(out, sl)
+		}
+	}
+
+	return out, nil
+}
+
+// manageMemberSignup puts a member on a slot of the pole from the members
+// list: filling the gaps of those on no slot took a trip to each slot.
+func (s *Server) manageMemberSignup(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	v, err := s.managedPole(r)
+	if err != nil {
+		return err
+	}
+
+	who, err := s.pathPerson(r)
+	if err != nil {
+		return err
+	}
+
+	if member, err := s.store.IsPoleMember(ctx, v.Pole.ID, who.ID); err != nil {
+		return err
+	} else if !member {
+		return errNotFound
+	}
+
+	sl, err := s.store.GetSlotByUID(ctx, v.Event.ID, r.FormValue("slot"), 0)
+	if err != nil {
+		return err
+	}
+
+	if sl.PoleID != v.Pole.ID {
+		return errNotFound
+	}
+
+	if err := s.signUpByLead(w, r, v, sl, who); err != nil {
+		return err
+	}
+
+	return s.redirectTab(w, r, v.Pole, "members")
 }
 
 func (s *Server) manageSlotRemoveVolunteer(w http.ResponseWriter, r *http.Request) error {

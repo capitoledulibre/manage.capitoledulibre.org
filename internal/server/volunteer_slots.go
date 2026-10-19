@@ -75,7 +75,12 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		d["Members"], d["Coordinator"] = members, coordinator
+		slots, err := s.upcomingPoleSlots(r, v.Pole.ID)
+		if err != nil {
+			return err
+		}
+
+		d["Members"], d["Coordinator"], d["Slots"] = members, coordinator, slots
 		d["CanAddMembers"] = coordinator || v.Pole.ManagersCanAdd()
 		d["InviteURL"] = s.cfg.BaseURL + v.Pole.URL() + "/join?key=" + url.QueryEscape(v.Pole.AccessKey)
 	case "messages":

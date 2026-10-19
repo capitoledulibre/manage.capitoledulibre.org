@@ -284,3 +284,40 @@ func TestPoleManagement(t *testing.T) {
 		}
 	}
 }
+
+func TestSignUpFromMembers(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	lead := e.loginAs(f.leadEmail)
+
+	omar, err := e.st.EnsureVolunteer(ctx, "omar@example.org", "Omar", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, omar.ID))
+
+	past := time.Now().Add(-5 * time.Hour)
+	over := &store.Slot{PoleID: f.buvette.ID, StartsAt: past, EndsAt: past.Add(2 * time.Hour), Capacity: 2}
+	mustOK(t, e.st.CreateSlot(ctx, over))
+
+	// The members list offers the slots still to come, not the past one.
+	_, body := e.get(lead, f.buvette.URL()+"?tab=members")
+	mustContain(t, body, "Inscrire sur…", `/members/`+omar.UID+`/signup`, `<option value="`+f.morning.UID+`">`)
+
+	if strings.Contains(body, `<option value="`+over.UID+`">`) {
+		t.Error("a slot over is offered")
+	}
+
+	_, body = e.post(lead, f.buvette.ManageURL()+"/members/"+omar.UID+"/signup", url.Values{"slot": {f.morning.UID}})
+	mustContain(t, body, "Omar a été inscrit·e sur le créneau")
+	e.mailed("omar@example.org", "Vous êtes inscrit·e")
+
+	if on, _ := e.st.IsSignedUp(ctx, f.morning.ID, omar.ID); !on {
+		t.Error("not signed up")
+	}
+
+	// Only members, and only slots of the pole.
+	stranger, _ := e.st.EnsureVolunteer(ctx, "x@example.org", "X", "", "fr")
+	if code, _ := e.post(lead, f.buvette.ManageURL()+"/members/"+stranger.UID+"/signup", url.Values{"slot": {f.morning.UID}}); code != http.StatusNotFound {
+		t.Errorf("non-member: %d", code)
+	}
+}

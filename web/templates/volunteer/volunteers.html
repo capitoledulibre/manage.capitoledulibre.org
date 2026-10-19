@@ -78,7 +78,7 @@
     <td class="text-right">
       <details class="relative inline-block text-left" data-menu>
         <summary class="btn-secondary btn-sm list-none">{{t $l "vol.coord.add_to_pole"}}</summary>
-        <form method="post" action="{{$base}}/volunteers/{{.Person.UID}}/join" class="absolute right-0 z-20 mt-2 w-64 space-y-2 rounded-lg bg-surface p-3 shadow-lg ring-1 ring-gray-200">
+        <form method="post" action="{{$base}}/volunteers/{{.Person.UID}}/join" class="mt-2 ml-auto w-64 space-y-2 rounded-lg bg-surface p-3 shadow-lg ring-1 ring-gray-200">
           <label for="vp-{{.Person.UID}}" class="sr-only">{{t $l "vol.coord.add_to_pole"}}</label>
           <select id="vp-{{.Person.UID}}" class="input" name="pole" required><option value="" disabled selected>{{t $l "vol.coord.pick_pole"}}</option>{{range $d.Poles}}{{if not .IsDefault}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}{{end}}</select>
           <button class="btn btn-sm">{{t $l "vol.manage.add"}}</button>
