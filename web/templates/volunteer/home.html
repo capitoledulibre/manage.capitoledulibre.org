@@ -108,6 +108,7 @@
   </div>
   {{with $d.Upcoming}}
   <div class="space-y-2">{{range .}}{{template "slot_row" (dict "Lang" $l "Slot" . "ShowDay" true)}}{{end}}</div>
+  <p class="mt-2 text-sm"><a class="link" href="/volunteers/{{$e.Slug}}/planning?view=mine&amp;calendar=1#calendar">{{t $l "vol.home.add_calendar"}}</a></p>
   {{else}}{{if not $d.Focus}}
   <p class="text-sm text-gray-600">{{t $l "vol.home.no_upcoming"}} <a class="link" href="/volunteers/{{$e.Slug}}/planning?view=open">{{t $l "vol.home.open_link"}}</a></p>
   {{else}}

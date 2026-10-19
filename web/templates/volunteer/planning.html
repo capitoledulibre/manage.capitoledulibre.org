@@ -52,10 +52,12 @@
   {{template "waiting_list" (dict "Lang" $l "Slots" $d.Waiting)}}
   {{/* A downloaded file goes stale as soon as a manager moves a slot; the
        subscription keeps the volunteer's calendar right on its own. */}}
-  <details class="card mt-8">
+  <details id="calendar" class="card mt-8" {{if $d.OpenCalendar}}open{{end}}>
     <summary class="cursor-pointer font-semibold">{{t $l "vol.me.calendar_title"}} <span class="font-normal text-gray-500">— {{t $l "vol.me.calendar_sub"}}</span></summary>
     <p class="help mt-3">{{t $l "vol.me.calendar_help"}}</p>
-    <div class="mt-3 flex gap-2">
+    <a class="btn mt-3" href="{{$d.WebcalURL}}">{{t $l "vol.me.calendar_subscribe"}}</a>
+    <p class="help mt-3">{{t $l "vol.me.calendar_or_copy"}}</p>
+    <div class="mt-2 flex gap-2">
       <label for="calendar-url" class="sr-only">{{t $l "vol.me.calendar_label"}}</label>
       <input id="calendar-url" class="input font-mono text-xs" type="text" readonly value="{{$d.CalendarURL}}" data-select-on-focus>
       <button type="button" class="btn-secondary btn-sm shrink-0" data-copy="#calendar-url" data-copied="{{t $l "vol.copied"}}">{{t $l "vol.copy"}}</button>

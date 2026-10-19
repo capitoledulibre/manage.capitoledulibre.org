@@ -164,6 +164,13 @@ func TestDayOfEventNavigation(t *testing.T) {
 	_, body = e.get(nina, planning)
 	mustContain(t, body, `aria-current="page">Mes créneaux`)
 
+	// Her calendar: one tap from the home page.
+	_, body = e.get(nina, "/volunteers/"+f.event.Slug)
+	mustContain(t, body, "Ajouter mes créneaux à mon agenda")
+
+	_, body = e.get(nina, planning+"?view=mine&calendar=1")
+	mustContain(t, body, `id="calendar" class="card mt-8" open`, `href="webcal://`)
+
 	// The lead still sees everyone's.
 	_, body = e.get(e.loginAs(f.leadEmail), planning)
 	mustContain(t, body, `aria-current="page">Tout`)

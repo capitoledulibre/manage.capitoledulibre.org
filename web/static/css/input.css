@@ -92,7 +92,7 @@
     @apply mb-1 block text-sm font-medium text-gray-700;
   }
   .help {
-    @apply mt-1 text-xs text-gray-500;
+    @apply mt-1 text-xs text-gray-600;
   }
   .card {
     @apply rounded-lg bg-surface p-6 shadow-sm ring-1 ring-gray-200;

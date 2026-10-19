@@ -2,10 +2,12 @@ package server
 
 import (
 	"encoding/csv"
+	"html/template"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"manage/internal/store"
@@ -341,7 +343,13 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		data["Waiting"] = upcoming
-		data["CalendarURL"] = s.cfg.BaseURL + "/calendar/" + token + ".ics"
+		cal := s.cfg.BaseURL + "/calendar/" + token + ".ics"
+		_, host, _ := strings.Cut(cal, "://")
+		// webcal:// opens the calendar app's subscription in one tap on a
+		// phone, where copying a link is a chore. html/template only lets
+		// http(s) and mailto through: this one is ours.
+		data["CalendarURL"], data["WebcalURL"] = cal, template.URL("webcal://"+host)
+		data["OpenCalendar"] = query.Get("calendar") == "1"
 	}
 
 	p := s.page(r, "vol.planning.title")
