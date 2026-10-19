@@ -348,7 +348,8 @@ func (s *Server) eventHome(w http.ResponseWriter, r *http.Request) error {
 	p := s.page(r, "vol.home.title")
 	p.D = map[string]any{
 		"Event": e, "Poles": cards, "Messages": messages, "MySlots": mine, "Upcoming": upcoming, "Details": details,
-		"Joined": len(members) > 0, "Waiting": waiting, "PrevEvent": prev, "Returning": returning,
+		"DetailsOpen": e.DetailsOpen(time.Now()),
+		"Joined":      len(members) > 0, "Waiting": waiting, "PrevEvent": prev, "Returning": returning,
 		"Coordinator": coordinator, "FirstName": firstName(person.Name, person.Email), "Focus": focus,
 	}
 

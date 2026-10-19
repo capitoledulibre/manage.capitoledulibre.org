@@ -109,3 +109,49 @@ func TestLogisticsAndReminders(t *testing.T) {
 		t.Error("answers kept after the purge")
 	}
 }
+
+func TestLogisticsClosed(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	admin := e.adminClient()
+	edition := "/volunteers/" + f.event.Slug + "/edition"
+	home := "/volunteers/" + f.event.Slug
+
+	p, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, p.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.morning.ID, p.ID))
+
+	nina := e.loginAs("nina@example.org")
+
+	// An edition that asks nothing takes no answer and no reminder.
+	if code, _ := e.post(nina, home+"/details", url.Values{"tshirt": {""}}); code != http.StatusForbidden {
+		t.Errorf("answer to an edition asking nothing: %d", code)
+	}
+
+	if code, _ := e.post(admin, edition+"/remind", url.Values{"audience": {"details"}}); code != http.StatusBadRequest {
+		t.Errorf("reminder for an edition asking nothing: %d", code)
+	}
+
+	// Once frozen, the answers show but no longer change, and nobody is
+	// reminded.
+	e.post(admin, edition+"/settings", url.Values{"status": {store.VolunteersOpen}, "tshirt_sizes": {"S\nM"}})
+	e.post(nina, home+"/details", url.Values{"tshirt": {"M"}})
+	e.post(admin, edition+"/settings", url.Values{"status": {store.VolunteersFrozen}, "tshirt_sizes": {"S\nM\nL"}})
+
+	if code, _ := e.post(nina, home+"/details", url.Values{"tshirt": {"S"}}); code != http.StatusBadRequest {
+		t.Errorf("answer to a frozen edition: %d", code)
+	}
+
+	_, body := e.get(nina, home)
+	mustContain(t, body, "Les inscriptions sont closes", "<fieldset class=\"space-y-4\" disabled>", `<option value="M" selected>`)
+
+	if code, _ := e.post(admin, edition+"/remind", url.Values{"audience": {"details"}}); code != http.StatusBadRequest {
+		t.Errorf("reminder for a frozen edition: %d", code)
+	}
+
+	if d, _ := e.st.GetVolunteerDetails(ctx, f.event.ID, p.ID); d.Tshirt != "M" {
+		t.Errorf("answer changed after the freeze: %+v", d)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"manage/internal/i18n"
 	"manage/internal/store"
@@ -36,6 +37,10 @@ func (s *Server) volunteerDetailsSave(w http.ResponseWriter, r *http.Request) er
 
 	if len(members) == 0 || !e.AsksVolunteers() {
 		return errForbidden
+	}
+
+	if !e.DetailsOpen(time.Now()) {
+		return errBadInput
 	}
 
 	d := &store.VolunteerDetails{EventID: e.ID, PersonID: person.ID, Dietary: strings.TrimSpace(r.FormValue("dietary"))}
@@ -77,6 +82,8 @@ type logisticsLine struct {
 // logistics is what the edition's logistics tab shows: for the volunteers
 // on at least one slot, the people the t-shirts and meals are for.
 type logistics struct {
+	// Open is true while volunteers can still answer.
+	Open       bool
 	Lines      []*logisticsLine
 	Unanswered []*logisticsLine
 	Sizes      []countOf
@@ -103,7 +110,7 @@ func (s *Server) logistics(r *http.Request, e *store.Event) (*logistics, error) 
 		return nil, err
 	}
 
-	l := &logistics{}
+	l := &logistics{Open: e.DetailsOpen(time.Now())}
 	sizes := map[string]int{}
 	meals := map[string]int{}
 
@@ -223,6 +230,10 @@ func (s *Server) coordinationRemind(w http.ResponseWriter, r *http.Request) erro
 			}
 		}
 	case "details":
+		if !e.DetailsOpen(time.Now()) {
+			return errBadInput
+		}
+
 		l, err := s.logistics(r, e)
 		if err != nil {
 			return err

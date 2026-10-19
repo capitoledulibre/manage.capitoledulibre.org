@@ -6,6 +6,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"time"
 )
 
 // lines splits a list typed one item per line, without the blank lines and
@@ -34,6 +35,13 @@ func (e *Event) MealList() []string { return lines(e.Meals) }
 // AsksVolunteers tells whether the edition asks its volunteers anything for
 // the logistics.
 func (e *Event) AsksVolunteers() bool { return e.TshirtSizes != "" || e.Meals != "" }
+
+// DetailsOpen tells whether volunteers can still answer: the edition asks
+// something and its sign-ups are not closed. Past that, the t-shirts and
+// meals are ordered.
+func (e *Event) DetailsOpen(now time.Time) bool {
+	return e.AsksVolunteers() && !e.SignupsLocked(nil, now)
+}
 
 // VolunteerDetails is what a volunteer answers for an edition.
 type VolunteerDetails struct {

@@ -47,12 +47,13 @@
 {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages)}}
 
 {{/* The t-shirt and the meals: asked of every volunteer of the edition,
-     outlined until answered. */}}
-{{with $d.Details}}
-<section id="details" class="card mb-8 {{if not .Answered}}ring-2 ring-brand-600{{end}}" aria-labelledby="details-title">
+     outlined until answered. Once sign-ups close, the answers only show. */}}
+{{with $d.Details}}{{if or $d.DetailsOpen .Answered}}
+<section id="details" class="card mb-8 {{if and $d.DetailsOpen (not .Answered)}}ring-2 ring-brand-600{{end}}" aria-labelledby="details-title">
   <h2 id="details-title" class="card-title">{{t $l "vol.details.title"}}</h2>
-  <p class="help mb-4">{{if .Answered}}{{t $l "vol.details.thanks"}}{{else}}{{t $l "vol.details.intro"}}{{end}}</p>
-  <form method="post" action="/volunteers/{{$e.Slug}}/details" class="space-y-4">
+  <p class="help mb-4">{{if not $d.DetailsOpen}}{{t $l "vol.details.closed"}}{{else if .Answered}}{{t $l "vol.details.thanks"}}{{else}}{{t $l "vol.details.intro"}}{{end}}</p>
+  <form method="post" action="/volunteers/{{$e.Slug}}/details">
+  <fieldset class="space-y-4" {{if not $d.DetailsOpen}}disabled{{end}}>
     {{with $e.TshirtSizeList}}
     <div>
       <label class="label" for="d-tshirt">{{t $l "vol.details.tshirt"}}</label>
@@ -76,10 +77,11 @@
       <p class="help">{{t $l "vol.details.dietary_help"}}</p>
     </div>
     {{end}}
-    <button class="btn">{{t $l "vol.save"}}</button>
+    {{if $d.DetailsOpen}}<button class="btn">{{t $l "vol.save"}}</button>{{end}}
+  </fieldset>
   </form>
 </section>
-{{end}}
+{{end}}{{end}}
 
 {{if $d.Returning}}
 <section class="card mb-8">

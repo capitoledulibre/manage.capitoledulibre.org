@@ -108,7 +108,7 @@
 <p class="help mb-4">{{tn $l "vol.logi.intro" (len .Lines)}}</p>
 <div class="mb-6 flex flex-wrap gap-2">
   <a class="btn-secondary btn-sm" href="{{$base}}/logistics.csv">{{t $l "vol.logi.csv"}}</a>
-  {{if .Unanswered}}
+  {{if and .Open .Unanswered}}
   <form method="post" action="{{$base}}/remind" data-confirm="{{tn $l "vol.logi.remind_confirm" (len .Unanswered)}}">
     <input type="hidden" name="audience" value="details">
     <button class="btn btn-sm">{{tn $l "vol.logi.remind" (len .Unanswered)}}</button>
