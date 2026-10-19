@@ -47,40 +47,27 @@
 {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages)}}
 
 {{/* The t-shirt and the meals: asked of every volunteer of the edition,
-     outlined until answered. Once sign-ups close, the answers only show. */}}
+     outlined until answered, then folded to a line so the slots come
+     first. Once sign-ups close, the answers only show. */}}
 {{with $d.Details}}{{if or $d.DetailsOpen .Answered}}
-<section id="details" class="card mb-8 {{if and $d.DetailsOpen (not (.Settled $e))}}ring-2 ring-brand-600{{end}}" aria-labelledby="details-title">
+{{if or (.Settled $e) (not $d.DetailsOpen)}}
+<details id="details" class="card mb-8">
+  <summary class="cursor-pointer text-sm">
+    <strong>{{t $l "vol.details.title"}}</strong>&nbsp;:
+    {{if $e.TshirtSizeList}}{{if .Tshirt}}{{t $l "vol.details.tshirt"}} {{.Tshirt}}{{else}}{{t $l "vol.details.no_tshirt"}}{{end}}{{if $e.MealList}} · {{end}}{{end -}}
+    {{if $e.MealList}}{{with .Meals}}{{range $i, $m := .}}{{if $i}}, {{end}}{{$m}}{{end}}{{else}}{{t $l "vol.details.no_meal"}}{{end}}{{end}}
+    {{if $d.DetailsOpen}}<span class="link ml-1">{{t $l "vol.details.edit"}}</span>{{end}}
+  </summary>
+  <p class="help my-4">{{if $d.DetailsOpen}}{{t $l "vol.details.thanks"}}{{else}}{{t $l "vol.details.closed"}}{{end}}</p>
+  {{template "details_form" $}}
+</details>
+{{else}}
+<section id="details" class="card mb-8 ring-2 ring-brand-600" aria-labelledby="details-title">
   <h2 id="details-title" class="card-title">{{t $l "vol.details.title"}}</h2>
-  <p class="help mb-4">{{if not $d.DetailsOpen}}{{t $l "vol.details.closed"}}{{else if .Settled $e}}{{t $l "vol.details.thanks"}}{{else if .Answered}}{{t $l "vol.details.changed"}}{{else}}{{t $l "vol.details.intro"}}{{end}}</p>
-  <form method="post" action="/volunteers/{{$e.Slug}}/details">
-  <fieldset class="space-y-4" {{if not $d.DetailsOpen}}disabled{{end}}>
-    {{with $e.TshirtSizeList}}
-    <div>
-      <label class="label" for="d-tshirt">{{t $l "vol.details.tshirt"}}</label>
-      <select id="d-tshirt" class="input max-w-xs" name="tshirt">
-        <option value="">{{t $l "vol.details.no_tshirt"}}</option>
-        {{range .}}<option value="{{.}}" {{if eq . $d.Details.Tshirt}}selected{{end}}>{{.}}</option>{{end}}
-      </select>
-    </div>
-    {{end}}
-    {{with $e.MealList}}
-    <fieldset>
-      <legend class="label">{{t $l "vol.details.meals"}}</legend>
-      <div class="flex flex-wrap gap-2">
-        {{range .}}<label class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-200 has-[>input:checked]:bg-brand-50 has-[>input:checked]:ring-brand-600"><input type="checkbox" name="meal" value="{{.}}" class="accent-brand-600" {{if $d.Details.Takes .}}checked{{end}}> {{.}}</label>{{end}}
-      </div>
-      <p class="help mt-1">{{t $l "vol.details.meals_help"}}</p>
-    </fieldset>
-    <div>
-      <label class="label" for="d-dietary">{{t $l "vol.details.dietary"}}</label>
-      <input id="d-dietary" class="input" name="dietary" value="{{$d.Details.Dietary}}" maxlength="300" placeholder="{{t $l "vol.details.dietary_placeholder"}}">
-      <p class="help">{{t $l "vol.details.dietary_help"}}</p>
-    </div>
-    {{end}}
-    {{if $d.DetailsOpen}}<button class="btn">{{t $l "vol.save"}}</button>{{end}}
-  </fieldset>
-  </form>
+  <p class="help mb-4">{{if .Answered}}{{t $l "vol.details.changed"}}{{else}}{{t $l "vol.details.intro"}}{{end}}</p>
+  {{template "details_form" $}}
 </section>
+{{end}}
 {{end}}{{end}}
 
 {{if $d.Returning}}
@@ -180,4 +167,40 @@
   </article>
   {{end}}
 </div>
+{{end}}
+
+{{/* details_form is the t-shirt and meals form of the home page. A size
+     has to be picked, "no t-shirt" included: an empty default recorded
+     whoever only ticked meals as wanting none. */}}
+{{define "details_form"}}
+{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}
+<form method="post" action="/volunteers/{{$e.Slug}}/details">
+<fieldset class="space-y-4" {{if not $d.DetailsOpen}}disabled{{end}}>
+  {{with $e.TshirtSizeList}}
+  <div>
+    <label class="label" for="d-tshirt">{{t $l "vol.details.tshirt"}}</label>
+    <select id="d-tshirt" class="input max-w-xs" name="tshirt" required>
+      <option value="" {{if not (or $d.Details.Tshirt $d.Details.Answered)}}selected{{end}} disabled>{{t $l "vol.details.choose"}}</option>
+      {{range .}}<option value="{{.}}" {{if eq . $d.Details.Tshirt}}selected{{end}}>{{.}}</option>{{end}}
+      <option value="none" {{if and $d.Details.Answered (not $d.Details.Tshirt)}}selected{{end}}>{{t $l "vol.details.no_tshirt"}}</option>
+    </select>
+  </div>
+  {{end}}
+  {{with $e.MealList}}
+  <fieldset>
+    <legend class="label">{{t $l "vol.details.meals"}}</legend>
+    <div class="flex flex-wrap gap-2">
+      {{range .}}<label class="inline-flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-200 has-[>input:checked]:bg-brand-50 has-[>input:checked]:ring-brand-600"><input type="checkbox" name="meal" value="{{.}}" class="accent-brand-600" {{if $d.Details.Takes .}}checked{{end}}> {{.}}</label>{{end}}
+    </div>
+    <p class="help mt-1">{{t $l "vol.details.meals_help"}}</p>
+  </fieldset>
+  <div>
+    <label class="label" for="d-dietary">{{t $l "vol.details.dietary"}}</label>
+    <input id="d-dietary" class="input" name="dietary" value="{{$d.Details.Dietary}}" maxlength="300" placeholder="{{t $l "vol.details.dietary_placeholder"}}">
+    <p class="help">{{t $l "vol.details.dietary_help"}}</p>
+  </div>
+  {{end}}
+  {{if $d.DetailsOpen}}<button class="btn">{{t $l "vol.save"}}</button>{{end}}
+</fieldset>
+</form>
 {{end}}

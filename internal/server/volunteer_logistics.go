@@ -46,9 +46,13 @@ func (s *Server) volunteerDetailsSave(w http.ResponseWriter, r *http.Request) er
 	d := &store.VolunteerDetails{EventID: e.ID, PersonID: person.ID, Dietary: strings.TrimSpace(r.FormValue("dietary")),
 		AskedSizes: e.TshirtSizeList(), AskedMeals: e.MealList()}
 
-	if size := r.FormValue("tshirt"); size == "" || slices.Contains(e.TshirtSizeList(), size) {
+	// A size is picked from the list, or "none"; nothing is only fine when
+	// no size is asked.
+	switch size := r.FormValue("tshirt"); {
+	case size == "none" || size == "" && len(e.TshirtSizeList()) == 0:
+	case slices.Contains(e.TshirtSizeList(), size):
 		d.Tshirt = size
-	} else {
+	default:
 		return errBadInput
 	}
 

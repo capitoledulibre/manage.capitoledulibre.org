@@ -52,7 +52,7 @@ func TestLogisticsAndReminders(t *testing.T) {
 
 	// Nina answers from the home page of the edition.
 	_, body := e.get(nina, home)
-	mustContain(t, body, "Pour l&#39;organisation", "ring-2 ring-brand-600", `<option value="L"`, "Dimanche midi")
+	mustContain(t, body, "Pour l&#39;organisation", "ring-2 ring-brand-600", `<option value="" selected disabled>Choisir…`, `<option value="L"`, "Dimanche midi")
 
 	if code, _ := e.post(nina, home+"/details", url.Values{"tshirt": {"XXXL"}}); code != http.StatusBadRequest {
 		t.Errorf("a size not on offer: %d", code)
@@ -215,7 +215,15 @@ func TestLogisticsChoicesChanged(t *testing.T) {
 
 	// A new size is to be checked by those who took none; a meal named as
 	// a formula does not reach the CSV as one.
-	e.post(nina, home+"/details", url.Values{"tshirt": {""}, "meal": {"Dimanche midi"}})
+	if code, _ := e.post(nina, home+"/details", url.Values{"meal": {"Dimanche midi"}}); code != http.StatusBadRequest {
+		t.Errorf("no size picked: %d", code)
+	}
+
+	e.post(nina, home+"/details", url.Values{"tshirt": {"none"}, "meal": {"Dimanche midi"}})
+
+	_, body = e.get(nina, home)
+	mustContain(t, body, `<details id="details"`, "Pas de t-shirt · Dimanche midi", `<option value="none" selected>`)
+
 	e.post(admin, edition+"/settings", url.Values{"status": {store.VolunteersOpen}, "tshirt_sizes": {"S\nM\nXXL"},
 		"meals": {"Dimanche midi\n=HYPERLINK(\"x\")"}})
 
