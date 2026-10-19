@@ -107,3 +107,41 @@ func TestPipelineFollowupsAndMarks(t *testing.T) {
 	_, body = e.get(admin, "/admin/organizations")
 	mustContain(t, body, `data-filter="#orgs-table"`)
 }
+
+func TestPartnerEditsAttendee(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.fixture(nil)
+	alice := e.loginAs("alice@acme.test")
+
+	e.post(alice, "/partners/attendees", url.Values{"first_name": {"Bob"}, "last_name": {"Martn"}, "role": {"booth"}})
+
+	list, _ := e.st.ListAttendees(ctx, f.acmeP.ID)
+	if len(list) != 1 {
+		t.Fatalf("attendees: %d", len(list))
+	}
+
+	bob := list[0]
+
+	// The level allows one: editing is still possible, prefilled.
+	_, body := e.get(alice, "/partners/attendees")
+	mustContain(t, body, "edit="+bob.UID)
+
+	_, body = e.get(alice, "/partners/attendees?edit="+bob.UID)
+	mustContain(t, body, "Modifier Bob", `action="/partners/attendees/`+bob.UID+`"`, `value="Martn"`)
+
+	_, body = e.post(alice, "/partners/attendees/"+bob.UID, url.Values{"first_name": {"Bob"}, "last_name": {""}})
+	mustContain(t, body, "Modifier Bob")
+
+	e.post(alice, "/partners/attendees/"+bob.UID, url.Values{"first_name": {"Bob"}, "last_name": {"Martin"}, "role": {"visitor"}, "dietary": {"végétarien"}})
+
+	list, _ = e.st.ListAttendees(ctx, f.acmeP.ID)
+	if got := list[0]; got.LastName != "Martin" || got.Role != "visitor" || got.Dietary != "végétarien" {
+		t.Fatalf("not updated: %+v", got)
+	}
+
+	// Someone else's attendee is out of reach.
+	if code, _ := e.post(alice, "/partners/attendees/not-a-uid", url.Values{"first_name": {"X"}, "last_name": {"Y"}}); code != 404 {
+		t.Errorf("unknown attendee: %d", code)
+	}
+}

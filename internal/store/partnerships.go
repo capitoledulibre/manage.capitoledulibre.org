@@ -316,6 +316,24 @@ func (s *Store) AddAttendee(ctx context.Context, a *Attendee) error {
 	return err
 }
 
+// UpdateAttendee saves the fields of an attendee of the partnership,
+// found by UID. ErrNotFound when it is not one of its attendees.
+func (s *Store) UpdateAttendee(ctx context.Context, a *Attendee) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE attendees SET first_name = ?, last_name = ?, email = ?, role = ?, dietary = ?
+		WHERE uid = ? AND partnership_id = ?`, a.FirstName, a.LastName, NormalizeEmail(a.Email), a.Role, a.Dietary, a.UID, a.PartnershipID)
+	if err != nil {
+		return err
+	}
+
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
 func (s *Store) DeleteAttendee(ctx context.Context, partnershipID int64, uid string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM attendees WHERE uid = ? AND partnership_id = ?`, uid, partnershipID)
 

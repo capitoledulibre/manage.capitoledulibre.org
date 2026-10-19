@@ -39,6 +39,7 @@ func (s *Server) partnerRoutes(mux *http.ServeMux) {
 	h("POST /partners/logo", s.partnerLogoSubmit)
 	h("GET /partners/attendees", s.partnerAttendees)
 	h("POST /partners/attendees", s.partnerAttendeeAdd)
+	h("POST /partners/attendees/{attendee}", s.partnerAttendeeUpdate)
 	h("POST /partners/attendees/{attendee}/delete", s.partnerAttendeeDelete)
 	h("GET /partners/jobs", s.partnerJobs)
 	h("GET /partners/jobs/new", s.partnerJobForm)
@@ -605,6 +606,17 @@ func (s *Server) renderAttendees(w http.ResponseWriter, r *http.Request, form ma
 		}
 
 		data["Attendees"] = attendees
+
+		// The one being changed (?edit=), its fields in the form.
+		for _, a := range attendees {
+			if a.UID == r.URL.Query().Get("edit") && form == nil {
+				data["Editing"], data["Form"] = a, map[string]any{"A": a}
+			}
+		}
+
+		if form != nil && form["Editing"] != nil {
+			data["Editing"] = form["Editing"]
+		}
 		data["Locked"] = pc.Event.AttendeesLocked() && !rc(r).Impersonating
 		data["Full"] = pc.Level != nil && pc.Level.MaxAttendees > 0 && len(attendees) >= pc.Level.MaxAttendees
 	}
@@ -631,27 +643,7 @@ func (s *Server) partnerAttendeeAdd(w http.ResponseWriter, r *http.Request) erro
 		return errForbidden
 	}
 
-	a := &store.Attendee{
-		PartnershipID: pc.Partnership.ID,
-		FirstName:     strings.TrimSpace(r.FormValue("first_name")),
-		LastName:      strings.TrimSpace(r.FormValue("last_name")),
-		Email:         strings.TrimSpace(r.FormValue("email")),
-		Role:          r.FormValue("role"),
-		Dietary:       strings.TrimSpace(r.FormValue("dietary")),
-	}
-
-	if a.Role != store.RoleVisitor {
-		a.Role = store.RoleBooth
-	}
-
-	form := map[string]any{"A": a}
-
-	switch {
-	case a.FirstName == "" || a.LastName == "":
-		form["Error"] = "attendees.name_required"
-	case a.Email != "" && !validEmail(store.NormalizeEmail(a.Email)):
-		form["Error"] = "login.invalid_email"
-	}
+	a, form := readAttendee(r, pc.Partnership.ID)
 
 	if pc.Level != nil && pc.Level.MaxAttendees > 0 {
 		n, err := s.store.CountAttendees(ctx, pc.Partnership.ID)
@@ -673,6 +665,70 @@ func (s *Server) partnerAttendeeAdd(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.added", a.FirstName+" "+a.LastName)
+	s.flash(w, "flash.saved")
+	http.Redirect(w, r, "/partners/attendees"+eventQuery(pc), http.StatusSeeOther)
+
+	return nil
+}
+
+// readAttendee reads the attendee form, and the form to show again with an
+// error when it is not valid.
+func readAttendee(r *http.Request, partnershipID int64) (*store.Attendee, map[string]any) {
+	a := &store.Attendee{
+		PartnershipID: partnershipID,
+		FirstName:     strings.TrimSpace(r.FormValue("first_name")),
+		LastName:      strings.TrimSpace(r.FormValue("last_name")),
+		Email:         strings.TrimSpace(r.FormValue("email")),
+		Role:          r.FormValue("role"),
+		Dietary:       strings.TrimSpace(r.FormValue("dietary")),
+	}
+
+	if a.Role != store.RoleVisitor {
+		a.Role = store.RoleBooth
+	}
+
+	form := map[string]any{"A": a}
+
+	switch {
+	case a.FirstName == "" || a.LastName == "":
+		form["Error"] = "attendees.name_required"
+	case a.Email != "" && !validEmail(store.NormalizeEmail(a.Email)):
+		form["Error"] = "login.invalid_email"
+	}
+
+	return a, form
+}
+
+// partnerAttendeeUpdate saves the changes to an attendee: a typo or a diet
+// took deleting and adding them again.
+func (s *Server) partnerAttendeeUpdate(w http.ResponseWriter, r *http.Request) error {
+	pc, err := s.currentPartnership(r)
+	if err != nil {
+		return err
+	}
+
+	if pc.Partnership == nil {
+		return errNotFound
+	}
+
+	if pc.Event.AttendeesLocked() && !rc(r).Impersonating {
+		return errForbidden
+	}
+
+	a, form := readAttendee(r, pc.Partnership.ID)
+	a.UID = r.PathValue("attendee")
+
+	if form["Error"] != nil {
+		form["Editing"] = a
+
+		return s.renderAttendees(w, r, form)
+	}
+
+	if err := s.store.UpdateAttendee(r.Context(), a); err != nil {
+		return err
+	}
+
+	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.updated", a.FirstName+" "+a.LastName)
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, "/partners/attendees"+eventQuery(pc), http.StatusSeeOther)
 

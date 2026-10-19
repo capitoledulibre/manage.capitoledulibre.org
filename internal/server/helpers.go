@@ -53,6 +53,7 @@ var actionLabels = map[string]string{
 	"logo.uploaded":        "Nouveau logo",
 	"attendee.added":       "Participant ajouté",
 	"attendee.deleted":     "Participant supprimé",
+	"attendee.updated":     "Participant modifié",
 	"job.saved":            "Offre d'emploi enregistrée",
 	"job.deleted":          "Offre d'emploi supprimée",
 	"manager.invited":      "Manager invité",
