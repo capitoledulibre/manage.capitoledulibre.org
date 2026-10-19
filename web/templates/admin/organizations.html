@@ -1,8 +1,15 @@
 {{define "content"}}
 <h1 class="mb-6 text-2xl font-bold tracking-tight">Partenaires</h1>
 <div class="grid gap-6 lg:grid-cols-3">
-  <section class="card overflow-x-auto p-0 lg:col-span-2">
-    <table class="table">
+  <section class="lg:col-span-2">
+    <div class="mb-3 flex flex-wrap items-center gap-3">
+      <label for="org-filter" class="sr-only">Chercher un partenaire</label>
+      <input id="org-filter" class="input max-w-xs" type="search" placeholder="Chercher un partenaire" autocomplete="off"
+        data-filter="#orgs-table" data-filter-count="#org-count" data-one="%d partenaire affiché" data-other="%d partenaires affichés">
+      <span id="org-count" class="help" role="status" aria-live="polite"></span>
+    </div>
+    <div class="card overflow-x-auto p-0">
+    <table class="table" id="orgs-table">
       <thead><tr><th>Partenaire</th><th>Dernière édition</th><th>Statut</th></tr></thead>
       <tbody>
         {{range .D.Rows}}
@@ -25,6 +32,7 @@
         {{end}}
       </tbody>
     </table>
+    </div>
   </section>
   <section class="card">
     <h2 class="card-title">Nouveau partenaire</h2>

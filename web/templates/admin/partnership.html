@@ -139,6 +139,11 @@
             {{template "doc_check" (dict "Lang" "fr" "Done" $p.InvoicePaidAt "Date" $p.InvoicePaidAt "Label" "Payée")}}
           {{end}}
         </ul>
+        {{if and (eq $kind "quote") (or $p.QuoteFile $p.QuoteSentAt) (not $p.QuoteSignedAt)}}
+        <form method="post" action="{{$base}}/mark" class="mb-3"><input type="hidden" name="what" value="quote_signed"><button class="btn-secondary btn-sm">Marquer signé aujourd'hui</button></form>
+        {{else if and (eq $kind "invoice") (or $p.InvoiceFile $p.InvoiceSentAt) (not $p.InvoicePaidAt)}}
+        <form method="post" action="{{$base}}/mark" class="mb-3"><input type="hidden" name="what" value="invoice_paid"><button class="btn-secondary btn-sm">Marquer payée aujourd'hui</button></form>
+        {{end}}
         {{template "upload" (dict "Lang" "fr" "ID" (printf "up-doc-%s" $kind) "Action" (printf "%s/documents" $base) "Field" "file"
           "Accept" ".pdf,application/pdf" "Formats" "PDF" "MaxBytes" (uploadLimit "pdf")
           "Title" (printf "%s · %s · %s" (or (and (eq $kind "quote") "Devis") "Facture") $o.Name $e.Name)

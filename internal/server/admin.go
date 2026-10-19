@@ -68,6 +68,7 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 	h("GET /admin/organizations/{org}/editions/{event}", s.adminPartnership)
 	h("POST /admin/organizations/{org}/editions/{event}", s.adminPartnershipUpdate)
 	h("POST /admin/organizations/{org}/editions/{event}/documents", s.adminPartnershipDocument)
+	h("POST /admin/organizations/{org}/editions/{event}/mark", s.adminPartnershipMark)
 	h("POST /admin/organizations/{org}/editions/{event}/perks", s.adminPartnershipPerks)
 	h("POST /admin/organizations/{org}/editions/{event}/attendees", s.adminAttendeeAdd)
 	h("POST /admin/organizations/{org}/editions/{event}/attendees/{attendee}/delete", s.adminAttendeeDelete)
@@ -394,6 +395,8 @@ type pipelineRow struct {
 	Pricing   Pricing
 	Progress  Progress
 	Attendees int
+	// Due is a follow-up planned for today or earlier: someone to chase.
+	Due bool
 }
 
 type pipelineColumn struct {
@@ -446,6 +449,12 @@ func (s *Server) adminPipeline(w http.ResponseWriter, r *http.Request) error {
 
 	var totals struct{ Confirmed, Signed, Paid, Pipeline, Partners, Attendees int }
 
+	// The follow-ups due, gathered at the top, the oldest first.
+	var due []*pipelineRow
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
 	for _, p := range partnerships {
 		if mine && (p.OwnerAdminID == nil || *p.OwnerAdminID != me) {
 			continue
@@ -462,6 +471,11 @@ func (s *Server) adminPipeline(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		row := &pipelineRow{P: p, Org: org, Attendees: n, Progress: computeProgress(p, org, e, n, "")}
+		row.Due = p.FollowupAt != nil && p.Status != store.StatusDeclined && !p.FollowupAt.After(today)
+
+		if row.Due {
+			due = append(due, row)
+		}
 
 		if p.LevelID != nil {
 			row.Level = levelByID[*p.LevelID]
@@ -506,8 +520,11 @@ func (s *Server) adminPipeline(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	sort.SliceStable(due, func(i, j int) bool { return due[i].P.FollowupAt.Before(*due[j].P.FollowupAt) })
+
 	p := s.page(r, e.Name)
-	p.D = map[string]any{"E": e, "Events": events, "Levels": levels, "Columns": ordered, "Totals": totals, "Count": len(partnerships), "Mine": mine}
+	p.D = map[string]any{"E": e, "Events": events, "Levels": levels, "Columns": ordered, "Totals": totals, "Count": len(partnerships), "Mine": mine,
+		"Due": due}
 
 	return s.render(w, r, "admin/pipeline", p)
 }
@@ -1478,6 +1495,49 @@ func (s *Server) adminPartnershipUpdate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	s.record(r, org, &p.ID, "partnership.updated", "Statut : "+p.Status)
+	s.flash(w, "flash.saved")
+	http.Redirect(w, r, partnershipURLFromPath(r), http.StatusSeeOther)
+
+	return nil
+}
+
+// adminPartnershipMark records, in one click, that the quote came back
+// signed or the invoice was paid today: the commonest updates, which
+// otherwise went through the whole follow-up form.
+func (s *Server) adminPartnershipMark(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	p, err := s.partnershipFromPath(r)
+	if err != nil {
+		return err
+	}
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	what := r.FormValue("what")
+
+	switch what {
+	case "quote_signed":
+		if p.QuoteSignedAt == nil {
+			p.QuoteSignedAt = &today
+		}
+	case "invoice_paid":
+		if p.InvoicePaidAt == nil {
+			p.InvoicePaidAt = &today
+		}
+	default:
+		return errBadInput
+	}
+
+	if err := s.store.UpdatePartnership(ctx, p); err != nil {
+		return err
+	}
+
+	org, err := s.store.GetOrganization(ctx, p.OrgID)
+	if err != nil {
+		return err
+	}
+
+	s.record(r, org, &p.ID, "partnership.updated", what)
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnershipURLFromPath(r), http.StatusSeeOther)
 

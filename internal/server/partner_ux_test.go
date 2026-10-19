@@ -75,3 +75,35 @@ func TestPartnerManagersPage(t *testing.T) {
 
 	waitFor(t, func() bool { return e.mailer.count("dave@acme.test") == before+1 })
 }
+
+func TestPipelineFollowupsAndMarks(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.fixture(nil)
+	admin := e.adminClient()
+	pid := partnershipURL(f.acme, f.event)
+
+	// A follow-up due shows at the top, in red.
+	yesterday := time.Now().AddDate(0, 0, -1).Format(time.DateOnly)
+	e.post(admin, pid, url.Values{"status": {"confirmed"}, "level": {f.level.UID}, "followup_at": {yesterday}, "quote_sent_at": {yesterday}})
+
+	_, body := e.get(admin, "/admin/events/"+f.event.Slug)
+	mustContain(t, body, "À relancer (1)", "font-medium text-red-700", `data-filter=".pipeline-table"`)
+
+	// The quote comes back signed: one click.
+	_, body = e.get(admin, pid)
+	mustContain(t, body, "Marquer signé aujourd")
+
+	e.post(admin, pid+"/mark", url.Values{"what": {"quote_signed"}})
+
+	if p, _ := e.st.GetPartnership(ctx, f.acmeP.ID); p.QuoteSignedAt == nil {
+		t.Error("quote not marked signed")
+	}
+
+	if code, _ := e.post(admin, pid+"/mark", url.Values{"what": {"bogus"}}); code != 400 {
+		t.Errorf("bad mark: %d", code)
+	}
+
+	_, body = e.get(admin, "/admin/organizations")
+	mustContain(t, body, `data-filter="#orgs-table"`)
+}
