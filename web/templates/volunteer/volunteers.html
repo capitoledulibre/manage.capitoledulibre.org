@@ -61,21 +61,23 @@
   <span id="vol-count" class="help" role="status" aria-live="polite"></span>
 </div>
 <div class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{t $l "vol.coord.volunteers"}}">
-<table class="table" id="volunteers-table">
+{{/* On a phone, table-cards turns each row into a card: the cells name
+     themselves (data-label), the box sits in the corner. */}}
+<table class="table table-cards" id="volunteers-table">
   <thead><tr><th><span class="sr-only">{{t $l "vol.coord.bulk_pick"}}</span></th><th>{{t $l "vol.manage.col_name"}}</th><th>{{t $l "login.email"}}</th><th>{{t $l "vol.profile.phone"}}</th><th>{{t $l "vol.coord.stat_poles"}}</th><th>{{t $l "vol.manage.col_slots"}}</th><th>{{t $l "vol.coord.col_hours"}}</th><th><span class="sr-only">{{t $l "vol.manage.col_actions"}}</span></th></tr></thead>
   <tbody>
   {{range $d.Volunteers}}
   <tr>
-    <td><input type="checkbox" form="bulk" name="person" value="{{.Person.UID}}" class="h-4 w-4 accent-brand-600" aria-label="{{t $l "vol.coord.bulk_pick"}} {{.Person.Label}}"></td>
-    <td><a class="link inline-flex items-center gap-2" href="{{$base}}/volunteers/{{.Person.UID}}">{{template "person_avatar" .Person}}{{.Person.Label}}</a></td>
-    <td><a class="link" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
-    <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
-    <td class="text-xs">{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</td>
-    <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0<span class="sr-only"> · {{t $l "vol.manage.no_slot"}}</span></span>{{else}}{{.SlotCount}}{{end}}</td>
-    <td class="whitespace-nowrap tabular-nums">{{if .Minutes}}{{.Hours}}{{else}}<span class="text-gray-400">—</span>{{end}}</td>
+    <td class="max-sm:absolute max-sm:top-3 max-sm:right-4"><input type="checkbox" form="bulk" name="person" value="{{.Person.UID}}" class="h-4 w-4 accent-brand-600" aria-label="{{t $l "vol.coord.bulk_pick"}} {{.Person.Label}}"></td>
+    <td class="max-sm:justify-start max-sm:pr-8 max-sm:font-medium"><a class="link inline-flex items-center gap-2" href="{{$base}}/volunteers/{{.Person.UID}}">{{template "person_avatar" .Person}}{{.Person.Label}}</a></td>
+    <td data-label="{{t $l "login.email"}}"><a class="link break-all" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
+    <td data-label="{{t $l "vol.profile.phone"}}">{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
+    <td class="text-xs" data-label="{{t $l "vol.coord.stat_poles"}}">{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</td>
+    <td data-label="{{t $l "vol.manage.col_slots"}}">{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0<span class="sr-only"> · {{t $l "vol.manage.no_slot"}}</span></span>{{else}}{{.SlotCount}}{{end}}</td>
+    <td class="whitespace-nowrap tabular-nums" data-label="{{t $l "vol.coord.col_hours"}}">{{if .Minutes}}{{.Hours}}{{else}}<span class="text-gray-400">—</span>{{end}}</td>
     {{/* Folded, and with no pole preselected: one click on a row used to
          add the person to the first pole. */}}
-    <td class="text-right">
+    <td class="text-right max-sm:justify-end">
       <details class="relative inline-block text-left" data-menu>
         <summary class="btn-secondary btn-sm list-none">{{t $l "vol.coord.add_to_pole"}}</summary>
         <form method="post" action="{{$base}}/volunteers/{{.Person.UID}}/join" class="mt-2 ml-auto w-64 space-y-2 rounded-lg bg-surface p-3 shadow-lg ring-1 ring-gray-200">

@@ -118,6 +118,26 @@
   .table tbody tr {
     @apply border-t border-gray-100;
   }
+  /* A wide table read on a phone: each row becomes a card, each cell a
+     line named by its data-label, with no sideways scroll. */
+  @media (max-width: 639px) {
+    .table-cards thead {
+      @apply sr-only;
+    }
+    .table-cards tbody tr {
+      @apply relative block px-4 py-3;
+    }
+    .table-cards td {
+      @apply flex items-center justify-between gap-3 px-0 py-1 text-right;
+    }
+    .table-cards td[data-label]::before {
+      content: attr(data-label);
+      @apply text-left text-xs text-gray-500;
+    }
+    .table-cards td:empty {
+      @apply hidden;
+    }
+  }
   .nav-link {
     @apply rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900;
   }
