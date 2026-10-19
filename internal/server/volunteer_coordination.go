@@ -550,11 +550,12 @@ func (s *Server) coordinationVolunteers(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	// The volunteers on no slot yet: the ones to write to before the event.
+	// The volunteers yet to pick a slot: the ones to write to before the
+	// event.
 	var idle []*store.EventVolunteer
 
 	for _, v := range volunteers {
-		if v.SlotCount == 0 {
+		if v.Idle() {
 			idle = append(idle, v)
 		}
 	}

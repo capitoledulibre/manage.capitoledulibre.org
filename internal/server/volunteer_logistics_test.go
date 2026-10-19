@@ -28,8 +28,8 @@ func TestLogisticsAndReminders(t *testing.T) {
 		t.Fatalf("settings: %q %q", ev.TshirtSizes, ev.Meals)
 	}
 
-	// Three volunteers: Nina and Omar on a slot, Paul on none (as the lead
-	// of the fixture).
+	// Four volunteers: Nina and Omar on a slot, Paul on none, Quentin
+	// waiting for Nina's. And the lead of the fixture, on none.
 	volunteer := func(addr, name string, slot *store.Slot) *http.Client {
 		p, err := e.st.EnsureVolunteer(ctx, addr, name, "", "fr")
 		mustOK(t, err)
@@ -45,6 +45,10 @@ func TestLogisticsAndReminders(t *testing.T) {
 	nina := volunteer("nina@example.org", "Nina", f.morning)
 	volunteer("omar@example.org", "Omar", f.overlap)
 	volunteer("paul@example.org", "Paul", nil)
+	volunteer("quentin@example.org", "Quentin", nil)
+
+	quentin, _ := e.st.PersonByEmail(ctx, "quentin@example.org")
+	mustOK(t, e.st.JoinWaitlist(ctx, f.morning.ID, quentin.ID))
 
 	// Nina answers from the home page of the edition.
 	_, body := e.get(nina, home)
@@ -57,30 +61,36 @@ func TestLogisticsAndReminders(t *testing.T) {
 	_, body = e.post(nina, home+"/details", url.Values{"tshirt": {"M"}, "meal": {"Samedi midi"}, "dietary": {"végétarienne"}})
 	mustContain(t, body, "C&#39;est noté, merci.", `<option value="M" selected>`, "Merci, c&#39;est noté.")
 
-	// The coordination counts, for the volunteers on a slot.
+	// The coordination counts, for the volunteers on a slot and the lead.
 	_, body = e.get(admin, edition+"?tab=logistics")
-	mustContain(t, body, "Logistique", "végétarienne", "Pas encore répondu (1)", "Omar", "2 bénévoles ne sont sur aucun créneau")
+	mustContain(t, body, "Logistique", "végétarienne", "Pas encore répondu (2)", "Lou Lead, Omar", "2 bénévoles ne sont sur aucun créneau")
 
 	_, body = e.get(admin, edition+"/logistics.csv")
 	mustContain(t, body, "name,email,slots,minutes,tshirt,Samedi midi,Dimanche midi,dietary", "Nina,nina@example.org,1,120,M,1,,végétarienne", "Omar,omar@example.org,1,120,,,,")
 
 	// Reminders: who has not answered, who is on no slot.
 	_, body = e.post(admin, edition+"/remind", url.Values{"audience": {"details"}})
-	mustContain(t, body, "E-mail de relance envoyé.")
+	mustContain(t, body, "2 e-mails de relance envoyés.")
 	e.mailed("omar@example.org", "T-shirt et repas")
+	e.mailed(f.leadEmail, "T-shirt et repas")
 
+	// Who is on no slot, waits for none and does not run the edition.
 	_, body = e.get(admin, edition+"/volunteers?filter=idle")
-	mustContain(t, body, "Sans créneau (2)", "Paul", "Écrire aux 2 personnes sans créneau")
+	mustContain(t, body, "Sans créneau (1)", "Paul", "Écrire à la personne sans créneau")
 
-	if strings.Contains(body, "nina@example.org") {
-		t.Error("the idle filter keeps a volunteer on a slot")
+	for _, addr := range []string{"nina@example.org", "quentin@example.org", f.leadEmail} {
+		if strings.Contains(body, addr) {
+			t.Errorf("the idle filter keeps %s", addr)
+		}
 	}
 
 	e.post(admin, edition+"/remind", url.Values{"audience": {"idle"}})
 	e.mailed("paul@example.org", "On a besoin de vous", "/planning?view=open")
 
-	if n := e.mailer.count("nina@example.org"); n != 0 {
-		t.Errorf("Nina got %d reminders", n)
+	for _, addr := range []string{"nina@example.org", "quentin@example.org"} {
+		if n := e.mailer.count(addr); n != 0 {
+			t.Errorf("%s got %d reminders", addr, n)
+		}
 	}
 
 	// The time signed up for.
@@ -187,7 +197,7 @@ func TestLogisticsChoicesChanged(t *testing.T) {
 	mustContain(t, body, "Les choix proposés ont changé", "ring-2 ring-brand-600")
 
 	_, body = e.get(admin, edition+"?tab=logistics")
-	mustContain(t, body, "Réponse à revoir (1)", "plus proposé", "Relancer la personne")
+	mustContain(t, body, "Réponse à revoir (1)", "plus proposé", "Relancer les 2 personnes")
 
 	_, body = e.get(admin, edition+"/logistics.csv")
 	mustContain(t, body, "tshirt,Samedi soir (buffet),Dimanche midi,Samedi soir,dietary,to_check", "Nina,nina@example.org,1,120,M,,,1,,1")

@@ -81,7 +81,8 @@ type logisticsLine struct {
 }
 
 // logistics is what the edition's logistics tab shows: for the volunteers
-// on at least one slot, the people the t-shirts and meals are for.
+// on at least one slot and those running the edition, the people the
+// t-shirts and meals are for.
 type logistics struct {
 	// Open is true while volunteers can still answer.
 	Open       bool
@@ -153,7 +154,8 @@ func (s *Server) logistics(r *http.Request, e *store.Event) (*logistics, error) 
 	meals := map[string]int{}
 
 	for _, v := range volunteers {
-		if v.SlotCount == 0 {
+		// Those running the edition eat and wear the t-shirt too.
+		if v.SlotCount == 0 && !v.Staff {
 			l.Idle++
 
 			continue
@@ -190,7 +192,7 @@ func (s *Server) logistics(r *http.Request, e *store.Event) (*logistics, error) 
 	return l, nil
 }
 
-// coordinationLogisticsCSV writes a line per volunteer on a slot, with what
+// coordinationLogisticsCSV writes a line per volunteer counted, with what
 // they answered, for the caterer and the t-shirt order. The meals gone from
 // the offer that some still took get a column too, and "to_check" marks
 // the answers given before the choices changed.
@@ -237,7 +239,7 @@ func (s *Server) coordinationLogisticsCSV(w http.ResponseWriter, r *http.Request
 	return cw.Error()
 }
 
-// coordinationRemind writes to the volunteers on no slot yet ("idle"), or
+// coordinationRemind writes to the volunteers yet to pick a slot ("idle"), or
 // to those on a slot who have not answered the logistics ("details").
 func (s *Server) coordinationRemind(w http.ResponseWriter, r *http.Request) error {
 	e, err := s.coordinationEvent(r)
@@ -261,7 +263,7 @@ func (s *Server) coordinationRemind(w http.ResponseWriter, r *http.Request) erro
 		}
 
 		for _, v := range volunteers {
-			if v.SlotCount == 0 {
+			if v.Idle() {
 				people = append(people, v.Person)
 			}
 		}

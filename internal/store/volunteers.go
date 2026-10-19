@@ -123,7 +123,16 @@ type EventVolunteer struct {
 	Poles     []string
 	SlotCount int
 	Minutes   int
+	// Waiting is true for a volunteer on the waiting list of a slot.
+	Waiting bool
+	// Staff is true for a coordinator of the edition or a lead of one of
+	// its poles: they run it, slot or not.
+	Staff bool
 }
+
+// Idle tells whether the volunteer has yet to pick a slot: on none, waiting
+// for none, and not running the edition.
+func (v *EventVolunteer) Idle() bool { return v.SlotCount == 0 && !v.Waiting && !v.Staff }
 
 // Hours renders the time signed up for, "6 h" or "4 h 30".
 func (v *EventVolunteer) Hours() string {
@@ -137,17 +146,23 @@ func (v *EventVolunteer) Hours() string {
 
 // ListEventVolunteers returns everyone who joined a pole of an edition.
 func (s *Store) ListEventVolunteers(ctx context.Context, eventID int64) ([]*EventVolunteer, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT `+peCols+`, GROUP_CONCAT(p.name, char(31)),
-			(SELECT COUNT(*) FROM signups sg JOIN slots s ON s.id = sg.slot_id JOIN poles p2 ON p2.id = s.pole_id
-			 WHERE p2.event_id = ? AND sg.person_id = pe.id),
-			(SELECT COALESCE(SUM(CAST(ROUND((julianday(s.ends_at) - julianday(s.starts_at)) * 1440) AS INTEGER)), 0)
-			 FROM signups sg JOIN slots s ON s.id = sg.slot_id JOIN poles p2 ON p2.id = s.pole_id
-			 WHERE p2.event_id = ? AND sg.person_id = pe.id)
+	rows, err := s.db.QueryContext(ctx, `WITH signed AS (
+			SELECT sg.person_id, COUNT(*) AS n,
+				SUM(CAST(ROUND((julianday(s.ends_at) - julianday(s.starts_at)) * 1440) AS INTEGER)) AS minutes
+			FROM signups sg JOIN slots s ON s.id = sg.slot_id JOIN poles p ON p.id = s.pole_id
+			WHERE p.event_id = ?1 GROUP BY sg.person_id)
+		SELECT `+peCols+`, GROUP_CONCAT(p.name, char(31)), COALESCE(sd.n, 0), COALESCE(sd.minutes, 0),
+			EXISTS (SELECT 1 FROM waitlist w JOIN slots s ON s.id = w.slot_id JOIN poles p2 ON p2.id = s.pole_id
+				WHERE p2.event_id = ?1 AND w.person_id = pe.id),
+			EXISTS (SELECT 1 FROM event_coordinators ec WHERE ec.event_id = ?1 AND ec.person_id = pe.id)
+				OR EXISTS (SELECT 1 FROM pole_managers pmg JOIN poles p2 ON p2.id = pmg.pole_id
+					WHERE p2.event_id = ?1 AND pmg.person_id = pe.id)
 		FROM people pe
 		JOIN pole_members pm ON pm.person_id = pe.id
-		JOIN poles p ON p.id = pm.pole_id AND p.event_id = ?
+		JOIN poles p ON p.id = pm.pole_id AND p.event_id = ?1
+		LEFT JOIN signed sd ON sd.person_id = pe.id
 		GROUP BY pe.id
-		ORDER BY pe.name COLLATE NOCASE, pe.email COLLATE NOCASE`, eventID, eventID, eventID)
+		ORDER BY pe.name COLLATE NOCASE, pe.email COLLATE NOCASE`, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +176,7 @@ func (s *Store) ListEventVolunteers(ctx context.Context, eventID int64) ([]*Even
 			poles sql.NullString
 		)
 
-		if v.Person, err = scanPerson(rows, &poles, &v.SlotCount, &v.Minutes); err != nil {
+		if v.Person, err = scanPerson(rows, &poles, &v.SlotCount, &v.Minutes, &v.Waiting, &v.Staff); err != nil {
 			return nil, err
 		}
 

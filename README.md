@@ -79,8 +79,9 @@ when they first use their link, while an edition takes volunteers):
   answers from its home page (size, meals taken, optional dietary needs,
   seen by the coordination only), and the coordination gets the counts and
   a CSV for the caterer and the t-shirt order
-- reminders in one click: to the volunteers on no slot yet, and to those
-  on a slot who have not answered the logistics
+- reminders in one click: to the volunteers yet to pick a slot (neither
+  waiting for one nor running the edition), and to those who have not
+  answered the logistics or have to check their answer
 - nobody loses a shift silently: moving or deleting a shift, taking someone
   off or out of a pole e-mails them; a withdrawal less than 48 hours ahead
   warns the leads; a recap of the next day's shifts goes out every evening
