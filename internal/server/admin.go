@@ -1537,7 +1537,7 @@ func (s *Server) adminPartnershipDocument(w http.ResponseWriter, r *http.Request
 	s.record(r, org, &p.ID, "document.uploaded", kind)
 
 	if r.FormValue("notify") == "on" && p.VisibleToPartner() {
-		if err := s.notifyManagers(r, org, "mail."+kind+".subject", "mail."+kind+".body"); err != nil {
+		if err := s.notifyManagers(r, org, p, "/partners/documents/"+r.PathValue("event")+"/"+kind, "mail."+kind+".subject", "mail."+kind+".body"); err != nil {
 			return err
 		}
 	}
@@ -1687,7 +1687,8 @@ func (s *Server) adminSocialPostSave(w http.ResponseWriter, r *http.Request) err
 	s.record(r, org, &p.ID, "social.saved", networkName(post.Network)+" "+post.URL)
 
 	if post.Published() && !wasPublished && r.FormValue("notify") == "on" && p.VisibleToPartner() {
-		if err := s.notifyManagers(r, org, "mail.post.subject", "mail.post.body", networkName(post.Network), post.URL); err != nil {
+		if err := s.notifyManagers(r, org, p, "/partners/?event="+url.QueryEscape(r.PathValue("event")), "mail.post.subject", "mail.post.body",
+			networkName(post.Network), post.URL); err != nil {
 			return err
 		}
 	}

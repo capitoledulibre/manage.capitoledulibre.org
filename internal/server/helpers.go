@@ -129,18 +129,29 @@ func (s *Server) record(r *http.Request, org *store.Organization, partnershipID 
 }
 
 // notifyManagers emails every manager of an organization in their language.
-// Args are passed to the localized body after the dashboard URL.
-func (s *Server) notifyManagers(r *http.Request, org *store.Organization, subjectKey, bodyKey string, args ...any) error {
+// Args are passed to the localized body after the link, to path, the page
+// the e-mail is about: logged out, the login comes back to it. Answers go
+// to the partnership's staff contact, else to the site's address.
+func (s *Server) notifyManagers(r *http.Request, org *store.Organization, p *store.Partnership, path, subjectKey, bodyKey string, args ...any) error {
 	managers, err := s.store.ListManagers(r.Context(), org.ID)
 	if err != nil {
 		return err
+	}
+
+	replyTo := s.site.ContactEmail
+
+	if p.OwnerAdminID != nil {
+		if owner, err := s.store.GetAdmin(r.Context(), *p.OwnerAdminID); err == nil {
+			replyTo = owner.Email
+		}
 	}
 
 	for _, m := range managers {
 		msg := mail.Message{
 			To:      []string{m.Email},
 			Subject: i18n.T(m.Lang, subjectKey, org.Name),
-			Body:    i18n.T(m.Lang, bodyKey, append([]any{s.cfg.BaseURL + "/"}, args...)...),
+			Body:    i18n.T(m.Lang, bodyKey, append([]any{s.cfg.BaseURL + path}, args...)...),
+			ReplyTo: replyTo,
 		}
 
 		s.background(func() {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -67,8 +68,13 @@ func (s *Server) requireOrg(next handlerFunc) handlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if rc(r).Org == nil {
 			// Someone signed in is sent where their roles lead; anyone else
-			// to the partners' login.
+			// to the partners' login, which comes back here (an e-mail's
+			// link to a document, say).
 			to := "/partners/login"
+			if r.Method == http.MethodGet {
+				to += "?next=" + url.QueryEscape(r.URL.RequestURI())
+			}
+
 			if rc(r).Person != nil {
 				to = "/"
 			}

@@ -69,6 +69,8 @@
         <li class="flex flex-wrap items-center justify-between gap-2 py-3">
           <span class="text-sm">{{t $l .Key}}
             {{with .Deadline}}<span class="ml-1 text-xs text-red-700">· {{t $l "dashboard.before"}} {{date $l .}}</span>{{end}}
+            {{/* Signing happens off the site: say how to send it back. */}}
+            {{if eq .Key "todo.sign_quote"}}{{with or (and $.D.Contact $.D.Contact.Email) $.Site.ContactEmail}}<span class="mt-0.5 block text-xs text-gray-600">{{t $l "todo.sign_quote_how" .}}</span>{{end}}{{end}}
           </span>
           {{if .Link}}<a class="btn-secondary btn-sm" href="{{.Link}}">{{t $l "dashboard.do_it"}}</a>{{end}}
         </li>

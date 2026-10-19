@@ -275,6 +275,25 @@ func TestSocialPosts(t *testing.T) {
 
 	waitFor(t, func() bool { return e.mailer.count("alice@acme.test") == before+1 })
 
+	// The e-mail links to the partner's own page for that edition, which a
+	// logged-out partner reaches through the login.
+	mails := e.mailer.mailTo("alice@acme.test")
+	mustContain(t, mails[len(mails)-1], "/partners/?event="+f.event.Slug)
+
+	c := e.client()
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+
+	resp, err := c.Get(e.srv.URL + "/partners/?event=" + f.event.Slug)
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if loc := resp.Header.Get("Location"); loc != "/partners/login?next="+url.QueryEscape("/partners/?event="+f.event.Slug) {
+		t.Errorf("logged out: %q", loc)
+	}
+
+	_, body = e.get(e.client(), "/partners/login?next="+url.QueryEscape("/partners/attendees"))
+	mustContain(t, body, `name="next" value="/partners/attendees"`)
+
 	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, `href="https://www.linkedin.com/posts/ec-123"`, "Voir le post")
 

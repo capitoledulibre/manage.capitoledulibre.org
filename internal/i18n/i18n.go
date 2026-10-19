@@ -206,12 +206,13 @@ var messages = map[string][2]string{
 	"step.by_staff":     {"par l'équipe", "by our team"},
 	"step.by_you":       {"par vous", "by you"},
 
-	"todo.billing":       {"Compléter vos informations de facturation", "Fill in your billing details"},
-	"todo.communication": {"Renseigner votre site web et une description", "Add your website and a description"},
-	"todo.logo":          {"Envoyer votre logo", "Upload your logo"},
-	"todo.sign_quote":    {"Nous retourner le devis signé", "Send us the signed quote"},
-	"todo.pay_invoice":   {"Régler la facture", "Pay the invoice"},
-	"todo.attendees":     {"Inscrire les personnes présentes", "Register your attendees"},
+	"todo.billing":        {"Compléter vos informations de facturation", "Fill in your billing details"},
+	"todo.communication":  {"Renseigner votre site web et une description", "Add your website and a description"},
+	"todo.logo":           {"Envoyer votre logo", "Upload your logo"},
+	"todo.sign_quote":     {"Nous retourner le devis signé", "Send us the signed quote"},
+	"todo.sign_quote_how": {"Répondez à l'e-mail du devis avec la version signée, ou écrivez à %s.", "Reply to the quote's e-mail with the signed copy, or write to %s."},
+	"todo.pay_invoice":    {"Régler la facture", "Pay the invoice"},
+	"todo.attendees":      {"Inscrire les personnes présentes", "Register your attendees"},
 
 	"doc.quote":         {"Devis", "Quote"},
 	"doc.invoice":       {"Facture", "Invoice"},
@@ -1038,8 +1039,8 @@ var messages = map[string][2]string{
 	},
 	"mail.quote.subject": {"Votre devis est disponible — %s", "Your quote is available — %s"},
 	"mail.quote.body": {
-		"Bonjour,\n\nVotre devis pour {site} est disponible dans votre espace partenaire :\n\n%s\n\nMerci de nous le retourner signé.\n\nL'équipe {site}\n",
-		"Hello,\n\nYour quote for {site} is available in your partner area:\n\n%s\n\nPlease send it back to us signed.\n\nThe {site} team\n",
+		"Bonjour,\n\nVotre devis pour {site} est disponible dans votre espace partenaire :\n\n%s\n\nPour nous le retourner signé, répondez simplement à cet e-mail avec le devis signé en pièce jointe.\n\nL'équipe {site}\n",
+		"Hello,\n\nYour quote for {site} is available in your partner area:\n\n%s\n\nTo send it back signed, just reply to this e-mail with the signed quote attached.\n\nThe {site} team\n",
 	},
 	"mail.invoice.subject": {"Votre facture est disponible — %s", "Your invoice is available — %s"},
 	"mail.invoice.body": {

@@ -100,13 +100,18 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) error {
 
 // partnerLogin is the login form of the partner space.
 func (s *Server) partnerLogin(w http.ResponseWriter, r *http.Request) error {
+	next := safeRedirect(r.URL.Query().Get("next"), "")
+
 	if rc(r).Person != nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, safeRedirect(next, "/"), http.StatusSeeOther)
 
 		return nil
 	}
 
-	return s.render(w, r, "public/login", s.page(r, "login.title"))
+	p := s.page(r, "login.title")
+	p.D = map[string]any{"Next": next}
+
+	return s.render(w, r, "public/login", p)
 }
 
 func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
@@ -125,7 +130,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
 			return s.render(w, r, "volunteer/login", p)
 		}
 
-		p.D = map[string]any{"Error": key, "Email": email}
+		p.D = map[string]any{"Error": key, "Email": email, "Next": next}
 
 		return s.render(w, r, "public/login", p)
 	}

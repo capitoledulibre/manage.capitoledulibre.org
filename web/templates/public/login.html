@@ -15,6 +15,7 @@
     <h2 class="card-title">{{t .Lang "login.title"}}</h2>
     {{with .D}}{{with .Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $.Lang .}}</div>{{end}}{{end}}
     <form method="post" action="/login" class="space-y-4">
+      {{with .D}}{{with .Next}}<input type="hidden" name="next" value="{{.}}">{{end}}{{end}}
       <div>
         <label class="label" for="email">{{t .Lang "login.email"}}</label>
         <input class="input" id="email" type="email" name="email" autocomplete="email" required autofocus value="{{with .D}}{{.Email}}{{end}}">
