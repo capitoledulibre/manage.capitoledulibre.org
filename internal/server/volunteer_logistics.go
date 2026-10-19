@@ -43,7 +43,8 @@ func (s *Server) volunteerDetailsSave(w http.ResponseWriter, r *http.Request) er
 		return errBadInput
 	}
 
-	d := &store.VolunteerDetails{EventID: e.ID, PersonID: person.ID, Dietary: strings.TrimSpace(r.FormValue("dietary"))}
+	d := &store.VolunteerDetails{EventID: e.ID, PersonID: person.ID, Dietary: strings.TrimSpace(r.FormValue("dietary")),
+		AskedSizes: e.TshirtSizeList(), AskedMeals: e.MealList()}
 
 	if size := r.FormValue("tshirt"); size == "" || slices.Contains(e.TshirtSizeList(), size) {
 		d.Tshirt = size
@@ -86,15 +87,52 @@ type logistics struct {
 	Open       bool
 	Lines      []*logisticsLine
 	Unanswered []*logisticsLine
-	Sizes      []countOf
-	Meals      []countOf
-	Dietary    []*logisticsLine
-	Idle       int
+	// Outdated answered before the choices on offer changed.
+	Outdated []*logisticsLine
+	Sizes    []countOf
+	Meals    []countOf
+	Dietary  []*logisticsLine
+	Idle     int
 }
 
+// Pending is whom to remind: those who have not answered, and those whose
+// answer is to be checked again.
+func (l *logistics) Pending() []*logisticsLine {
+	return append(slices.Clip(l.Unanswered), l.Outdated...)
+}
+
+// countOf counts a size or a meal. Gone is for one no longer on offer that
+// some answers still name: kept in sight rather than silently dropped.
 type countOf struct {
 	Name  string
 	Count int
+	Gone  bool
+}
+
+// countChoices lists the counts of the choices on offer, in their order,
+// then those of the choices gone.
+func countChoices(offer []string, n map[string]int) []countOf {
+	out := make([]countOf, 0, len(offer))
+
+	for _, v := range offer {
+		out = append(out, countOf{Name: v, Count: n[v]})
+	}
+
+	var gone []string
+
+	for v := range n {
+		if !slices.Contains(offer, v) {
+			gone = append(gone, v)
+		}
+	}
+
+	slices.Sort(gone)
+
+	for _, v := range gone {
+		out = append(out, countOf{Name: v, Count: n[v], Gone: true})
+	}
+
+	return out
 }
 
 func (s *Server) logistics(r *http.Request, e *store.Event) (*logistics, error) {
@@ -130,6 +168,10 @@ func (s *Server) logistics(r *http.Request, e *store.Event) (*logistics, error) 
 			continue
 		}
 
+		if line.Details.Outdated(e) {
+			l.Outdated = append(l.Outdated, line)
+		}
+
 		if line.Details.Tshirt != "" {
 			sizes[line.Details.Tshirt]++
 		}
@@ -143,19 +185,15 @@ func (s *Server) logistics(r *http.Request, e *store.Event) (*logistics, error) 
 		}
 	}
 
-	for _, size := range e.TshirtSizeList() {
-		l.Sizes = append(l.Sizes, countOf{size, sizes[size]})
-	}
-
-	for _, m := range e.MealList() {
-		l.Meals = append(l.Meals, countOf{m, meals[m]})
-	}
+	l.Sizes, l.Meals = countChoices(e.TshirtSizeList(), sizes), countChoices(e.MealList(), meals)
 
 	return l, nil
 }
 
 // coordinationLogisticsCSV writes a line per volunteer on a slot, with what
-// they answered, for the caterer and the t-shirt order.
+// they answered, for the caterer and the t-shirt order. The meals gone from
+// the offer that some still took get a column too, and "to_check" marks
+// the answers given before the choices changed.
 func (s *Server) coordinationLogisticsCSV(w http.ResponseWriter, r *http.Request) error {
 	e, err := s.coordinationEvent(r)
 	if err != nil {
@@ -173,8 +211,11 @@ func (s *Server) coordinationLogisticsCSV(w http.ResponseWriter, r *http.Request
 	cw := csv.NewWriter(w)
 
 	head := []string{"name", "email", "slots", "minutes", "tshirt"}
-	head = append(head, e.MealList()...)
-	_ = cw.Write(append(head, "dietary"))
+	for _, m := range l.Meals {
+		head = append(head, csvSafe(m.Name))
+	}
+
+	_ = cw.Write(append(head, "dietary", "to_check"))
 
 	for _, line := range l.Lines {
 		v, d := line.Volunteer, line.Details
@@ -184,16 +225,11 @@ func (s *Server) coordinationLogisticsCSV(w http.ResponseWriter, r *http.Request
 
 		row := []string{csvSafe(v.Person.Name), csvSafe(v.Person.Email), strconv.Itoa(v.SlotCount), strconv.Itoa(v.Minutes), csvSafe(d.Tshirt)}
 
-		for _, m := range e.MealList() {
-			taken := ""
-			if d.Takes(m) {
-				taken = "1"
-			}
-
-			row = append(row, taken)
+		for _, m := range l.Meals {
+			row = append(row, flag(d.Takes(m.Name)))
 		}
 
-		_ = cw.Write(append(row, csvSafe(d.Dietary)))
+		_ = cw.Write(append(row, csvSafe(d.Dietary), flag(line.Details != nil && line.Details.Outdated(e))))
 	}
 
 	cw.Flush()
@@ -239,7 +275,7 @@ func (s *Server) coordinationRemind(w http.ResponseWriter, r *http.Request) erro
 			return err
 		}
 
-		for _, line := range l.Unanswered {
+		for _, line := range l.Pending() {
 			people = append(people, line.Volunteer.Person)
 		}
 	default:
@@ -269,4 +305,13 @@ func (s *Server) coordinationRemind(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	return s.redirectCoordination(w, r, e, "logistics")
+}
+
+// flag is a yes as a CSV cell: "1", or empty.
+func flag(b bool) string {
+	if b {
+		return "1"
+	}
+
+	return ""
 }

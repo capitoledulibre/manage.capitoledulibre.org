@@ -108,10 +108,10 @@
 <p class="help mb-4">{{tn $l "vol.logi.intro" (len .Lines)}}</p>
 <div class="mb-6 flex flex-wrap gap-2">
   <a class="btn-secondary btn-sm" href="{{$base}}/logistics.csv">{{t $l "vol.logi.csv"}}</a>
-  {{if and .Open .Unanswered}}
-  <form method="post" action="{{$base}}/remind" data-confirm="{{tn $l "vol.logi.remind_confirm" (len .Unanswered)}}">
+  {{if and .Open .Pending}}
+  <form method="post" action="{{$base}}/remind" data-confirm="{{tn $l "vol.logi.remind_confirm" (len .Pending)}}">
     <input type="hidden" name="audience" value="details">
-    <button class="btn btn-sm">{{tn $l "vol.logi.remind" (len .Unanswered)}}</button>
+    <button class="btn btn-sm">{{tn $l "vol.logi.remind" (len .Pending)}}</button>
   </form>
   {{end}}
 </div>
@@ -119,13 +119,13 @@
   {{with .Sizes}}
   <section class="card">
     <h2 class="card-title">{{t $l "vol.details.tshirt"}}</h2>
-    <table class="table"><tbody>{{range .}}<tr><td>{{.Name}}</td><td class="text-right font-semibold tabular-nums">{{.Count}}</td></tr>{{end}}</tbody></table>
+    <table class="table"><tbody>{{range .}}<tr><td>{{.Name}}{{if .Gone}} <span class="badge bg-amber-100 text-amber-800">{{t $l "vol.logi.gone"}}</span>{{end}}</td><td class="text-right font-semibold tabular-nums">{{.Count}}</td></tr>{{end}}</tbody></table>
   </section>
   {{end}}
   {{with .Meals}}
   <section class="card">
     <h2 class="card-title">{{t $l "vol.details.meals"}}</h2>
-    <table class="table"><tbody>{{range .}}<tr><td>{{.Name}}</td><td class="text-right font-semibold tabular-nums">{{.Count}}</td></tr>{{end}}</tbody></table>
+    <table class="table"><tbody>{{range .}}<tr><td>{{.Name}}{{if .Gone}} <span class="badge bg-amber-100 text-amber-800">{{t $l "vol.logi.gone"}}</span>{{end}}</td><td class="text-right font-semibold tabular-nums">{{.Count}}</td></tr>{{end}}</tbody></table>
   </section>
   {{end}}
 </div>
@@ -138,6 +138,13 @@
 {{with .Unanswered}}
 <section class="mb-8">
   <h2 class="mb-3 text-lg font-semibold">{{tn $l "vol.logi.unanswered" (len .)}}</h2>
+  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{$x.Volunteer.Person.Label}}{{end}}</p>
+</section>
+{{end}}
+{{with .Outdated}}
+<section class="mb-8">
+  <h2 class="mb-3 text-lg font-semibold">{{tn $l "vol.logi.outdated" (len .)}}</h2>
+  <p class="help mb-2">{{t $l "vol.logi.outdated_help"}}</p>
   <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{$x.Volunteer.Person.Label}}{{end}}</p>
 </section>
 {{end}}

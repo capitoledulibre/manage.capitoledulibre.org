@@ -50,6 +50,10 @@ type VolunteerDetails struct {
 	Tshirt   string
 	Meals    []string
 	Dietary  string
+	// AskedSizes and AskedMeals are the choices on offer when they
+	// answered.
+	AskedSizes []string
+	AskedMeals []string
 	// Answered is false for details not saved yet (prefilled from an
 	// earlier edition, or empty).
 	Answered bool
@@ -58,22 +62,49 @@ type VolunteerDetails struct {
 // Takes tells whether the volunteer takes a meal.
 func (d *VolunteerDetails) Takes(meal string) bool { return slices.Contains(d.Meals, meal) }
 
+// Outdated tells whether the choices on offer changed since the volunteer
+// answered: a size or a meal they picked is gone, or one came they have not
+// seen. Their answer is then to be checked again.
+func (d *VolunteerDetails) Outdated(e *Event) bool {
+	sizes, meals := e.TshirtSizeList(), e.MealList()
+
+	if d.Tshirt == "" && !within(sizes, d.AskedSizes) || d.Tshirt != "" && !slices.Contains(sizes, d.Tshirt) {
+		return true
+	}
+
+	return !within(d.Meals, meals) || !within(meals, d.AskedMeals)
+}
+
+// Settled tells whether the volunteer answered the choices now on offer.
+func (d *VolunteerDetails) Settled(e *Event) bool { return d.Answered && !d.Outdated(e) }
+
+// within tells whether every item of a is in b.
+func within(a, b []string) bool {
+	for _, v := range a {
+		if !slices.Contains(b, v) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func scanDetails(row interface{ Scan(...any) error }) (*VolunteerDetails, error) {
 	var (
-		d     VolunteerDetails
-		meals string
+		d                         VolunteerDetails
+		meals, askedSz, askedMeal string
 	)
 
-	if err := row.Scan(&d.EventID, &d.PersonID, &d.Tshirt, &meals, &d.Dietary); err != nil {
+	if err := row.Scan(&d.EventID, &d.PersonID, &d.Tshirt, &meals, &d.Dietary, &askedSz, &askedMeal); err != nil {
 		return nil, notFound(err)
 	}
 
-	d.Meals, d.Answered = lines(meals), true
+	d.Meals, d.AskedSizes, d.AskedMeals, d.Answered = lines(meals), lines(askedSz), lines(askedMeal), true
 
 	return &d, nil
 }
 
-const detailsCols = `event_id, person_id, tshirt, meals, dietary`
+const detailsCols = `event_id, person_id, tshirt, meals, dietary, asked_sizes, asked_meals`
 
 // GetVolunteerDetails returns what a volunteer answered for an edition. When
 // they have not answered yet, their t-shirt size of the latest earlier
@@ -98,13 +129,16 @@ func (s *Store) GetVolunteerDetails(ctx context.Context, eventID, personID int64
 	return d, nil
 }
 
-// SaveVolunteerDetails records what a volunteer answers for an edition.
+// SaveVolunteerDetails records what a volunteer answers for an edition, and
+// the choices they answered (AskedSizes, AskedMeals).
 func (s *Store) SaveVolunteerDetails(ctx context.Context, d *VolunteerDetails) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO volunteer_details (event_id, person_id, tshirt, meals, dietary, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+	_, err := s.db.ExecContext(ctx, `INSERT INTO volunteer_details (event_id, person_id, tshirt, meals, dietary, asked_sizes, asked_meals, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (event_id, person_id) DO UPDATE SET tshirt = excluded.tshirt, meals = excluded.meals,
-			dietary = excluded.dietary, updated_at = excluded.updated_at`,
-		d.EventID, d.PersonID, d.Tshirt, strings.Join(d.Meals, "\n"), d.Dietary, now())
+			dietary = excluded.dietary, asked_sizes = excluded.asked_sizes, asked_meals = excluded.asked_meals,
+			updated_at = excluded.updated_at`,
+		d.EventID, d.PersonID, d.Tshirt, strings.Join(d.Meals, "\n"), d.Dietary,
+		strings.Join(d.AskedSizes, "\n"), strings.Join(d.AskedMeals, "\n"), now())
 
 	return err
 }

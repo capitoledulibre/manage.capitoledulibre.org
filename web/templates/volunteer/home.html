@@ -49,9 +49,9 @@
 {{/* The t-shirt and the meals: asked of every volunteer of the edition,
      outlined until answered. Once sign-ups close, the answers only show. */}}
 {{with $d.Details}}{{if or $d.DetailsOpen .Answered}}
-<section id="details" class="card mb-8 {{if and $d.DetailsOpen (not .Answered)}}ring-2 ring-brand-600{{end}}" aria-labelledby="details-title">
+<section id="details" class="card mb-8 {{if and $d.DetailsOpen (not (.Settled $e))}}ring-2 ring-brand-600{{end}}" aria-labelledby="details-title">
   <h2 id="details-title" class="card-title">{{t $l "vol.details.title"}}</h2>
-  <p class="help mb-4">{{if not $d.DetailsOpen}}{{t $l "vol.details.closed"}}{{else if .Answered}}{{t $l "vol.details.thanks"}}{{else}}{{t $l "vol.details.intro"}}{{end}}</p>
+  <p class="help mb-4">{{if not $d.DetailsOpen}}{{t $l "vol.details.closed"}}{{else if .Settled $e}}{{t $l "vol.details.thanks"}}{{else if .Answered}}{{t $l "vol.details.changed"}}{{else}}{{t $l "vol.details.intro"}}{{end}}</p>
   <form method="post" action="/volunteers/{{$e.Slug}}/details">
   <fieldset class="space-y-4" {{if not $d.DetailsOpen}}disabled{{end}}>
     {{with $e.TshirtSizeList}}

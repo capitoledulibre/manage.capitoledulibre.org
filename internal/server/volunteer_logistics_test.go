@@ -155,3 +155,63 @@ func TestLogisticsClosed(t *testing.T) {
 		t.Errorf("answer changed after the freeze: %+v", d)
 	}
 }
+
+func TestLogisticsChoicesChanged(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	admin := e.adminClient()
+	edition := "/volunteers/" + f.event.Slug + "/edition"
+	home := "/volunteers/" + f.event.Slug
+
+	p, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, p.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.morning.ID, p.ID))
+
+	nina := e.loginAs("nina@example.org")
+
+	// Nina answers when only sizes and one meal are asked.
+	e.post(admin, edition+"/settings", url.Values{"status": {store.VolunteersOpen}, "tshirt_sizes": {"S\nM"}, "meals": {"Samedi soir"}})
+	e.post(nina, home+"/details", url.Values{"tshirt": {"M"}, "meal": {"Samedi soir"}})
+
+	_, body := e.get(nina, home)
+	mustContain(t, body, "Merci, c&#39;est noté.")
+
+	// A meal is renamed and another added: her answer is to be checked
+	// again, and the meal gone still shows in the counts and the CSV.
+	e.post(admin, edition+"/settings", url.Values{"status": {store.VolunteersOpen}, "tshirt_sizes": {"S\nM"},
+		"meals": {"Samedi soir (buffet)\nDimanche midi"}})
+
+	_, body = e.get(nina, home)
+	mustContain(t, body, "Les choix proposés ont changé", "ring-2 ring-brand-600")
+
+	_, body = e.get(admin, edition+"?tab=logistics")
+	mustContain(t, body, "Réponse à revoir (1)", "plus proposé", "Relancer la personne")
+
+	_, body = e.get(admin, edition+"/logistics.csv")
+	mustContain(t, body, "tshirt,Samedi soir (buffet),Dimanche midi,Samedi soir,dietary,to_check", "Nina,nina@example.org,1,120,M,,,1,,1")
+
+	e.post(admin, edition+"/remind", url.Values{"audience": {"details"}})
+	e.mailed("nina@example.org", "T-shirt et repas")
+
+	// Answering again settles it.
+	e.post(nina, home+"/details", url.Values{"tshirt": {"M"}, "meal": {"Dimanche midi"}})
+
+	_, body = e.get(admin, edition+"?tab=logistics")
+	if strings.Contains(body, "Réponse à revoir") || strings.Contains(body, "plus proposé") {
+		t.Error("an answer given again is still to check")
+	}
+
+	// A new size is to be checked by those who took none; a meal named as
+	// a formula does not reach the CSV as one.
+	e.post(nina, home+"/details", url.Values{"tshirt": {""}, "meal": {"Dimanche midi"}})
+	e.post(admin, edition+"/settings", url.Values{"status": {store.VolunteersOpen}, "tshirt_sizes": {"S\nM\nXXL"},
+		"meals": {"Dimanche midi\n=HYPERLINK(\"x\")"}})
+
+	_, body = e.get(admin, edition+"?tab=logistics")
+	mustContain(t, body, "Réponse à revoir (1)")
+
+	_, body = e.get(admin, edition+"/logistics.csv")
+	mustContain(t, body, `'=HYPERLINK(""x"")`)
+}
