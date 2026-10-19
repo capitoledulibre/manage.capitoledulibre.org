@@ -137,7 +137,13 @@ func TestPoleManagement(t *testing.T) {
 	}
 
 	_, body = e.post(lead, f.morning.ManageURL()+"/volunteers", url.Values{"person": {omarP.UID}})
-	mustContain(t, body, "Omar a été inscrit·e sur le créneau")
+	mustContain(t, body, "Omar a été inscrit·e sur le créneau", "prévenu·e par e-mail")
+	e.mailed("omar@example.org", "Vous êtes inscrit·e", "Un responsable vous a inscrit·e")
+
+	// Signing Nina up where she already is at that time warns the lead.
+	_, body = e.post(lead, f.overlap.ManageURL()+"/volunteers", url.Values{"person": {ninaP.UID}})
+	mustContain(t, body, "déjà sur un autre créneau au même moment", "Buvette (")
+	e.post(lead, f.overlap.ManageURL()+"/volunteers/"+ninaP.UID+"/delete", nil)
 
 	// Taking Nina off the slot tells her.
 	_, body = e.post(lead, f.morning.ManageURL()+"/volunteers/"+ninaP.UID+"/delete", nil)

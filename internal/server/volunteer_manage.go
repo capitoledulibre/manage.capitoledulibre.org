@@ -1168,13 +1168,30 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	// What else they do at that time, as a volunteer signing up is told;
+	// the lead decides, so it only warns.
+	overlaps, err := s.store.OverlappingSlots(ctx, who.ID, v.Pole.ID, sl.ID, sl.StartsAt, sl.EndsAt)
+	if err != nil {
+		return err
+	}
+
 	if err := s.store.ForceSignup(ctx, sl.ID, who.ID); err != nil {
 		return err
 	}
 
 	s.logVol(r, logSlot(store.LogSignupAdded, v.Pole, sl, who))
+	s.notifySignupAdded(who, v.Pole, sl)
 
-	s.flash(w, "flash.vol.volunteer_added", who.Label(), v.Pole.Name)
+	if len(overlaps) > 0 {
+		var also []string
+		for _, o := range overlaps {
+			also = append(also, o.PoleName+" ("+clock(o.StartsAt)+"–"+clock(o.EndsAt)+")")
+		}
+
+		s.flash(w, "flash.vol.volunteer_added_overlap", who.Label(), strings.Join(also, ", "))
+	} else {
+		s.flash(w, "flash.vol.volunteer_added", who.Label(), v.Pole.Name)
+	}
 	http.Redirect(w, r, sl.ManageURL()+"#volunteers", http.StatusSeeOther)
 
 	return nil

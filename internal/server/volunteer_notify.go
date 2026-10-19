@@ -138,6 +138,15 @@ func (s *Server) notifySlotDeleted(volunteers []*store.Person, pole *store.Pole,
 		})
 }
 
+// notifySignupAdded tells a volunteer that a manager signed them up for a
+// slot: nobody should learn of a shift from the roster on the day.
+func (s *Server) notifySignupAdded(who *store.Person, pole *store.Pole, sl *store.Slot) {
+	s.notifyPeople([]*store.Person{who}, func(lang string) string { return volSubject(lang, "mail.vol.signup_added.subject", pole.Name) },
+		func(p *store.Person) string {
+			return s.volMail(p, pole.EventSlug, i18n.T(p.Lang, "mail.vol.signup_added.body", slotLine(p.Lang, pole, sl), s.slotURL(sl)))
+		})
+}
+
 // notifySignupRemoved warns a volunteer that a manager took them off a slot.
 func (s *Server) notifySignupRemoved(who *store.Person, pole *store.Pole, sl *store.Slot) {
 	s.notifyPeople([]*store.Person{who}, func(lang string) string { return volSubject(lang, "mail.vol.signup_removed.subject", pole.Name) },
