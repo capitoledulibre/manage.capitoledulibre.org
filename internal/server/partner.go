@@ -751,7 +751,8 @@ func readAttendee(r *http.Request, partnershipID int64) (*store.Attendee, map[st
 }
 
 // partnerAttendeeUpdate saves the changes to an attendee: a typo or a diet
-// took deleting and adding them again.
+// took deleting and adding them again. Once the list is closed, the diet
+// alone can still change: an allergy learnt late matters to the caterer.
 func (s *Server) partnerAttendeeUpdate(w http.ResponseWriter, r *http.Request) error {
 	pc, err := s.currentPartnership(r)
 	if err != nil {
@@ -763,7 +764,16 @@ func (s *Server) partnerAttendeeUpdate(w http.ResponseWriter, r *http.Request) e
 	}
 
 	if pc.Event.AttendeesLocked() && !rc(r).Impersonating {
-		return errForbidden
+		uid := r.PathValue("attendee")
+		if err := s.store.UpdateAttendeeDietary(r.Context(), pc.Partnership.ID, uid, strings.TrimSpace(r.FormValue("dietary"))); err != nil {
+			return err
+		}
+
+		s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.updated", "")
+		s.flash(w, "flash.saved")
+		http.Redirect(w, r, "/partners/attendees"+eventQuery(pc), http.StatusSeeOther)
+
+		return nil
 	}
 
 	a, form := readAttendee(r, pc.Partnership.ID)

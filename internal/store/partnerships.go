@@ -338,6 +338,23 @@ func (s *Store) UpdateAttendee(ctx context.Context, a *Attendee) error {
 	return nil
 }
 
+// UpdateAttendeeDietary saves the dietary needs of an attendee of the
+// partnership, the one thing still open once the list is closed.
+func (s *Store) UpdateAttendeeDietary(ctx context.Context, partnershipID int64, uid, dietary string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE attendees SET dietary = ? WHERE uid = ? AND partnership_id = ?`, dietary, uid, partnershipID)
+	if err != nil {
+		return err
+	}
+
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
 func (s *Store) DeleteAttendee(ctx context.Context, partnershipID int64, uid string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM attendees WHERE uid = ? AND partnership_id = ?`, uid, partnershipID)
 

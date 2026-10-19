@@ -309,6 +309,8 @@ var messages = map[string][2]string{
 	"attendees.list":                {"Personnes inscrites", "Registered people"},
 	"attendees.none":                {"Personne pour l'instant.", "Nobody yet."},
 	"attendees.add":                 {"Ajouter une personne", "Add a person"},
+	"attendees.edit_dietary":        {"Modifier le régime", "Change the diet"},
+	"attendees.locked_dietary":      {"La liste est close\u00a0; le régime alimentaire peut encore changer, pour le traiteur.", "The list is closed; the diet can still change, for the caterer."},
 	"attendees.edit":                {"Modifier %s", "Edit %s"},
 	"attendees.name":                {"Nom", "Name"},
 	"attendees.first_name":          {"Prénom", "First name"},
@@ -321,7 +323,7 @@ var messages = map[string][2]string{
 	"attendees.dietary_placeholder": {"végétarien, allergie…", "vegetarian, allergy…"},
 	"attendees.name_required":       {"Le prénom et le nom sont obligatoires.", "First and last names are required."},
 	"attendees.full":                {"Vous avez atteint le nombre de participants inclus dans votre niveau. Contactez-nous si besoin.", "You have reached the number of attendees included in your level. Contact us if needed."},
-	"attendees.locked":              {"La date limite est passée : contactez-nous pour toute modification.", "The deadline has passed: please contact us for any change."},
+	"attendees.locked":              {"La date limite est passée\u00a0: seul le régime alimentaire se modifie encore ici. Pour le reste, contactez-nous.", "The deadline has passed: only the diet can still change here. For anything else, please contact us."},
 
 	// Jobs.
 	"jobs.title":              {"Nos partenaires recrutent", "Our partners are hiring"},

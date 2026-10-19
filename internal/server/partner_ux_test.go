@@ -2,10 +2,13 @@ package server
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	"manage/internal/store"
 )
 
 func TestDue(t *testing.T) {
@@ -192,5 +195,44 @@ func TestPartnerSendsSignedQuote(t *testing.T) {
 
 	if p, _ = e.st.GetPartnership(ctx, f.acmeP.ID); p.QuoteSignedAt == nil {
 		t.Error("the staff's check does not mark it signed")
+	}
+}
+
+func TestDietaryAfterLock(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	past := time.Now().AddDate(0, 0, -3)
+	f := e.fixture(&past)
+	alice := e.loginAs("alice@acme.test")
+
+	mustOK(t, e.st.AddAttendee(ctx, &store.Attendee{PartnershipID: f.acmeP.ID, FirstName: "Bob", LastName: "Martin", Role: store.RoleBooth}))
+	list, _ := e.st.ListAttendees(ctx, f.acmeP.ID)
+	bob := list[0]
+
+	// Closed: no adding, no deleting, but the diet still changes.
+	_, body := e.get(alice, "/partners/attendees")
+	mustContain(t, body, "Modifier le régime")
+
+	if strings.Contains(body, "/delete") {
+		t.Error("an attendee can be deleted after the lock")
+	}
+
+	_, body = e.get(alice, "/partners/attendees?edit="+bob.UID)
+	mustContain(t, body, "La liste est close", `name="dietary"`)
+
+	if strings.Contains(body, `name="last_name"`) {
+		t.Error("the name can be changed after the lock")
+	}
+
+	// Only the diet is taken, whatever else is sent.
+	e.post(alice, "/partners/attendees/"+bob.UID, url.Values{"dietary": {"sans gluten"}, "last_name": {"Autre"}})
+
+	list, _ = e.st.ListAttendees(ctx, f.acmeP.ID)
+	if got := list[0]; got.Dietary != "sans gluten" || got.LastName != "Martin" {
+		t.Fatalf("after the lock: %+v", got)
+	}
+
+	if code, _ := e.post(alice, "/partners/attendees", url.Values{"first_name": {"X"}, "last_name": {"Y"}}); code != http.StatusForbidden {
+		t.Errorf("adding after the lock: %d", code)
 	}
 }
