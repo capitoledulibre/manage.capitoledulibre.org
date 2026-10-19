@@ -145,7 +145,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 			targets = append(targets, x)
 		}
 
-		if x.ID != e.ID {
+		if ok && x.ID != e.ID {
 			others = append(others, x)
 		}
 	}
@@ -260,11 +260,10 @@ func (s *Server) coordinationLogoDelete(w http.ResponseWriter, r *http.Request) 
 // coordinationCopy prepares the edition from another one: its poles
 // (settings, places, leads), its coordinators and its logo. The staff's
 // call, as it brings people along.
+// coordinationCopy prepares the edition from another one the person also
+// coordinates (the staff, any): its poles, coordination and logo, and on
+// request its slots, moved to the new dates.
 func (s *Server) coordinationCopy(w http.ResponseWriter, r *http.Request) error {
-	if err := staffOnly(r); err != nil {
-		return err
-	}
-
 	e, err := s.coordinationEvent(r)
 	if err != nil {
 		return err
@@ -275,7 +274,23 @@ func (s *Server) coordinationCopy(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if err := s.store.CopyVolunteerSide(r.Context(), src.ID, e.ID); err != nil {
+	if ok, err := s.coordinates(r, src.ID); err != nil {
+		return err
+	} else if !ok {
+		return errForbidden
+	}
+
+	var shift func(time.Time) time.Time
+
+	if r.FormValue("slots") == "1" {
+		if shift = editionShift(src, e); shift == nil {
+			s.flash(w, "vol.err.copy_no_dates")
+
+			return s.redirectCoordination(w, r, e, "settings")
+		}
+	}
+
+	if err := s.store.CopyVolunteerSide(r.Context(), src.ID, e.ID, shift); err != nil {
 		if errors.Is(err, store.ErrBadInput) {
 			return errBadInput
 		}
@@ -286,6 +301,25 @@ func (s *Server) coordinationCopy(w http.ResponseWriter, r *http.Request) error 
 	s.flash(w, "flash.vol.edition_copied", src.Name)
 
 	return s.redirectCoordination(w, r, e, "")
+}
+
+// editionShift moves a time of edition from to the same day of edition
+// to: the first day onto the first day, and so on, at the same clock time
+// in Paris across a change of daylight saving time. Nil when either has
+// no dates.
+func editionShift(from, to *store.Event) func(time.Time) time.Time {
+	if from.StartsOn == nil || to.StartsOn == nil {
+		return nil
+	}
+
+	day := func(t time.Time) time.Time { return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC) }
+	days := int(day(*to.StartsOn).Sub(day(*from.StartsOn)).Hours() / 24)
+
+	return func(t time.Time) time.Time {
+		t = t.In(paris)
+
+		return time.Date(t.Year(), t.Month(), t.Day()+days, t.Hour(), t.Minute(), 0, 0, paris)
+	}
 }
 
 // --- coordinators: the staff's call ---------------------------------------

@@ -400,36 +400,40 @@ func (s *Store) ToggleTask(ctx context.Context, id, personID int64) error {
 
 // CopyTasks copies the labels of the checklist of a slot onto another.
 func (s *Store) CopyTasks(ctx context.Context, fromSlotID, toSlotID int64) error {
-	return s.tx(ctx, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT label, position FROM slot_tasks WHERE slot_id = ? ORDER BY position, id`, fromSlotID)
-		if err != nil {
+	return s.tx(ctx, func(tx *sql.Tx) error { return copySlotTasks(ctx, tx, fromSlotID, toSlotID) })
+}
+
+// copySlotTasks copies the checklist of a slot, unticked, each task with a
+// uid of its own.
+func copySlotTasks(ctx context.Context, tx *sql.Tx, fromSlotID, toSlotID int64) error {
+	rows, err := tx.QueryContext(ctx, `SELECT label, position FROM slot_tasks WHERE slot_id = ? ORDER BY position, id`, fromSlotID)
+	if err != nil {
+		return err
+	}
+
+	var tasks []SlotTask
+
+	for rows.Next() {
+		var t SlotTask
+		if err := rows.Scan(&t.Label, &t.Position); err != nil {
+			rows.Close()
+
 			return err
 		}
 
-		var tasks []SlotTask
+		tasks = append(tasks, t)
+	}
 
-		for rows.Next() {
-			var t SlotTask
-			if err := rows.Scan(&t.Label, &t.Position); err != nil {
-				rows.Close()
+	rows.Close()
 
-				return err
-			}
-
-			tasks = append(tasks, t)
+	for _, t := range tasks {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO slot_tasks (uid, slot_id, label, position) VALUES (?, ?, ?, ?)`,
+			NewUUID(), toSlotID, t.Label, t.Position); err != nil {
+			return err
 		}
+	}
 
-		rows.Close()
-
-		for _, t := range tasks {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO slot_tasks (uid, slot_id, label, position) VALUES (?, ?, ?, ?)`,
-				NewUUID(), toSlotID, t.Label, t.Position); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
+	return rows.Err()
 }
 
 // --- waiting list ---------------------------------------------------------

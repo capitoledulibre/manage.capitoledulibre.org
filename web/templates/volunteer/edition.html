@@ -220,14 +220,18 @@
       </form>
       {{end}}
     </section>
-    {{if and $d.Staff $d.Others}}
+    {{with $d.Others}}
     <section class="card">
       <h2 class="card-title">{{t $l "vol.coord.copy_title"}}</h2>
       <p class="help mb-3">{{t $l "vol.coord.copy_edition_help"}}</p>
-      <form method="post" action="{{$base}}/copy" class="flex flex-wrap gap-2" data-confirm="{{t $l "vol.coord.copy_confirm"}}">
-        <label for="copy-from" class="sr-only">{{t $l "vol.coord.copy_from"}}</label>
-        <select id="copy-from" class="input max-w-xs" name="from">{{range $d.Others}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}</select>
-        <button class="btn-secondary btn-sm">{{t $l "vol.coord.copy_submit"}}</button>
+      <form method="post" action="{{$base}}/copy" class="space-y-3" data-confirm="{{t $l "vol.coord.copy_confirm"}}">
+        <div class="flex flex-wrap gap-2">
+          <label for="copy-from" class="sr-only">{{t $l "vol.coord.copy_from"}}</label>
+          <select id="copy-from" class="input max-w-xs" name="from">{{range .}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}</select>
+          <button class="btn-secondary btn-sm">{{t $l "vol.coord.copy_submit"}}</button>
+        </div>
+        <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="slots" value="1" class="mt-0.5 h-4 w-4 accent-brand-600" {{if not $e.StartsOn}}disabled{{end}}>
+          <span>{{t $l "vol.coord.copy_slots"}}{{if not $e.StartsOn}} <span class="text-gray-500">({{t $l "vol.coord.copy_slots_no_dates"}})</span>{{end}}</span></label>
       </form>
     </section>
     {{end}}

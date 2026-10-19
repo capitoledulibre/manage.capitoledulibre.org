@@ -222,10 +222,11 @@ func (s *Store) PersonPoles(ctx context.Context, eventID int64) (map[int64][]str
 }
 
 // CopyVolunteerSide prepares an edition from another one: every pole is
-// copied (settings, locations, managers; no slots, no members), the
-// coordinators carry over, and so do the logo, the t-shirt sizes and the
-// meals, each when the target has none.
-func (s *Store) CopyVolunteerSide(ctx context.Context, srcEventID, dstEventID int64) error {
+// copied (settings, locations, managers; no members), the coordinators
+// carry over, and so do the logo, the t-shirt sizes and the meals, each
+// when the target has none. With shift, the slots come too, with their
+// places and tasks and nobody on them, at the times shift gives.
+func (s *Store) CopyVolunteerSide(ctx context.Context, srcEventID, dstEventID int64, shift func(time.Time) time.Time) error {
 	if srcEventID == dstEventID {
 		return ErrBadInput
 	}
@@ -252,8 +253,15 @@ func (s *Store) CopyVolunteerSide(ctx context.Context, srcEventID, dstEventID in
 		rows.Close()
 
 		for _, id := range poleIDs {
-			if _, err := copyPole(ctx, tx, id, dstEventID); err != nil {
+			newID, err := copyPole(ctx, tx, id, dstEventID)
+			if err != nil {
 				return err
+			}
+
+			if shift != nil {
+				if err := copySlots(ctx, tx, id, newID, shift); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -277,6 +285,65 @@ func (s *Store) CopyVolunteerSide(ctx context.Context, srcEventID, dstEventID in
 
 		return err
 	})
+}
+
+// copySlots copies the slots of a pole into another, at the times shift
+// gives: each keeps its title, capacity, place (by name) and tasks, with
+// nobody on it.
+func copySlots(ctx context.Context, tx *sql.Tx, srcPoleID, dstPoleID int64, shift func(time.Time) time.Time) error {
+	type slot struct {
+		id, capacity int64
+		title        string
+		place        sql.NullString
+		start, end   time.Time
+	}
+
+	rows, err := tx.QueryContext(ctx, `SELECT s.id, s.capacity, s.title, l.name, s.starts_at, s.ends_at
+		FROM slots s LEFT JOIN locations l ON l.id = s.location_id WHERE s.pole_id = ? ORDER BY s.starts_at, s.id`, srcPoleID)
+	if err != nil {
+		return err
+	}
+
+	var slots []slot
+
+	for rows.Next() {
+		var sl slot
+		if err := rows.Scan(&sl.id, &sl.capacity, &sl.title, &sl.place, &sl.start, &sl.end); err != nil {
+			rows.Close()
+
+			return err
+		}
+
+		slots = append(slots, sl)
+	}
+
+	rows.Close()
+
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, sl := range slots {
+		start := shift(sl.start)
+
+		res, err := tx.ExecContext(ctx, `INSERT INTO slots (uid, pole_id, location_id, title, starts_at, ends_at, capacity, created_at)
+			VALUES (?, ?, (SELECT id FROM locations WHERE pole_id = ? AND name = ?), ?, ?, ?, ?, ?)`,
+			NewUUID(), dstPoleID, dstPoleID, sl.place, sl.title, start.UTC(), start.Add(sl.end.Sub(sl.start)).UTC(), sl.capacity, now())
+		if err != nil {
+			return err
+		}
+
+		newID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		if err := copySlotTasks(ctx, tx, sl.id, newID); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // --- a person as a volunteer ----------------------------------------------

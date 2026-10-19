@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"manage/internal/store"
 )
@@ -292,4 +293,67 @@ func (e *env) mustPersonUID(email string) string {
 	mustOK(e.t, err)
 
 	return p.UID
+}
+
+func TestEditionShift(t *testing.T) {
+	d := func(y int, m time.Month, day int) *time.Time {
+		v := time.Date(y, m, day, 0, 0, 0, 0, time.UTC)
+
+		return &v
+	}
+
+	// From summer time to winter time, 10:00 in Paris stays 10:00.
+	shift := editionShift(&store.Event{StartsOn: d(2025, 10, 25)}, &store.Event{StartsOn: d(2026, 11, 14)})
+	in := time.Date(2025, 10, 26, 10, 0, 0, 0, paris)
+
+	if got := shift(in).In(paris); got.Format("2006-01-02 15:04") != "2026-11-15 10:00" {
+		t.Errorf("shift = %s", got)
+	}
+
+	if editionShift(&store.Event{}, &store.Event{StartsOn: d(2026, 11, 14)}) != nil {
+		t.Error("an edition without dates gives a shift")
+	}
+}
+
+func TestCopyEditionWithSlots(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	admin := e.adminClient()
+
+	// Dates for both editions.
+	for _, ev := range []*store.Event{f.event, f.draft} {
+		start := time.Date(ev.Year, 11, 14, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 0, 1)
+		ev.StartsOn, ev.EndsOn = &start, &end
+		mustOK(t, e.st.SaveEvent(ctx, ev))
+	}
+
+	// A coordinator of the next edition only cannot copy from this one.
+	_, _ = e.post(admin, "/volunteers/"+f.draft.Slug+"/edition/coordinators", url.Values{"email": {"coco@example.org"}})
+	coco := e.loginAs("coco@example.org")
+
+	if code, _ := e.post(coco, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}, "slots": {"1"}}); code != http.StatusForbidden {
+		t.Errorf("copy from an edition not coordinated: %d", code)
+	}
+
+	// Coordinating both, they can, slots included.
+	_, _ = e.post(admin, "/volunteers/"+f.event.Slug+"/edition/coordinators", url.Values{"email": {"coco@example.org"}})
+
+	_, body := e.get(coco, "/volunteers/"+f.draft.Slug+"/edition?tab=settings")
+	mustContain(t, body, `name="slots" value="1"`, f.event.Name)
+
+	e.post(coco, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}, "slots": {"1"}})
+
+	buvette, err := e.st.GetPoleBySlug(ctx, f.draft.ID, f.buvette.Slug)
+	mustOK(t, err)
+
+	slots, _ := e.st.ListSlots(ctx, buvette.ID, 0)
+	if len(slots) != 3 {
+		t.Fatalf("copied slots: %d", len(slots))
+	}
+
+	if want := f.morning.StartsAt.AddDate(1, 0, 0); slots[1].StartsAt.Year() != want.Year() || slots[1].Filled != 0 {
+		t.Errorf("copied slot: %+v", slots[1])
+	}
 }

@@ -235,7 +235,7 @@ func TestCopyVolunteerSide(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := s.CopyVolunteerSide(ctx, src.ID, dst.ID); err != nil {
+	if err := s.CopyVolunteerSide(ctx, src.ID, dst.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -447,5 +447,58 @@ func TestVolunteerPerson(t *testing.T) {
 
 	if n, _ := s.CountPeople(ctx, "%"); n != 0 {
 		t.Fatalf("LIKE wildcards are escaped, CountPeople = %d", n)
+	}
+}
+
+func TestCopyVolunteerSideWithSlots(t *testing.T) {
+	ctx := context.Background()
+	s := openTestStore(t)
+
+	src, dst := newEvent(t, s, "ec-2025", 2025), newEvent(t, s, "ec-2026", 2026)
+
+	pole := &Pole{EventID: src.ID, Name: "Accueil"}
+	if err := s.CreatePole(ctx, pole); err != nil {
+		t.Fatal(err)
+	}
+
+	hall, err := s.CreateLocation(ctx, pole.ID, "Hall")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Date(2025, 11, 15, 8, 0, 0, 0, time.UTC)
+	sl := &Slot{PoleID: pole.ID, LocationID: hall.ID, Title: "Badges", StartsAt: start, EndsAt: start.Add(2 * time.Hour), Capacity: 3}
+
+	if err := s.CreateSlot(ctx, sl); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, label := range []string{"Ouvrir", "Fermer"} {
+		if _, err := s.CreateTask(ctx, sl.ID, label); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	alice := newPerson(t, s, "alice@example.org")
+	if err := s.ForceSignup(ctx, sl.ID, alice.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	week := func(t time.Time) time.Time { return t.AddDate(0, 0, 364) }
+	if err := s.CopyVolunteerSide(ctx, src.ID, dst.ID, week); err != nil {
+		t.Fatal(err)
+	}
+
+	copied, _ := s.GetPoleBySlug(ctx, dst.ID, pole.Slug)
+
+	slots, err := s.ListSlots(ctx, copied.ID, 0)
+	if err != nil || len(slots) != 1 {
+		t.Fatalf("slots: %d %v", len(slots), err)
+	}
+
+	got := slots[0]
+	if !got.StartsAt.Equal(week(start)) || got.EndsAt.Sub(got.StartsAt) != 2*time.Hour || got.Title != "Badges" ||
+		got.Capacity != 3 || got.LocationName != "Hall" || got.LocationID == hall.ID || got.TaskCount != 2 || got.Filled != 0 {
+		t.Fatalf("copied slot: %+v", got)
 	}
 }
