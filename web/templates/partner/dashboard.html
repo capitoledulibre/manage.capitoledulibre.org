@@ -72,7 +72,7 @@
             {{with .Deadline}}{{$due := due $l .}}<span class="ml-1 text-xs {{$due.Class}}">· {{$due.Text}}</span>{{end}}
             {{with .Missing}}<span class="mt-0.5 block text-xs text-gray-600">{{t $l "todo.missing"}} {{range $i, $k := .}}{{if $i}}, {{end}}{{t $l $k}}{{end}}</span>{{end}}
             {{/* Signing happens off the site: say how to send it back. */}}
-            {{if eq .Key "todo.sign_quote"}}{{with or (and $.D.Contact $.D.Contact.Email) $.Site.ContactEmail}}<span class="mt-0.5 block text-xs text-gray-600">{{t $l "todo.sign_quote_how" .}}</span>{{end}}{{end}}
+            {{if eq .Key "todo.sign_quote"}}<span class="mt-0.5 block text-xs text-gray-600">{{with or (and $.D.Contact $.D.Contact.Email) $.Site.ContactEmail}}{{t $l "todo.sign_quote_how" .}}{{else}}{{t $l "todo.sign_quote_upload"}}{{end}}</span>{{end}}
           </span>
           {{if .Link}}<a class="btn-secondary btn-sm" href="{{.Link}}">{{t $l (printf "%s_go" .Key)}}</a>{{end}}
         </li>
@@ -91,6 +91,15 @@
             {{template "doc_check" (dict "Lang" $l "Done" $p.QuoteSignedAt "Date" $p.QuoteSignedAt "Label" (t $l "doc.quote_signed"))}}
           </ul>
           {{if $p.QuoteFile}}<a class="link mt-2 inline-block text-sm" href="/partners/documents/{{$pc.Event.Slug}}/quote">{{t $l "doc.view"}}</a>{{else}}<p class="mt-2 text-xs text-gray-500">{{t $l "doc.not_available"}}</p>{{end}}
+          {{/* Sent back signed from here, or by e-mail. */}}
+          {{if $p.SignedQuoteFile}}<a class="link mt-1 block text-sm" href="/partners/documents/{{$pc.Event.Slug}}/signed_quote">{{t $l "doc.view_signed"}}</a>
+          {{else if and (or $p.QuoteFile $p.QuoteSentAt) (not $p.QuoteSignedAt)}}
+          <div class="mt-3">
+          {{template "upload" (dict "Lang" $l "ID" "up-signed-quote" "Action" (printf "/partners/documents/%s/signed-quote" $pc.Event.Slug) "Field" "file"
+            "Accept" ".pdf,application/pdf" "Formats" "PDF" "MaxBytes" (uploadLimit "pdf")
+            "Title" (t $l "doc.send_signed") "Label" (t $l "doc.send_signed") "PDF" true)}}
+          </div>
+          {{end}}
         </li>
         <li class="rounded-md border border-gray-200 p-4">
           <p class="text-sm font-medium">{{t $l "doc.invoice"}}</p>

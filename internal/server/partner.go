@@ -32,6 +32,7 @@ func (s *Server) partnerRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /partners/choose", s.wrap(s.requirePerson(s.partnerChoose)))
 	mux.Handle("POST /partners/choose", s.wrap(s.requirePerson(s.partnerChooseSubmit)))
 	h("GET /partners/documents/{event}/{kind}", s.partnerDocument)
+	h("POST /partners/documents/{event}/signed-quote", s.partnerSignedQuote)
 	h("GET /partners/event-documents/{event}/{kind}", s.partnerEventDocument)
 	h("GET /partners/organization", s.partnerOrganization)
 	h("POST /partners/organization", s.partnerOrganizationSubmit)
@@ -370,6 +371,8 @@ func (s *Server) partnerDocument(w http.ResponseWriter, r *http.Request) error {
 		file = p.QuoteFile
 	case "invoice":
 		file = p.InvoiceFile
+	case "signed_quote":
+		file = p.SignedQuoteFile
 	}
 
 	if file == "" {
@@ -377,6 +380,59 @@ func (s *Server) partnerDocument(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	s.files.Serve(w, r, file, fmt.Sprintf("%s-%s.pdf", r.PathValue("kind"), rc(r).Org.Slug))
+
+	return nil
+}
+
+// partnerSignedQuote takes the quote back signed: the to-do asked for it
+// without a way to send it. It counts as signed today, and the staff hears
+// of it.
+func (s *Server) partnerSignedQuote(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	e, err := s.store.GetEventBySlug(ctx, r.PathValue("event"))
+	if err != nil {
+		return err
+	}
+
+	p, err := s.store.GetPartnershipByOrgEvent(ctx, rc(r).Org.ID, e.ID)
+	if err != nil {
+		return err
+	}
+
+	back := "/partners/?event=" + url.QueryEscape(e.Slug)
+
+	if !p.VisibleToPartner() && !rc(r).Impersonating || p.QuoteFile == "" && p.QuoteSentAt == nil {
+		return errNotFound
+	}
+
+	name, err := s.upload(w, r, "file", files.KindPDF, maxPDFSize)
+	if err != nil {
+		var ue uploadError
+		if errors.As(err, &ue) {
+			s.flash(w, string(ue))
+			http.Redirect(w, r, back, http.StatusSeeOther)
+
+			return nil
+		}
+
+		return err
+	}
+
+	p.SignedQuoteFile = name
+
+	if p.QuoteSignedAt == nil {
+		today := time.Now().UTC().Truncate(24 * time.Hour)
+		p.QuoteSignedAt = &today
+	}
+
+	if err := s.store.UpdatePartnership(ctx, p); err != nil {
+		return err
+	}
+
+	s.record(r, rc(r).Org, &p.ID, "quote.signed_uploaded", e.Name)
+	s.flash(w, "flash.signed_quote")
+	http.Redirect(w, r, back, http.StatusSeeOther)
 
 	return nil
 }

@@ -29,21 +29,23 @@ func ValidStatus(s string) bool {
 }
 
 type Partnership struct {
-	ID            int64
-	OrgID         int64
-	EventID       int64
-	LevelID       *int64
-	Status        string
-	PONumber      string
-	QuoteFile     string
-	QuoteSentAt   *time.Time
-	QuoteSignedAt *time.Time
-	InvoiceFile   string
-	InvoiceSentAt *time.Time
-	InvoicePaidAt *time.Time
-	PartnerNotes  string
-	InternalNotes string
-	FollowupAt    *time.Time
+	ID        int64
+	OrgID     int64
+	EventID   int64
+	LevelID   *int64
+	Status    string
+	PONumber  string
+	QuoteFile string
+	// SignedQuoteFile is the quote sent back signed by the partner.
+	SignedQuoteFile string
+	QuoteSentAt     *time.Time
+	QuoteSignedAt   *time.Time
+	InvoiceFile     string
+	InvoiceSentAt   *time.Time
+	InvoicePaidAt   *time.Time
+	PartnerNotes    string
+	InternalNotes   string
+	FollowupAt      *time.Time
 	// PriceOverride is a negotiated price replacing the level price.
 	PriceOverride *int64
 	// OwnerAdminID is the staff member following the partnership.
@@ -59,7 +61,8 @@ func (p *Partnership) VisibleToPartner() bool {
 }
 
 const partnershipCols = `id, organization_id, event_id, level_id, status, po_number, quote_file, quote_sent_at, quote_signed_at,
-	invoice_file, invoice_sent_at, invoice_paid_at, partner_notes, internal_notes, followup_at, price_override, owner_admin_id, created_at, updated_at`
+	invoice_file, invoice_sent_at, invoice_paid_at, partner_notes, internal_notes, followup_at, price_override, owner_admin_id, created_at, updated_at,
+	signed_quote_file`
 
 func scanPartnership(row interface{ Scan(...any) error }) (*Partnership, error) {
 	var (
@@ -69,7 +72,8 @@ func scanPartnership(row interface{ Scan(...any) error }) (*Partnership, error) 
 	)
 
 	err := row.Scan(&p.ID, &p.OrgID, &p.EventID, &level, &p.Status, &p.PONumber, &p.QuoteFile, &qSent, &qSigned,
-		&p.InvoiceFile, &iSent, &iPaid, &p.PartnerNotes, &p.InternalNotes, &followup, &priceOverride, &owner, &p.CreatedAt, &p.UpdatedAt)
+		&p.InvoiceFile, &iSent, &iPaid, &p.PartnerNotes, &p.InternalNotes, &followup, &priceOverride, &owner, &p.CreatedAt, &p.UpdatedAt,
+		&p.SignedQuoteFile)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -167,10 +171,10 @@ func (s *Store) UpdatePartnership(ctx context.Context, p *Partnership) error {
 	p.UpdatedAt = now()
 	_, err := s.db.ExecContext(ctx, `UPDATE partnerships SET level_id = ?, status = ?, po_number = ?, quote_file = ?, quote_sent_at = ?,
 		quote_signed_at = ?, invoice_file = ?, invoice_sent_at = ?, invoice_paid_at = ?, partner_notes = ?, internal_notes = ?,
-		followup_at = ?, price_override = ?, owner_admin_id = ?, updated_at = ? WHERE id = ?`,
+		followup_at = ?, price_override = ?, owner_admin_id = ?, signed_quote_file = ?, updated_at = ? WHERE id = ?`,
 		nullInt(p.LevelID), p.Status, p.PONumber, p.QuoteFile, nullTime(p.QuoteSentAt), nullTime(p.QuoteSignedAt),
 		p.InvoiceFile, nullTime(p.InvoiceSentAt), nullTime(p.InvoicePaidAt), p.PartnerNotes, p.InternalNotes,
-		nullTime(p.FollowupAt), nullInt(p.PriceOverride), nullInt(p.OwnerAdminID), p.UpdatedAt, p.ID)
+		nullTime(p.FollowupAt), nullInt(p.PriceOverride), nullInt(p.OwnerAdminID), p.SignedQuoteFile, p.UpdatedAt, p.ID)
 
 	return err
 }

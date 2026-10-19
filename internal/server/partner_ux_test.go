@@ -145,3 +145,38 @@ func TestPartnerEditsAttendee(t *testing.T) {
 		t.Errorf("unknown attendee: %d", code)
 	}
 }
+
+func TestPartnerSendsSignedQuote(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.fixture(nil)
+	admin := e.adminClient()
+	alice := e.loginAs("alice@acme.test")
+	signed := "/partners/documents/" + f.event.Slug + "/signed-quote"
+	pdf := []byte("%PDF-1.4\n%signed\n")
+
+	// No quote sent yet: nothing to send back.
+	if code, _ := e.upload(alice, signed, nil, "file", "devis.pdf", pdf); code != 404 {
+		t.Errorf("before the quote: %d", code)
+	}
+
+	e.post(admin, partnershipURL(f.acme, f.event), url.Values{"status": {"confirmed"}, "level": {f.level.UID}, "quote_sent_at": {"2026-09-10"}})
+
+	_, body := e.get(alice, "/partners/")
+	mustContain(t, body, "Envoyer le devis signé", "Déposez-le signé")
+
+	_, body = e.upload(alice, signed, nil, "file", "devis.pdf", pdf)
+	mustContain(t, body, "le devis signé est bien reçu", "Voir le devis signé envoyé")
+
+	p, _ := e.st.GetPartnership(ctx, f.acmeP.ID)
+	if p.SignedQuoteFile == "" || p.QuoteSignedAt == nil {
+		t.Fatalf("signed quote: %+v", p)
+	}
+
+	if code, got := e.get(alice, "/partners/documents/"+f.event.Slug+"/signed_quote"); code != 200 || !strings.Contains(got, "%signed") {
+		t.Errorf("download: %d", code)
+	}
+
+	_, body = e.get(admin, partnershipURL(f.acme, f.event))
+	mustContain(t, body, "voir le devis signé", p.SignedQuoteFile)
+}
