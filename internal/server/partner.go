@@ -49,6 +49,7 @@ func (s *Server) partnerRoutes(mux *http.ServeMux) {
 	h("GET /partners/managers", s.partnerManagers)
 	h("POST /partners/managers", s.partnerManagerInvite)
 	h("POST /partners/managers/{manager}/delete", s.partnerManagerDelete)
+	h("POST /partners/managers/{manager}/send-link", s.partnerManagerSendLink)
 	h("POST /partners/profile", s.partnerProfile)
 }
 
@@ -833,12 +834,7 @@ func (s *Server) partnerManagerInvite(w http.ResponseWriter, r *http.Request) er
 		return s.renderManagers(w, r, map[string]any{"M": m, "Error": "managers.already"})
 	}
 
-	inviter := c.Org.Name
-	if c.Manager != nil && !c.Impersonating {
-		inviter = firstNonEmpty(c.Manager.Name, c.Manager.Email)
-	}
-
-	if err := s.sendInvite(r, m, c.Org, inviter); err != nil {
+	if err := s.sendInvite(r, m, c.Org, inviterName(c)); err != nil {
 		return err
 	}
 
@@ -847,6 +843,45 @@ func (s *Server) partnerManagerInvite(w http.ResponseWriter, r *http.Request) er
 	http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
 
 	return nil
+}
+
+// inviterName is who an invitation comes from: the manager sending it,
+// else the organization.
+func inviterName(c *reqCtx) string {
+	if c.Manager != nil && !c.Impersonating {
+		return firstNonEmpty(c.Manager.Name, c.Manager.Email)
+	}
+
+	return c.Org.Name
+}
+
+// partnerManagerSendLink sends a colleague a fresh invitation, for one who
+// let the first expire: inviting them again only said they already were.
+func (s *Server) partnerManagerSendLink(w http.ResponseWriter, r *http.Request) error {
+	c := rc(r)
+
+	managers, err := s.store.ListManagers(r.Context(), c.Org.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, m := range managers {
+		if m.UID != r.PathValue("manager") {
+			continue
+		}
+
+		if err := s.sendInvite(r, m, c.Org, inviterName(c)); err != nil {
+			return err
+		}
+
+		s.record(r, c.Org, nil, "manager.invited", m.Email)
+		s.flash(w, "flash.invited")
+		http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
+
+		return nil
+	}
+
+	return errNotFound
 }
 
 func (s *Server) partnerManagerDelete(w http.ResponseWriter, r *http.Request) error {
@@ -893,6 +928,7 @@ func (s *Server) partnerManagerDelete(w http.ResponseWriter, r *http.Request) er
 	// Removing oneself only takes the organization away: the person stays
 	// logged in, for whatever else they come for.
 	if c.Manager != nil && c.Manager.ID == target.ID && !c.Impersonating {
+		s.flash(w, "flash.manager_left", c.Org.Name)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 		return nil

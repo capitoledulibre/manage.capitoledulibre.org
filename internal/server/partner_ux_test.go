@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -42,4 +43,35 @@ func TestPartnerTodosSayWhatIsMissing(t *testing.T) {
 
 	_, body = e.get(alice, "/partners/organization")
 	mustContain(t, body, "pour la facture", `autocomplete="postal-code"`)
+}
+
+func TestPartnerManagersPage(t *testing.T) {
+	e := newEnv(t)
+	f := e.fixture(nil)
+	alice := e.loginAs("alice@acme.test")
+
+	// Alone, she is marked as herself and cannot remove the last manager.
+	_, body := e.get(alice, "/partners/managers")
+	mustContain(t, body, ">vous<")
+
+	if strings.Contains(body, "/delete") {
+		t.Error("the last manager can be removed")
+	}
+
+	// A colleague who never logged in can be sent a new link.
+	e.post(alice, "/partners/managers", url.Values{"email": {"dave@acme.test"}, "lang": {"fr"}})
+
+	_, body = e.get(alice, "/partners/managers")
+	mustContain(t, body, "Renvoyer l&#39;invitation", "Vous retirer ?", "Retirer dave@acme.test ?")
+
+	before := e.mailer.count("dave@acme.test")
+
+	m, _ := e.st.ListManagers(context.Background(), f.acme.ID)
+	for _, x := range m {
+		if x.Email == "dave@acme.test" {
+			e.post(alice, "/partners/managers/"+x.UID+"/send-link", nil)
+		}
+	}
+
+	waitFor(t, func() bool { return e.mailer.count("dave@acme.test") == before+1 })
 }

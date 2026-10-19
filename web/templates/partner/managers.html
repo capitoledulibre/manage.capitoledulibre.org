@@ -9,12 +9,21 @@
       <tbody>
         {{range .D.Managers}}
         <tr>
-          <td><span class="inline-flex items-center gap-2 font-medium text-gray-900">{{or .Name .Email}} {{template "flag" .Lang}}</span>{{if .Name}}<br><span class="text-xs text-gray-500">{{.Email}}</span>{{end}}</td>
+          {{$self := and $.Manager (not $.Impersonating) (eq .ID $.Manager.ID)}}
+          <td><span class="inline-flex items-center gap-2 font-medium text-gray-900">{{or .Name .Email}} {{template "flag" .Lang}}{{if $self}}<span class="badge bg-gray-100 text-gray-700">{{t $l "managers.you"}}</span>{{end}}</span>{{if .Name}}<br><span class="text-xs text-gray-500">{{.Email}}</span>{{end}}</td>
           <td class="text-gray-500">{{with .LastLoginAt}}{{datetime $l .}}{{else}}{{t $l "managers.never"}}{{end}}</td>
-          <td class="text-right">
-            <form method="post" action="/partners/managers/{{.UID}}/delete" data-confirm="{{t $l "action.confirm_delete"}}">
+          <td class="whitespace-nowrap text-right">
+            {{if not .LastLoginAt}}
+            <form method="post" action="/partners/managers/{{.UID}}/send-link" class="inline-block">
+              <button class="btn-secondary btn-sm">{{t $l "managers.send_link"}}</button>
+            </form>
+            {{end}}
+            {{/* The last one stays: nobody could log in any more. */}}
+            {{if gt (len $.D.Managers) 1}}
+            <form method="post" action="/partners/managers/{{.UID}}/delete" class="inline-block" data-confirm="{{if $self}}{{t $l "managers.remove_self_confirm" $.Org.Name}}{{else}}{{t $l "managers.remove_confirm" (or .Name .Email)}}{{end}}">
               <button class="btn-danger btn-sm">{{t $l "managers.remove"}}</button>
             </form>
+            {{end}}
           </td>
         </tr>
         {{end}}
