@@ -669,7 +669,9 @@ type PoleCoverage struct {
 	Members  int
 	Slots    int
 	Capacity int
-	Filled   int
+	// Filled counts the places taken, each slot counting up to its
+	// capacity: a slot over full does not make up for one short.
+	Filled int
 	// Short counts the slots still missing at least one volunteer.
 	Short    int
 	Managers []*Person
@@ -700,7 +702,7 @@ func (s *Store) ListPoleCoverage(ctx context.Context, eventID int64) ([]*PoleCov
 			return nil, err
 		}
 
-		err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(capacity), 0), COALESCE(SUM(n), 0),
+		err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(capacity), 0), COALESCE(SUM(MIN(n, capacity)), 0),
 				COALESCE(SUM(n < capacity), 0)
 			FROM (SELECT sl.capacity, (SELECT COUNT(*) FROM signups sg WHERE sg.slot_id = sl.id) AS n FROM slots sl WHERE sl.pole_id = ?)`, p.ID).
 			Scan(&c.Slots, &c.Capacity, &c.Filled, &c.Short)

@@ -42,6 +42,10 @@ func TestCoordination(t *testing.T) {
 		t.Fatal("a coordinator joins the default pole")
 	}
 
+	// The poles short of volunteers link to their slots to fill.
+	_, body = e.get(coco, base)
+	mustContain(t, body, "/planning?view=open&amp;pole="+f.buvette.Slug+"&amp;day=all")
+
 	for _, tab := range []string{"", "?tab=messages", "?tab=settings"} {
 		if code, body := e.get(coco, base+tab); code != 200 || !strings.Contains(body, "Édition · Example Conf 2026") {
 			t.Fatalf("tab %q: %d", tab, code)

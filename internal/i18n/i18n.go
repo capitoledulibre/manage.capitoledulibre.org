@@ -994,6 +994,7 @@ var messages = map[string][2]string{
 	"vol.coord.remind_idle_confirm.one":   {"Envoyer à %d personne un e-mail l'invitant à choisir un créneau\u00a0?", "Send %d person an e-mail inviting them to pick a slot?"},
 	"vol.coord.remind_idle_confirm.other": {"Envoyer à %d personnes un e-mail les invitant à choisir un créneau\u00a0?", "Send %d people an e-mail inviting them to pick a slot?"},
 	"vol.coord.remind_closed":             {"Les relances sont possibles tant que les inscriptions sont ouvertes.", "Reminders can go out while sign-ups are open."},
+	"vol.coord.short_link":                {"voir les créneaux à pourvoir", "see the slots to fill"},
 	"vol.coord.col_hours":                 {"Heures", "Hours"},
 	"flash.vol.details_saved":             {"C'est noté, merci.", "Noted, thank you."},
 	"flash.vol.reminded.none":             {"Personne à relancer.", "Nobody to remind."},

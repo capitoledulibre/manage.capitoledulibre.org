@@ -106,9 +106,11 @@ func (s *Store) GetVolunteerStats(ctx context.Context, eventID int64) (*Voluntee
 		return nil, err
 	}
 
-	err = s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(s.capacity), 0),
-			(SELECT COUNT(*) FROM signups sg JOIN slots s2 ON s2.id = sg.slot_id JOIN poles p2 ON p2.id = s2.pole_id WHERE p2.event_id = ?)
-		FROM slots s JOIN poles p ON p.id = s.pole_id WHERE p.event_id = ?`, eventID, eventID).
+	// A slot over full does not make up for one short: each counts up to
+	// its capacity.
+	err = s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(capacity), 0), COALESCE(SUM(MIN(n, capacity)), 0)
+		FROM (SELECT s.capacity, (SELECT COUNT(*) FROM signups sg WHERE sg.slot_id = s.id) AS n
+			FROM slots s JOIN poles p ON p.id = s.pole_id WHERE p.event_id = ?)`, eventID).
 		Scan(&st.Slots, &st.Capacity, &st.Filled)
 	if err != nil {
 		return nil, err

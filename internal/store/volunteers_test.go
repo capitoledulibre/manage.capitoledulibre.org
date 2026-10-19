@@ -124,8 +124,9 @@ func TestSignupFlow(t *testing.T) {
 		t.Fatal("a signed up volunteer no longer waits")
 	}
 
+	// Over full, the slot still counts its capacity only.
 	cov, err := s.ListPoleCoverage(ctx, e.ID)
-	if err != nil || len(cov) != 2 || cov[0].Pole.ID != def.ID || cov[1].Filled != 2 || cov[1].Members != 1 {
+	if err != nil || len(cov) != 2 || cov[0].Pole.ID != def.ID || cov[1].Filled != 1 || cov[1].Capacity != 1 || cov[1].Members != 1 {
 		t.Fatalf("unexpected coverage: %+v %v", cov, err)
 	}
 

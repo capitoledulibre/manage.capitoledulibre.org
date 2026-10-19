@@ -43,7 +43,7 @@
          read as "all done". */}}
     {{if .Slots}}
     <td class="pole-c{{.Pole.Color}} whitespace-nowrap"><span class="inline-flex items-center gap-2"><span class="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200" aria-hidden="true"><i class="slot-bar block h-1.5" style="width: {{.Percent}}%"></i></span>{{.Filled}}/{{.Capacity}}</span></td>
-    <td>{{if .Short}}<span class="badge bg-amber-100 text-amber-800">{{.Short}}</span>{{else}}<span class="badge bg-green-100 text-green-800">0</span>{{end}}</td>
+    <td>{{if .Short}}<a class="badge bg-amber-100 text-amber-800 hover:underline" href="/volunteers/{{$e.Slug}}/planning?view=open&amp;pole={{.Pole.Slug}}&amp;day=all" title="{{t $l "vol.coord.short_link"}}">{{.Short}}<span class="sr-only"> · {{t $l "vol.coord.short_link"}}</span></a>{{else}}<span class="badge bg-green-100 text-green-800">0</span>{{end}}</td>
     {{else}}
     <td class="text-xs text-gray-400">{{t $l "vol.coord.no_slot"}}</td><td class="text-gray-400">—</td>
     {{end}}
