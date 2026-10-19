@@ -61,7 +61,7 @@ func TestPurgeEdition(t *testing.T) {
 		t.Error("sign-ups kept")
 	}
 
-	entries, _ := e.st.ListEventLog(ctx, f.event.ID)
+	entries, _, _ := e.st.ListEventLog(ctx, f.event.ID, store.LogPage{})
 	for _, en := range entries {
 		if en.SubjectName != "" || en.ActorName != "" || en.SubjectID != 0 {
 			t.Errorf("a name stays in the history: %+v", en)

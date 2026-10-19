@@ -3,6 +3,7 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"manage/internal/i18n"
 	"manage/internal/store"
@@ -76,4 +77,42 @@ func logLine(lang string, e *store.LogEntry) string {
 	}
 
 	return i18n.T(lang, key, who(e.ActorName), who(e.SubjectName), e.PoleName, slot, e.Count, what)
+}
+
+// logPage reads the part of the log asked for: its kind and page.
+func logPage(r *http.Request) store.LogPage {
+	p := store.LogPage{Kind: r.URL.Query().Get("kind")}
+	if _, ok := store.LogKinds[p.Kind]; !ok {
+		p.Kind = ""
+	}
+
+	p.Page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	p.Page = max(p.Page, 0)
+
+	return p
+}
+
+// logView is what the history's filters and pager need: the page shown,
+// whether older lines follow, and the URL of the tab (with its query).
+type logView struct {
+	Page store.LogPage
+	More bool
+	Base string
+}
+
+// Kinds lists the kinds offered, in order.
+func (logView) Kinds() []string { return store.LogKindOrder }
+
+// URL is the link to a kind (all when empty) and a page of the log.
+func (l logView) URL(kind string, page int) string {
+	u := l.Base
+	if kind != "" {
+		u += "&kind=" + kind
+	}
+
+	if page > 0 {
+		u += "&page=" + strconv.Itoa(page)
+	}
+
+	return u
 }

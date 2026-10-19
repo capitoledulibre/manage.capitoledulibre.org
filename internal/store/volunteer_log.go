@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -95,11 +97,44 @@ func (s *Store) Log(ctx context.Context, e *LogEntry) error {
 const logCols = `l.id, l.event_id, COALESCE(l.pole_id, 0), COALESCE(l.actor_id, 0), l.actor_name, COALESCE(l.subject_id, 0), l.subject_name,
 	l.action, l.pole_name, l.slot_starts, l.slot_ends, l.place, l.title, l.count, l.created_at, e.name`
 
-func (s *Store) queryLog(ctx context.Context, where string, args ...any) ([]*LogEntry, error) {
+// LogKinds groups the actions of the log, to show one kind at a time: what
+// volunteers did themselves, what the leads and the coordination did,
+// the tasks ticked, and the e-mails sent.
+var LogKinds = map[string][]string{
+	"signups": {LogSignup, LogUnsignup, LogWaitlist, LogWaitlistLeft, LogJoined, LogLeft},
+	"team": {LogSignupAdded, LogSignupRemoved, LogMemberAdded, LogMemberRemoved, LogLeadAdded, LogLeadRemoved,
+		LogSlotsCreated, LogSlotMoved, LogSlotUpdated, LogSlotDeleted, LogPoleCreated, LogPoleDeleted,
+		LogCoordinatorIn, LogCoordinatorOut, LogStatus, LogRegistered},
+	"tasks": {LogTaskDone, LogTaskUndone},
+	"mail":  {LogReminded, LogMessagePosted},
+}
+
+// LogKindOrder is the order the kinds are offered in.
+var LogKindOrder = []string{"signups", "team", "tasks", "mail"}
+
+// LogPage is the part of the log to show: Kind, when set, keeps one group
+// of LogKinds; Page counts pages of LogPageSize lines from the newest.
+type LogPage struct {
+	Kind string
+	Page int
+}
+
+// LogPageSize is the number of lines of a page of the log.
+const LogPageSize = 100
+
+// queryLog returns a page of the entries matching where, and whether older
+// ones follow.
+func (s *Store) queryLog(ctx context.Context, p LogPage, where string, args ...any) ([]*LogEntry, bool, error) {
+	// The kinds are our own constants: they go in the query as they are,
+	// leaving the numbered parameters of where alone.
+	if actions, ok := LogKinds[p.Kind]; ok {
+		where = "(" + where + ") AND l.action IN ('" + strings.Join(actions, "', '") + "')"
+	}
+
 	rows, err := s.db.QueryContext(ctx, `SELECT `+logCols+` FROM volunteer_log l JOIN events e ON e.id = l.event_id
-		WHERE `+where+` ORDER BY l.created_at DESC, l.id DESC LIMIT 300`, args...)
+		WHERE `+where+` ORDER BY l.created_at DESC, l.id DESC LIMIT `+strconv.Itoa(LogPageSize+1)+` OFFSET `+strconv.Itoa(max(p.Page, 0)*LogPageSize), args...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer rows.Close()
 
@@ -113,36 +148,45 @@ func (s *Store) queryLog(ctx context.Context, where string, args ...any) ([]*Log
 
 		if err := rows.Scan(&e.ID, &e.EventID, &e.PoleID, &e.ActorID, &e.ActorName, &e.SubjectID, &e.SubjectName,
 			&e.Action, &e.PoleName, &start, &end, &e.Place, &e.Title, &e.Count, &e.CreatedAt, &e.EventName); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		e.SlotStarts, e.SlotEnds = timePtr(start), timePtr(end)
 		out = append(out, &e)
 	}
 
-	return out, rows.Err()
+	more := len(out) > LogPageSize
+	if more {
+		out = out[:LogPageSize]
+	}
+
+	return out, more, rows.Err()
 }
 
-// ListPoleLog returns the latest entries of a pole.
-func (s *Store) ListPoleLog(ctx context.Context, poleID int64) ([]*LogEntry, error) {
-	return s.queryLog(ctx, `l.pole_id = ?`, poleID)
+// ListPoleLog returns a page of the entries of a pole.
+func (s *Store) ListPoleLog(ctx context.Context, poleID int64, p LogPage) ([]*LogEntry, bool, error) {
+	return s.queryLog(ctx, p, `l.pole_id = ?`, poleID)
 }
 
-// ListEventLog returns the latest entries of an edition.
-func (s *Store) ListEventLog(ctx context.Context, eventID int64) ([]*LogEntry, error) {
-	return s.queryLog(ctx, `l.event_id = ?`, eventID)
+// ListEventLog returns a page of the entries of an edition.
+func (s *Store) ListEventLog(ctx context.Context, eventID int64, p LogPage) ([]*LogEntry, bool, error) {
+	return s.queryLog(ctx, p, `l.event_id = ?`, eventID)
 }
 
 // ListPersonEventLog returns the latest entries of an edition about a
 // person or by them.
 func (s *Store) ListPersonEventLog(ctx context.Context, eventID, personID int64) ([]*LogEntry, error) {
-	return s.queryLog(ctx, `l.event_id = ?1 AND (l.subject_id = ?2 OR l.actor_id = ?2)`, eventID, personID)
+	out, _, err := s.queryLog(ctx, LogPage{}, `l.event_id = ?1 AND (l.subject_id = ?2 OR l.actor_id = ?2)`, eventID, personID)
+
+	return out, err
 }
 
 // ListPersonLog returns the latest entries about a person or by them, all
 // editions.
 func (s *Store) ListPersonLog(ctx context.Context, personID int64) ([]*LogEntry, error) {
-	return s.queryLog(ctx, `l.subject_id = ?1 OR l.actor_id = ?1`, personID)
+	out, _, err := s.queryLog(ctx, LogPage{}, `l.subject_id = ?1 OR l.actor_id = ?1`, personID)
+
+	return out, err
 }
 
 // forgetInLog wipes a person from the log, before they are deleted: their

@@ -157,12 +157,15 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 
 	var (
 		history []*store.LogEntry
+		logMore bool
 		logi    *logistics
 	)
 
+	lp := logPage(r)
+
 	switch tab {
 	case "history":
-		if history, err = s.store.ListEventLog(ctx, e.ID); err != nil {
+		if history, logMore, err = s.store.ListEventLog(ctx, e.ID, lp); err != nil {
 			return err
 		}
 	case "logistics":
@@ -179,6 +182,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 		"Coordinators": coordinators, "Targets": targets, "Others": others, "Staff": rc(r).Admin != nil,
 		"Modes": store.PoleModes, "Statuses": []string{store.VolunteersDraft, store.VolunteersOpen, store.VolunteersFrozen, store.VolunteersArchived},
 		"MaxImage": maxPoleImageSize, "History": history, "Logistics": logi,
+		"Log": logView{Page: lp, More: logMore, Base: editionURL(e) + "?tab=history"},
 	}
 
 	return s.render(w, r, "volunteer/edition", p)

@@ -127,3 +127,52 @@ func TestAdminPersonPage(t *testing.T) {
 		t.Fatalf("staff person: %+v", p)
 	}
 }
+
+func TestLogFiltersAndPages(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	admin := e.adminClient()
+	history := "/volunteers/" + f.event.Slug + "/edition?tab=history"
+
+	// More sign-ups than a page holds, and one e-mail.
+	for range store.LogPageSize + 5 {
+		mustOK(t, e.st.Log(ctx, &store.LogEntry{EventID: f.event.ID, PoleID: f.buvette.ID, Action: store.LogSignup, PoleName: "Buvette"}))
+	}
+
+	mustOK(t, e.st.Log(ctx, &store.LogEntry{EventID: f.event.ID, Action: store.LogReminded, Title: "idle", Count: 4, ActorName: "Coco"}))
+
+	rows := func(body string) int {
+		i, j := strings.Index(body, "<tbody>"), strings.Index(body, "</tbody>")
+		if i < 0 || j < i {
+			return 0
+		}
+
+		return strings.Count(body[i:j], "<tr>")
+	}
+
+	_, body := e.get(admin, history)
+	mustContain(t, body, "Plus ancien →", "&amp;page=1")
+
+	if n := rows(body); n != store.LogPageSize {
+		t.Errorf("first page: %d lines", n)
+	}
+
+	_, body = e.get(admin, history+"&page=1")
+	mustContain(t, body, "← Plus récent")
+
+	if n := rows(body); n != 6 {
+		t.Errorf("second page: %d lines", n)
+	}
+
+	_, body = e.get(admin, history+"&kind=mail")
+	mustContain(t, body, `aria-current="true">E-mails`, "Coco")
+
+	if n := rows(body); n != 1 || strings.Contains(body, "Plus ancien") {
+		t.Errorf("e-mails only: %d lines", n)
+	}
+
+	// The pole's history pages the same way.
+	_, body = e.get(e.loginAs(f.leadEmail), f.buvette.URL()+"?tab=history&kind=signups")
+	mustContain(t, body, "Plus ancien →", "tab=history&amp;kind=signups&amp;page=1")
+}

@@ -168,7 +168,7 @@
   {{template "vol_messages" (dict "Lang" $l "Messages" $d.Messages "Manage" $pole.ManageURL "Back" (printf "%s?tab=messages" $pole.URL))}}
 
 {{else if eq $d.Tab "history"}}
-  {{template "vol_log" (dict "Lang" $l "Entries" $d.History)}}
+  {{template "vol_log" (dict "Lang" $l "Entries" $d.History "Log" $d.Log)}}
 
 {{else if eq $d.Tab "settings"}}
   <div class="grid gap-6 lg:grid-cols-2">

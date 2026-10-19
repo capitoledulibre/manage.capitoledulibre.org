@@ -41,10 +41,17 @@
 {{end}}
 
 {{/* vol_log lists entries of the volunteer log. Expects Lang, Entries
-     and ShowEvent (the log of a person spans editions). */}}
+     and ShowEvent (the log of a person spans editions); with Log (a
+     logView), filters by kind and pages through it. */}}
 {{define "vol_log"}}
-{{$l := .Lang}}
+{{$l := .Lang}}{{$log := .Log}}
 <p class="help mb-3">{{t $l "vol.log.help"}}</p>
+{{with $log}}
+<nav class="mb-3 flex flex-wrap gap-2 text-sm" aria-label="{{t $l "vol.log.filter"}}">
+  <a href="{{.URL "" 0}}" class="filter {{if not .Page.Kind}}filter-on{{end}}" {{if not .Page.Kind}}aria-current="true"{{end}}>{{t $l "vol.log.kind_all"}}</a>
+  {{range .Kinds}}<a href="{{$log.URL . 0}}" class="filter {{if eq . $log.Page.Kind}}filter-on{{end}}" {{if eq . $log.Page.Kind}}aria-current="true"{{end}}>{{t $l (printf "vol.log.kind_%s" .)}}</a>{{end}}
+</nav>
+{{end}}
 {{with .Entries}}
 <div class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200">
 <table class="table">
@@ -63,6 +70,12 @@
 {{else}}
 <p class="text-sm text-gray-500">{{t $l "vol.log.empty"}}</p>
 {{end}}
+{{with $log}}{{if or .More .Page.Page}}
+<nav class="mt-3 flex justify-between text-sm" aria-label="{{t $l "vol.log.pages"}}">
+  <span>{{if .Page.Page}}<a class="link" href="{{.URL .Page.Kind (add .Page.Page -1)}}">← {{t $l "vol.log.newer"}}</a>{{end}}</span>
+  <span>{{if .More}}<a class="link" href="{{.URL .Page.Kind (add .Page.Page 1)}}">{{t $l "vol.log.older"}} →</a>{{end}}</span>
+</nav>
+{{end}}{{end}}
 {{end}}
 
 {{/* member_search lists the people matching the search of the "add

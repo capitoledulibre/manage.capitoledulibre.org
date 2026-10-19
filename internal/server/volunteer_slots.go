@@ -93,12 +93,14 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 
 		d["Coordinator"], d["Modes"], d["MaxImage"] = coordinator, store.PoleModes, maxPoleImageSize
 	case "history":
-		history, err := s.store.ListPoleLog(ctx, v.Pole.ID)
+		lp := logPage(r)
+
+		history, more, err := s.store.ListPoleLog(ctx, v.Pole.ID, lp)
 		if err != nil {
 			return err
 		}
 
-		d["History"] = history
+		d["History"], d["Log"] = history, logView{Page: lp, More: more, Base: v.Pole.URL() + "?tab=history"}
 	}
 
 	return s.render(w, r, "volunteer/pole", p)
