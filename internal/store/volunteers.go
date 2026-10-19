@@ -226,12 +226,23 @@ func (s *Store) PersonPoles(ctx context.Context, eventID int64) (map[int64][]str
 // carry over, and so do the logo, the t-shirt sizes and the meals, each
 // when the target has none. With shift, the slots come too, with their
 // places and tasks and nobody on them, at the times shift gives.
+// ErrDuplicate when the target has poles already (its default pole aside):
+// copying again would double them all.
 func (s *Store) CopyVolunteerSide(ctx context.Context, srcEventID, dstEventID int64, shift func(time.Time) time.Time) error {
 	if srcEventID == dstEventID {
 		return ErrBadInput
 	}
 
 	return s.tx(ctx, func(tx *sql.Tx) error {
+		var poles int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM poles WHERE event_id = ? AND is_default = 0`, dstEventID).Scan(&poles); err != nil {
+			return err
+		}
+
+		if poles > 0 {
+			return ErrDuplicate
+		}
+
 		var poleIDs []int64
 
 		rows, err := tx.QueryContext(ctx, `SELECT id FROM poles WHERE event_id = ? ORDER BY is_default DESC, position, name COLLATE NOCASE`, srcEventID)

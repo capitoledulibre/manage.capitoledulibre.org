@@ -179,6 +179,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 	p.D = map[string]any{
 		"Event": e, "Tab": tab, "Coverage": coverage, "Stats": stats, "Messages": messages,
 		"PastFreeze":   e.VolunteerStatus == store.VolunteersOpen && e.SignupsLocked(nil, time.Now()),
+		"CanCopy":      onlyDefaultPole(coverage),
 		"Coordinators": coordinators, "Targets": targets, "Others": others, "Staff": rc(r).Admin != nil,
 		"Modes": store.PoleModes, "Statuses": []string{store.VolunteersDraft, store.VolunteersOpen, store.VolunteersFrozen, store.VolunteersArchived},
 		"MaxImage": maxPoleImageSize, "History": history, "Logistics": logi,
@@ -295,16 +296,37 @@ func (s *Server) coordinationCopy(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	if err := s.store.CopyVolunteerSide(r.Context(), src.ID, e.ID, shift); err != nil {
-		if errors.Is(err, store.ErrBadInput) {
+		switch {
+		case errors.Is(err, store.ErrBadInput):
 			return errBadInput
+		case errors.Is(err, store.ErrDuplicate):
+			s.flash(w, "vol.err.copy_not_empty")
+
+			return s.redirectCoordination(w, r, e, "settings")
 		}
 
 		return err
 	}
 
-	s.flash(w, "flash.vol.edition_copied", src.Name)
+	if shift != nil {
+		s.flash(w, "flash.vol.edition_copied_slots", src.Name)
+	} else {
+		s.flash(w, "flash.vol.edition_copied", src.Name)
+	}
 
 	return s.redirectCoordination(w, r, e, "")
+}
+
+// onlyDefaultPole tells whether an edition has no pole of its own yet: the
+// only one it can be prepared from another into.
+func onlyDefaultPole(coverage []*store.PoleCoverage) bool {
+	for _, c := range coverage {
+		if !c.Pole.IsDefault {
+			return false
+		}
+	}
+
+	return true
 }
 
 // editionShift moves a time of edition from to the same day of edition

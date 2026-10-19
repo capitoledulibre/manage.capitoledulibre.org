@@ -880,6 +880,8 @@ var messages = map[string][2]string{
 	"flash.vol.pole_created":         {"Pôle «\u00a0%s\u00a0» créé.", "“%s” team created."},
 	"flash.vol.pole_deleted":         {"Pôle «\u00a0%s\u00a0» supprimé.", "“%s” team deleted."},
 	"flash.vol.pole_copied":          {"Pôle «\u00a0%s\u00a0» copié\u00a0: réglages, emplacements et responsables. Ni les créneaux ni les bénévoles.", "“%s” team copied: settings, places and leads. Neither slots nor volunteers."},
+	"flash.vol.edition_copied_slots": {"Pôles, créneaux, coordination et logo repris de «\u00a0%s\u00a0». Vérifiez les horaires, puis ouvrez les inscriptions.", "Teams, slots, coordination and logo copied from “%s”. Check the times, then open sign-ups."},
+	"vol.err.copy_not_empty":         {"Cette édition a déjà des pôles\u00a0: la reprendre d'une autre les doublerait. Copiez plutôt un pôle à la fois depuis l'onglet Pôles de l'autre édition.", "This edition has teams already: copying another one into it would double them. Copy one team at a time from the other edition's Teams tab instead."},
 	"flash.vol.edition_copied":       {"Pôles, coordination et logo repris de «\u00a0%s\u00a0». Les créneaux sont à créer.", "Teams, coordination and logo copied from “%s”. Slots are still to be created."},
 	"flash.vol.coordinator_added":    {"%s fait partie de la coordination.", "%s is now in the coordination."},
 	"flash.vol.coordinator_removed":  {"%s ne fait plus partie de la coordination.", "%s is no longer in the coordination."},

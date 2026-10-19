@@ -356,4 +356,16 @@ func TestCopyEditionWithSlots(t *testing.T) {
 	if want := f.morning.StartsAt.AddDate(1, 0, 0); slots[1].StartsAt.Year() != want.Year() || slots[1].Filled != 0 {
 		t.Errorf("copied slot: %+v", slots[1])
 	}
+
+	// Copying again would double everything: refused, and the form gone.
+	_, body = e.post(coco, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}, "slots": {"1"}})
+	mustContain(t, body, "Cette édition a déjà des pôles")
+
+	if strings.Contains(body, `name="slots" value="1"`) {
+		t.Error("the copy form is still offered")
+	}
+
+	if again, _ := e.st.ListPoles(ctx, f.draft.ID); len(again) != 4 {
+		t.Errorf("poles after a second copy: %d", len(again))
+	}
 }
