@@ -440,6 +440,39 @@ var paris = func() *time.Location {
 	return loc
 }()
 
+func init() { funcs["due"] = due }
+
+// dueText is a partner deadline as shown: its date, how soon, and a tone
+// that only turns red when it is close or passed.
+type dueText struct {
+	Text  string
+	Class string
+}
+
+func due(lang string, v any) dueText {
+	tm := toTime(v)
+	if tm == nil {
+		return dueText{}
+	}
+
+	now := time.Now().In(paris)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	day := time.Date(tm.Year(), tm.Month(), tm.Day(), 0, 0, 0, 0, time.UTC)
+	days := int(day.Sub(today).Hours() / 24)
+	date := funcs["date"].(func(string, any) string)(lang, day)
+
+	switch {
+	case days < 0:
+		return dueText{i18n.T(lang, "due.passed", date), "text-red-700 font-medium"}
+	case days == 0:
+		return dueText{i18n.T(lang, "due.today"), "text-red-700 font-medium"}
+	case days <= 7:
+		return dueText{plural(lang, "due.soon", days, date), "text-amber-800"}
+	default:
+		return dueText{i18n.T(lang, "due.before", date), "text-gray-600"}
+	}
+}
+
 func toTime(v any) *time.Time {
 	switch t := v.(type) {
 	case *time.Time:

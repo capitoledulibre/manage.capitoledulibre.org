@@ -20,6 +20,8 @@ type Todo struct {
 	Key      string
 	Link     string
 	Deadline *time.Time
+	// Missing names what is left to fill in, as i18n keys.
+	Missing []string
 }
 
 type Progress struct {
@@ -57,11 +59,11 @@ func computeProgress(p *store.Partnership, org *store.Organization, e *store.Eve
 	pr.Ready = pr.Done == len(pr.Steps)
 
 	if !org.BillingComplete() {
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.billing", Link: "/partners/organization"})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.billing", Link: "/partners/organization", Missing: org.MissingBilling()})
 	}
 
 	if !org.CommunicationComplete() {
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.communication", Link: "/partners/organization"})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.communication", Link: "/partners/organization", Missing: org.MissingCommunication()})
 	}
 
 	if org.LogoFile == "" {
@@ -76,7 +78,11 @@ func computeProgress(p *store.Partnership, org *store.Organization, e *store.Eve
 		pr.Todos = append(pr.Todos, Todo{Key: "todo.pay_invoice", Link: documentLink(e, p, "invoice")})
 	}
 
-	if attendees == 0 {
+	// Past the lock, the list no longer opens: the to-do says whom to ask.
+	switch {
+	case attendees == 0 && e.AttendeesLocked():
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.attendees_locked"})
+	case attendees == 0:
 		pr.Todos = append(pr.Todos, Todo{Key: "todo.attendees", Link: "/partners/attendees" + query, Deadline: e.AttendeesDeadline})
 	}
 

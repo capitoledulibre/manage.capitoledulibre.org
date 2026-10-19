@@ -376,15 +376,15 @@
         <input class="input" id="name" name="name" required value="{{$o.Name}}">
       </div>
       <div class="sm:col-span-2">
-        <label class="label" for="website">{{t $l "organization.website"}}</label>
-        <input class="input" id="website" name="website" type="text" inputmode="url" placeholder="https://" value="{{$o.Website}}">
+        <label class="label" for="website">{{t $l "organization.website"}}<span class="text-xs font-normal text-gray-500"> · {{t $l "organization.for_site"}}</span></label>
+        <input class="input" id="website" name="website" type="text" inputmode="url" autocomplete="url" placeholder="https://" value="{{$o.Website}}">
       </div>
       <div>
-        <label class="label" for="description_fr">{{t $l "organization.description_fr"}}</label>
+        <label class="label" for="description_fr">{{t $l "organization.description_fr"}}<span class="text-xs font-normal text-gray-500"> · {{t $l "organization.for_site_one"}}</span></label>
         <textarea class="input" id="description_fr" name="description_fr" rows="5" maxlength="1000">{{$o.DescriptionFR}}</textarea>
       </div>
       <div>
-        <label class="label" for="description_en">{{t $l "organization.description_en"}}</label>
+        <label class="label" for="description_en">{{t $l "organization.description_en"}}<span class="text-xs font-normal text-gray-500"> · {{t $l "organization.for_site_one"}}</span></label>
         <textarea class="input" id="description_en" name="description_en" rows="5" maxlength="1000">{{$o.DescriptionEN}}</textarea>
       </div>
       <p class="help sm:col-span-2">{{t $l "organization.description_help"}}</p>
@@ -411,25 +411,25 @@
     <legend class="card-title float-left w-full">{{t $l "organization.billing"}}</legend>
     <div class="grid clear-both gap-4 sm:grid-cols-2">
       <div class="sm:col-span-2">
-        <label class="label" for="legal_name">{{t $l "organization.legal_name"}}</label>
-        <input class="input" id="legal_name" name="legal_name" value="{{$o.LegalName}}">
+        <label class="label" for="legal_name">{{t $l "organization.legal_name"}}<span class="text-xs font-normal text-gray-500"> · {{t $l "organization.for_invoice"}}</span></label>
+        <input class="input" id="legal_name" name="legal_name" autocomplete="organization" value="{{$o.LegalName}}">
       </div>
       <div class="sm:col-span-2">
-        <label class="label" for="address_line1">{{t $l "organization.address"}}</label>
-        <input class="input" id="address_line1" name="address_line1" value="{{$o.AddressLine1}}">
-        <input class="input mt-2" name="address_line2" aria-label="{{t $l "organization.address"}} 2" value="{{$o.AddressLine2}}">
+        <label class="label" for="address_line1">{{t $l "organization.address"}}<span class="text-xs font-normal text-gray-500"> · {{t $l "organization.for_invoice"}}</span></label>
+        <input class="input" id="address_line1" name="address_line1" autocomplete="address-line1" value="{{$o.AddressLine1}}">
+        <input class="input mt-2" name="address_line2" autocomplete="address-line2" aria-label="{{t $l "organization.address"}} 2" value="{{$o.AddressLine2}}">
       </div>
       <div>
-        <label class="label" for="zip_code">{{t $l "organization.zip_code"}}</label>
-        <input class="input" id="zip_code" name="zip_code" value="{{$o.ZipCode}}">
+        <label class="label" for="zip_code">{{t $l "organization.zip_code"}}<span class="text-xs font-normal text-gray-500"> · {{t $l "organization.for_invoice"}}</span></label>
+        <input class="input" id="zip_code" name="zip_code" autocomplete="postal-code" value="{{$o.ZipCode}}">
       </div>
       <div>
-        <label class="label" for="city">{{t $l "organization.city"}}</label>
-        <input class="input" id="city" name="city" value="{{$o.City}}">
+        <label class="label" for="city">{{t $l "organization.city"}}<span class="text-xs font-normal text-gray-500"> · {{t $l "organization.for_invoice"}}</span></label>
+        <input class="input" id="city" name="city" autocomplete="address-level2" value="{{$o.City}}">
       </div>
       <div>
         <label class="label" for="country">{{t $l "organization.country"}}</label>
-        <input class="input" id="country" name="country" value="{{$o.Country}}">
+        <input class="input" id="country" name="country" autocomplete="country-name" value="{{$o.Country}}">
       </div>
       <div>
         <label class="label" for="siret">SIRET</label>

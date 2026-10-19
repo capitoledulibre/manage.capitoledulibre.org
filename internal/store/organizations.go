@@ -43,6 +43,40 @@ func (o *Organization) BillingComplete() bool {
 	return o.LegalName != "" && o.AddressLine1 != "" && o.ZipCode != "" && o.City != ""
 }
 
+// MissingBilling lists the fields an invoice still needs, as i18n keys of
+// their labels.
+func (o *Organization) MissingBilling() []string {
+	var out []string
+
+	for _, f := range []struct {
+		v, key string
+	}{
+		{o.LegalName, "organization.legal_name"}, {o.AddressLine1, "organization.address"},
+		{o.ZipCode, "organization.zip_code"}, {o.City, "organization.city"},
+	} {
+		if f.v == "" {
+			out = append(out, f.key)
+		}
+	}
+
+	return out
+}
+
+// MissingCommunication lists, as i18n keys, what the website still needs.
+func (o *Organization) MissingCommunication() []string {
+	var out []string
+
+	if o.Website == "" {
+		out = append(out, "organization.website")
+	}
+
+	if o.DescriptionFR == "" && o.DescriptionEN == "" {
+		out = append(out, "organization.description")
+	}
+
+	return out
+}
+
 // CommunicationComplete reports whether the information used on the website
 // has been filled.
 func (o *Organization) CommunicationComplete() bool {

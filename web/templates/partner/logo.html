@@ -1,7 +1,7 @@
 {{define "content"}}
 {{$l := .Lang}}
 <h1 class="mb-2 text-2xl font-bold tracking-tight">{{t $l "logo.title"}}</h1>
-<p class="mb-6 text-sm text-gray-600">{{t $l "logo.intro"}}</p>
+<p class="mb-6 text-sm text-gray-600">{{t $l "logo.intro"}}{{with .D.Deadline}}{{$due := due $l .}} <strong class="{{$due.Class}}">{{$due.Text}}</strong>{{end}}</p>
 
 <div class="grid gap-6 md:grid-cols-2">
   {{range $variant := (list "default" "dark")}}

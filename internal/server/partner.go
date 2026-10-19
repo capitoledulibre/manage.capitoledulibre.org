@@ -480,8 +480,16 @@ func (s *Server) partnerLogo(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	d := map[string]any{"Logos": logos}
+
+	// The deadline of the edition shown on the dashboard, while the logo
+	// is still awaited.
+	if pc, err := s.currentPartnership(r); err == nil && pc.Partnership != nil && rc(r).Org.LogoFile == "" {
+		d["Deadline"] = pc.Event.LogoDeadline
+	}
+
 	p := s.page(r, "logo.title")
-	p.D = map[string]any{"Logos": logos}
+	p.D = d
 
 	return s.render(w, r, "partner/logo", p)
 }

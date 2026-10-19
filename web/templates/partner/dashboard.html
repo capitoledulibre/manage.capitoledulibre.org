@@ -68,7 +68,8 @@
         {{range $pr.Todos}}
         <li class="flex flex-wrap items-center justify-between gap-2 py-3">
           <span class="text-sm">{{t $l .Key}}
-            {{with .Deadline}}<span class="ml-1 text-xs text-red-700">· {{t $l "dashboard.before"}} {{date $l .}}</span>{{end}}
+            {{with .Deadline}}{{$due := due $l .}}<span class="ml-1 text-xs {{$due.Class}}">· {{$due.Text}}</span>{{end}}
+            {{with .Missing}}<span class="mt-0.5 block text-xs text-gray-600">{{t $l "todo.missing"}} {{range $i, $k := .}}{{if $i}}, {{end}}{{t $l $k}}{{end}}</span>{{end}}
             {{/* Signing happens off the site: say how to send it back. */}}
             {{if eq .Key "todo.sign_quote"}}{{with or (and $.D.Contact $.D.Contact.Email) $.Site.ContactEmail}}<span class="mt-0.5 block text-xs text-gray-600">{{t $l "todo.sign_quote_how" .}}</span>{{end}}{{end}}
           </span>
