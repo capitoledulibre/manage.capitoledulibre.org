@@ -550,10 +550,11 @@ var messages = map[string][2]string{
 	// Pole management.
 	"vol.delete": {"Supprimer", "Delete"},
 
-	"vol.status.draft":    {"Brouillon", "Draft"},
-	"vol.status.open":     {"Inscriptions ouvertes", "Sign-ups open"},
-	"vol.status.frozen":   {"Gelé", "Frozen"},
-	"vol.status.archived": {"Archivé", "Archived"},
+	"vol.status.draft":            {"Brouillon", "Draft"},
+	"vol.status.open":             {"Inscriptions ouvertes", "Sign-ups open"},
+	"vol.status.frozen":           {"Gelé", "Frozen"},
+	"vol.status.archived":         {"Archivé", "Archived"},
+	"vol.status.open_past_freeze": {"Inscriptions closes (date de clôture passée)", "Sign-ups closed (closing date passed)"},
 
 	"vol.mode.public":          {"Public", "Public"},
 	"vol.mode.private":         {"Sur lien d'invitation", "By invitation link"},
@@ -775,8 +776,9 @@ var messages = map[string][2]string{
 
 	"vol.coord.signups":                    {"Inscriptions des bénévoles", "Volunteer sign-ups"},
 	"vol.coord.status":                     {"Statut", "Status"},
-	"vol.coord.freeze":                     {"Gel automatique des inscriptions", "Automatic sign-up freeze"},
-	"vol.coord.freeze_help":                {"Facultatif\u00a0; chaque pôle peut avoir sa propre date.", "Optional; each team can have its own date."},
+	"vol.coord.freeze":                     {"Date de clôture des inscriptions", "Sign-up closing date"},
+	"vol.coord.freeze_help":                {"Facultatif. Passée cette date, les bénévoles ne changent plus leurs inscriptions ni leurs réponses t-shirt et repas, comme une édition gelée\u00a0; chaque pôle peut avoir sa propre date.", "Optional. Past this date, volunteers can no longer change their sign-ups nor their t-shirt and meal answers, as in a frozen edition; each team can have its own date."},
+	"vol.coord.status_confirm":             {"Changer le statut de l'édition\u00a0? Brouillon et Archivé la cachent aux bénévoles\u00a0; Gelé bloque leurs inscriptions.", "Change the status of the edition? Draft and Archived hide it from volunteers; Frozen locks their sign-ups."},
 	"vol.coord.edition_help":               {"Le nom, les dates et l'adresse de l'édition se modifient dans l'administration du staff.", "The name, dates and address of the edition are changed in the staff administration."},
 	"vol.coord.logo":                       {"Logo de l'édition", "Edition logo"},
 	"vol.coord.logo_help":                  {"Affiché à côté du nom de l'édition, sur l'accueil des bénévoles.", "Shown next to the edition name, on the volunteers' home page."},
@@ -983,7 +985,7 @@ var messages = map[string][2]string{
 	"vol.coord.remind_idle.other":         {"Écrire aux %d personnes sans créneau", "Write to the %d people on no slot"},
 	"vol.coord.remind_idle_confirm.one":   {"Envoyer à %d personne un e-mail l'invitant à choisir un créneau\u00a0?", "Send %d person an e-mail inviting them to pick a slot?"},
 	"vol.coord.remind_idle_confirm.other": {"Envoyer à %d personnes un e-mail les invitant à choisir un créneau\u00a0?", "Send %d people an e-mail inviting them to pick a slot?"},
-	"vol.coord.remind_closed":             {"Les relances sont possibles une fois les inscriptions ouvertes.", "Reminders can go out once sign-ups are open."},
+	"vol.coord.remind_closed":             {"Les relances sont possibles tant que les inscriptions sont ouvertes.", "Reminders can go out while sign-ups are open."},
 	"vol.coord.col_hours":                 {"Heures", "Hours"},
 	"flash.vol.details_saved":             {"C'est noté, merci.", "Noted, thank you."},
 	"flash.vol.reminded.none":             {"Personne à relancer.", "Nobody to remind."},

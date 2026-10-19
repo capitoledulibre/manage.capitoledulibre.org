@@ -225,3 +225,34 @@ func TestLogisticsChoicesChanged(t *testing.T) {
 	_, body = e.get(admin, edition+"/logistics.csv")
 	mustContain(t, body, `'=HYPERLINK(""x"")`)
 }
+
+func TestIdleReminderPastFreeze(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	admin := e.adminClient()
+	edition := "/volunteers/" + f.event.Slug + "/edition"
+
+	p, err := e.st.EnsureVolunteer(ctx, "paul@example.org", "Paul", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, p.ID))
+
+	// Open, but past its closing date: nobody is invited to pick a slot.
+	past := time.Now().Add(-time.Hour)
+	f.event.VolunteerFreezeAt = &past
+	mustOK(t, e.st.SaveVolunteerSettings(ctx, f.event))
+
+	_, body := e.get(admin, edition)
+	mustContain(t, body, "Inscriptions closes (date de clôture passée)")
+
+	_, body = e.get(admin, edition+"/volunteers?filter=idle")
+	mustContain(t, body, "Les relances sont possibles tant que les inscriptions sont ouvertes.")
+
+	if code, _ := e.post(admin, edition+"/remind", url.Values{"audience": {"idle"}}); code != http.StatusBadRequest {
+		t.Errorf("idle reminder past the closing date: %d", code)
+	}
+
+	// Changing the status asks first.
+	_, body = e.get(admin, edition+"?tab=settings")
+	mustContain(t, body, `data-confirm-if="input[name=status]:checked:not([data-current])"`, `checked data-current`)
+}

@@ -253,7 +253,9 @@ func (s *Server) coordinationRemind(w http.ResponseWriter, r *http.Request) erro
 
 	switch audience {
 	case "idle":
-		if e.VolunteerStatus != store.VolunteersOpen {
+		// Not once sign-ups close, by status or by date: the e-mail
+		// invites to pick a slot.
+		if e.SignupsLocked(nil, time.Now()) {
 			return errBadInput
 		}
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"manage/internal/files"
 	"manage/internal/i18n"
@@ -171,6 +172,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 	p.TitleText = i18n.T(p.Lang, "vol.coord.title_event", e.Name)
 	p.D = map[string]any{
 		"Event": e, "Tab": tab, "Coverage": coverage, "Stats": stats, "Messages": messages,
+		"PastFreeze": e.VolunteerStatus == store.VolunteersOpen && e.SignupsLocked(nil, time.Now()),
 		"Coordinators": coordinators, "Targets": targets, "Others": others, "Staff": rc(r).Admin != nil,
 		"Modes": store.PoleModes, "Statuses": []string{store.VolunteersDraft, store.VolunteersOpen, store.VolunteersFrozen, store.VolunteersArchived},
 		"MaxImage": maxPoleImageSize, "History": history, "Logistics": logi,
@@ -575,7 +577,7 @@ func (s *Server) coordinationVolunteers(w http.ResponseWriter, r *http.Request) 
 
 	p := s.page(r, "vol.coord.volunteers")
 	p.D = map[string]any{"Event": e, "Volunteers": shown, "Total": len(volunteers), "Idle": len(idle), "OnlyIdle": onlyIdle,
-		"Open": e.VolunteerStatus == store.VolunteersOpen, "Poles": poles}
+		"Open": !e.SignupsLocked(nil, time.Now()), "Poles": poles}
 
 	return s.render(w, r, "volunteer/volunteers", p)
 }

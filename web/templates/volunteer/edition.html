@@ -6,7 +6,8 @@
   <div class="flex-1">
     <h1 class="text-2xl font-bold tracking-tight">{{$e.Name}}</h1>
     <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">{{with dateSpan $l $e.StartsOn $e.EndsOn}}{{.}}{{end}}
-      <span class="badge {{if eq $e.VolunteerStatus "open"}}bg-green-100 text-green-800{{else if eq $e.VolunteerStatus "frozen"}}bg-amber-100 text-amber-800{{else}}bg-gray-100 text-gray-700{{end}}">{{t $l (printf "vol.status.%s" $e.VolunteerStatus)}}</span></p>
+      {{if $d.PastFreeze}}<span class="badge bg-amber-100 text-amber-800">{{t $l "vol.status.open_past_freeze"}}</span>
+      {{else}}<span class="badge {{if eq $e.VolunteerStatus "open"}}bg-green-100 text-green-800{{else if eq $e.VolunteerStatus "frozen"}}bg-amber-100 text-amber-800{{else}}bg-gray-100 text-gray-700{{end}}">{{t $l (printf "vol.status.%s" $e.VolunteerStatus)}}</span>{{end}}</p>
   </div>
   <div class="flex flex-wrap gap-2">
     <a href="{{$base}}/volunteers" class="btn-secondary">{{t $l "vol.coord.volunteers"}}</a>
@@ -156,14 +157,16 @@
 
 {{else if eq $d.Tab "settings"}}
 <div class="grid gap-6 lg:grid-cols-2">
-  <form method="post" action="{{$base}}/settings" class="card space-y-4">
+  {{/* The status shares the form with the logistics lists: changing it,
+       which can hide the edition, asks first. */}}
+  <form method="post" action="{{$base}}/settings" class="card space-y-4" data-confirm="{{t $l "vol.coord.status_confirm"}}" data-confirm-if="input[name=status]:checked:not([data-current])">
     <h2 class="card-title">{{t $l "vol.coord.signups"}}</h2>
     <fieldset>
       <legend class="label">{{t $l "vol.coord.status"}}</legend>
       <div class="space-y-2">
         {{range $st := $d.Statuses}}
         <label class="flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-2 has-checked:ring-brand-600">
-          <input type="radio" name="status" value="{{$st}}" class="mt-0.5 accent-brand-600" {{if eq $st $e.VolunteerStatus}}checked{{end}}>
+          <input type="radio" name="status" value="{{$st}}" class="mt-0.5 accent-brand-600" {{if eq $st $e.VolunteerStatus}}checked data-current{{end}}>
           <span class="text-sm"><strong>{{t $l (printf "vol.status.%s" $st)}}</strong><br><span class="text-gray-600">{{t $l (printf "vol.status.%s.help" $st)}}</span></span>
         </label>
         {{end}}
