@@ -132,3 +132,37 @@ func TestLeadSlotTools(t *testing.T) {
 		t.Fatal("the slot moved without confirmation")
 	}
 }
+
+func TestDayOfEventNavigation(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	planning := "/volunteers/" + f.event.Slug + "/planning"
+
+	p, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, p.ID))
+
+	nina := e.loginAs("nina@example.org")
+
+	// The home tab comes first; with no slot, the planning shows them all.
+	_, body := e.get(nina, planning)
+	mustContain(t, body, ">Accueil", `aria-current="page">Tout`)
+
+	// With a slot, the planning opens on hers.
+	mustOK(t, e.st.ForceSignup(ctx, f.morning.ID, p.ID))
+
+	_, body = e.get(nina, planning)
+	mustContain(t, body, `aria-current="page">Mes créneaux`)
+
+	// The lead still sees everyone's.
+	_, body = e.get(e.loginAs(f.leadEmail), planning)
+	mustContain(t, body, `aria-current="page">Tout`)
+
+	// Once sign-ups close, her slot says whom to tell.
+	f.event.VolunteerStatus = store.VolunteersFrozen
+	mustOK(t, e.st.SaveVolunteerSettings(ctx, f.event))
+
+	_, body = e.get(nina, planning)
+	mustContain(t, body, "Un empêchement", f.morning.URL()+"#contacts")
+}

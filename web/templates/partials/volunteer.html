@@ -200,6 +200,8 @@
              status pill and was ambiguous to screen readers. Withdrawing
              e-mails the waiting list, and the leads when it is late: it
              asks first. */}}
+        {{/* Past the closing date, withdrawing goes through the leads. */}}
+        {{if and .Locked (not (slotOver .Slot))}}<a class="link text-xs" href="{{.Slot.URL}}#contacts">{{t $l "vol.slot.cant_come"}}</a>{{end}}
         {{if not .Locked}}{{template "slot_action" (dict "Lang" $l "Card" . "Action" "unsignup" "Label" (t $l "vol.slot.unsignup") "Class" "btn-secondary btn-sm" "Confirm" (t $l (or (and (late .Slot) "vol.slot.unsignup_confirm_late") "vol.slot.unsignup_confirm")))}}{{end}}
       {{else if .Locked}}<span class="text-xs text-gray-500">{{t $l "vol.slot.closed"}}</span>
       {{else if slotOver .Slot}}<span class="text-xs text-gray-500">{{t $l "vol.slot.over"}}</span>
@@ -276,8 +278,8 @@
         class="flex flex-wrap items-center gap-x-3 gap-y-1">
     {{with $.View}}<input type="hidden" name="view" value="{{.}}">{{end}}
     {{with $.Back}}<input type="hidden" name="back" value="{{.}}">{{end}}
-    <label class="inline-flex items-center gap-2 text-sm">
-      <input type="checkbox" class="h-4 w-4 accent-brand-600" {{if .Done}}checked{{end}} data-autosubmit>
+    <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 text-sm">
+      <input type="checkbox" class="h-5 w-5 accent-brand-600" {{if .Done}}checked{{end}} data-autosubmit>
       <span class="{{if .Done}}text-gray-500 line-through{{end}}">{{.Label}}</span>
     </label>
     <noscript><button class="btn-secondary btn-sm">{{t $l "vol.tasks.toggle"}}</button></noscript>

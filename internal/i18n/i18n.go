@@ -343,7 +343,7 @@ var messages = map[string][2]string{
 
 	// Volunteer space. French punctuation keeps a no-break space before
 	// ":", "!" and "?".
-	"vol.nav.poles":  {"Les pôles", "Teams"},
+	"vol.nav.poles":  {"Accueil", "Home"},
 	"vol.breadcrumb": {"Fil d'Ariane", "Breadcrumb"},
 	"vol.details":    {"Détails", "Details"},
 	"vol.save":       {"Enregistrer", "Save"},
@@ -392,7 +392,7 @@ var messages = map[string][2]string{
 	"vol.no_event.body":  {"Les inscriptions des bénévoles ne sont pas encore ouvertes. Revenez un peu plus tard\u00a0!", "Volunteer sign-ups are not open yet. Please come back a little later!"},
 
 	"vol.tabs.label":                 {"Navigation bénévole", "Volunteer navigation"},
-	"vol.tabs.poles":                 {"Pôles", "Teams"},
+	"vol.tabs.poles":                 {"Accueil", "Home"},
 	"vol.tabs.coordination":          {"Édition", "Edition"},
 	"vol.tabs.me":                    {"Moi", "Me"},
 	"vol.focus.now":                  {"En ce moment", "Right now"},
@@ -475,6 +475,7 @@ var messages = map[string][2]string{
 	"vol.slot.signed_up":             {"Inscrit·e", "Signed up"},
 	"vol.slot.signup":                {"Je m'inscris", "Sign me up"},
 	"vol.slot.unsignup":              {"Me désinscrire", "Cancel my sign-up"},
+	"vol.slot.cant_come":             {"Un empêchement\u00a0? Prévenez les responsables", "Can't make it? Tell the leads"},
 	"vol.slot.unsignup_confirm":      {"Vous désinscrire de ce créneau\u00a0? Les personnes en liste d'attente seront prévenues que la place se libère.", "Cancel your sign-up for this slot? The people on the waiting list will be told a place is free."},
 	"vol.slot.unsignup_confirm_late": {"Ce créneau commence dans moins de 48\u00a0h. Vous désinscrire\u00a0? Les responsables du pôle seront prévenus, ainsi que la liste d'attente.", "This slot starts within 48 hours. Cancel your sign-up? The team leads will be told, and so will the waiting list."},
 	"vol.slot.closed":                {"Inscriptions closes", "Sign-ups closed"},

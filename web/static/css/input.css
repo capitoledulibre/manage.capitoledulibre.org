@@ -206,6 +206,16 @@
   .filter-on {
     @apply bg-brand-50 text-brand-800 ring-brand-600;
   }
+  /* On a touch screen, small buttons and filters stay a thumb tall: they
+     are tapped on the move, on the day of the event. */
+  @media (pointer: coarse) {
+    .btn-sm {
+      @apply min-h-11 text-sm;
+    }
+    .filter {
+      @apply inline-flex min-h-10 items-center;
+    }
+  }
   /* htmx marks the element of a pending request. */
   .htmx-request .btn, .htmx-request .btn-secondary {
     @apply opacity-60;

@@ -172,7 +172,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 	p.TitleText = i18n.T(p.Lang, "vol.coord.title_event", e.Name)
 	p.D = map[string]any{
 		"Event": e, "Tab": tab, "Coverage": coverage, "Stats": stats, "Messages": messages,
-		"PastFreeze": e.VolunteerStatus == store.VolunteersOpen && e.SignupsLocked(nil, time.Now()),
+		"PastFreeze":   e.VolunteerStatus == store.VolunteersOpen && e.SignupsLocked(nil, time.Now()),
 		"Coordinators": coordinators, "Targets": targets, "Others": others, "Staff": rc(r).Admin != nil,
 		"Modes": store.PoleModes, "Statuses": []string{store.VolunteersDraft, store.VolunteersOpen, store.VolunteersFrozen, store.VolunteersArchived},
 		"MaxImage": maxPoleImageSize, "History": history, "Logistics": logi,

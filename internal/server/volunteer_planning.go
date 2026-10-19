@@ -203,6 +203,19 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	q := planQuery{PersonID: person.ID, Visible: visible, View: query.Get("view")}
 	if !slices.Contains(views, q.View) {
 		q.View = "all"
+
+		// A volunteer with slots comes for theirs, on the day above all;
+		// whoever runs a pole comes for everyone's.
+		if query.Get("view") == "" && !coordinator && len(managed) == 0 {
+			mine, err := s.store.ListPersonSlots(ctx, e.ID, person.ID)
+			if err != nil {
+				return err
+			}
+
+			if len(mine) > 0 {
+				q.View = "mine"
+			}
+		}
 	}
 
 	// Late tasks are for whoever runs the pole to chase.

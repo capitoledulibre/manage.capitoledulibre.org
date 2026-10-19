@@ -67,7 +67,7 @@ func TestTasksFromThePlanning(t *testing.T) {
 	}
 
 	// Nobody signs up for a slot that is over.
-	_, body = e.get(ninaC, "/volunteers/"+f.event.Slug+"/planning?day=all")
+	_, body = e.get(ninaC, "/volunteers/"+f.event.Slug+"/planning?view=all&day=all")
 	mustContain(t, body, ">Terminé<")
 
 	_, body = e.hx(ninaC, done.URL()+"/signup", url.Values{"back": {planning}})

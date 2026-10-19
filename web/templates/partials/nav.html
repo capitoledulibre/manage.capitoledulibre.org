@@ -11,8 +11,8 @@
 {{define "volunteer_nav"}}
   {{with .Vol.Event}}
   {{$p := $.Path}}{{$base := printf "/volunteers/%s" .Slug}}
-  <a class="nav-link {{if eq $p (printf "%s/planning" $base)}}nav-link-active{{end}}" href="{{$base}}/planning">{{t $.Lang "vol.nav.planning"}}</a>
   <a class="nav-link {{if eq $p $base}}nav-link-active{{end}}" href="{{$base}}">{{t $.Lang "vol.nav.poles"}}</a>
+  <a class="nav-link {{if eq $p (printf "%s/planning" $base)}}nav-link-active{{end}}" href="{{$base}}/planning">{{t $.Lang "vol.nav.planning"}}</a>
   {{if $.Vol.Coordinator}}<a class="nav-link {{if hasPrefix $p (printf "%s/edition" $base)}}nav-link-active{{end}}" href="{{$base}}/edition">{{t $.Lang "vol.nav.coordination"}}</a>{{end}}
   {{end}}
 {{end}}
@@ -24,8 +24,9 @@
 {{with .Vol.Event}}
 {{$p := $.Path}}{{$base := printf "/volunteers/%s" .Slug}}
 <nav class="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-200 bg-surface sm:hidden print:hidden" aria-label="{{t $.Lang "vol.tabs.label"}}">
-  {{template "volunteer_tab" (dict "Href" (printf "%s/planning" $base) "On" (eq $p (printf "%s/planning" $base)) "Label" (t $.Lang "vol.tabs.planning") "Icon" "M5 2h2v2h6V2h2v2h2v14H3V4h2zm-0 6v8h10V8z")}}
+  {{/* Home first: on the day, it says where to be now. */}}
   {{template "volunteer_tab" (dict "Href" $base "On" (eq $p $base) "Label" (t $.Lang "vol.tabs.poles") "Icon" "M3 4h6v6H3zm8 0h6v6h-6zM3 12h6v6H3zm8 0h6v6h-6z")}}
+  {{template "volunteer_tab" (dict "Href" (printf "%s/planning" $base) "On" (eq $p (printf "%s/planning" $base)) "Label" (t $.Lang "vol.tabs.planning") "Icon" "M5 2h2v2h6V2h2v2h2v14H3V4h2zm-0 6v8h10V8z")}}
   {{if $.Vol.Coordinator}}{{template "volunteer_tab" (dict "Href" (printf "%s/edition" $base) "On" (hasPrefix $p (printf "%s/edition" $base)) "Label" (t $.Lang "vol.tabs.coordination") "Icon" "M3 17V9h3v8zm5 0V3h3v14zm5 0v-6h3v6z")}}{{end}}
   {{template "volunteer_tab" (dict "Href" "/volunteers/profile" "On" (eq $p "/volunteers/profile") "Label" (t $.Lang "vol.tabs.me") "Icon" "M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0z")}}
 </nav>
