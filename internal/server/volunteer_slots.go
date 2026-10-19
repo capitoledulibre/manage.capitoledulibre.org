@@ -437,6 +437,8 @@ type slotCardData struct {
 	// on the slot and whoever runs the pole tick it from there.
 	Tasks   []*store.SlotTask
 	CanTick bool
+	// OpenTasks unfolds the checklist, where it is what the card is for.
+	OpenTasks bool
 }
 
 func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting bool) *slotCardData {

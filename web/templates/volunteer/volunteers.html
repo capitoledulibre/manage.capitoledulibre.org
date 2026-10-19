@@ -52,7 +52,7 @@
     <td><a class="link" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
     <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
     <td class="text-xs">{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</td>
-    <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0</span>{{else}}{{.SlotCount}}{{end}}</td>
+    <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0<span class="sr-only"> · {{t $l "vol.manage.no_slot"}}</span></span>{{else}}{{.SlotCount}}{{end}}</td>
     <td class="whitespace-nowrap tabular-nums">{{if .Minutes}}{{.Hours}}{{else}}<span class="text-gray-400">—</span>{{end}}</td>
     {{/* Folded, and with no pole preselected: one click on a row used to
          add the person to the first pole. */}}

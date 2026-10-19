@@ -1031,7 +1031,14 @@ func (s *Server) manageDayCopy(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	created := 0
+	// As the generator does, a slot already there (same place and times)
+	// is skipped: copying twice, or after a slow page, makes no doubles.
+	have, err := s.existingSlots(r, v)
+	if err != nil {
+		return err
+	}
+
+	created, skipped := 0, 0
 
 	for _, sl := range slots {
 		if dayKey(sl.StartsAt) != from.Format(time.DateOnly) {
@@ -1044,6 +1051,12 @@ func (s *Server) manageDayCopy(w http.ResponseWriter, r *http.Request) error {
 
 		n := &store.Slot{PoleID: v.Pole.ID, LocationID: sl.LocationID, Title: sl.Title, Capacity: sl.Capacity,
 			StartsAt: at, EndsAt: at.Add(sl.EndsAt.Sub(sl.StartsAt))}
+		if have[slotKey(n.LocationID, n.StartsAt, n.EndsAt)] {
+			skipped++
+
+			continue
+		}
+
 		if err := s.store.CreateSlot(ctx, n); err != nil {
 			return err
 		}
@@ -1056,7 +1069,12 @@ func (s *Server) manageDayCopy(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	s.logSlotsCreated(r, v.Pole, created)
-	s.flashCount(w, "flash.vol.day_copied", created, dayName(rc(r).Lang, to))
+
+	if skipped > 0 {
+		s.flashCount(w, "flash.vol.day_copied_skip", created, dayName(rc(r).Lang, to), strconv.Itoa(skipped))
+	} else {
+		s.flashCount(w, "flash.vol.day_copied", created, dayName(rc(r).Lang, to))
+	}
 
 	return s.redirectTab(w, r, v.Pole, "")
 }

@@ -122,6 +122,14 @@ func TestLeadSlotTools(t *testing.T) {
 		t.Fatalf("copied day: %+v", copied)
 	}
 
+	// Copying it again makes no doubles.
+	_, body = e.post(lead, manage+"/days/copy", url.Values{"from": {"2026-11-14"}, "to": {"2026-11-15"}})
+	mustContain(t, body, "existent déjà le dimanche 15 novembre")
+
+	if again, _ := e.st.ListSlots(ctx, f.buvette.ID, 0); len(again) != len(slots) {
+		t.Fatalf("copying twice made doubles: %d then %d slots", len(slots), len(again))
+	}
+
 	_, body = e.post(lead, manage+"/days/copy", url.Values{"from": {"2026-11-14"}, "to": {"2026-11-14"}})
 	mustContain(t, body, "Choisissez une autre date")
 

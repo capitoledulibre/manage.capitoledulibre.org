@@ -277,7 +277,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 					Lang: lang, Slot: ps.Slot, Pole: pp.Pole, Member: members[pp.Pole.ID],
 					Locked: e.SignupsLocked(pp.Pole.FreezeAt, now), Waiting: waiting[ps.Slot.ID], Back: back,
 					ShowPeople: true, People: ps.People, Manage: pp.Manage,
-					Tasks: ps.Tasks, CanTick: ps.Slot.Mine || pp.Manage,
+					Tasks: ps.Tasks, CanTick: ps.Slot.Mine || pp.Manage, OpenTasks: q.View == "late",
 				}
 			}
 		}

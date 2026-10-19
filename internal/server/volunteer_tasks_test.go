@@ -60,7 +60,7 @@ func TestTasksFromThePlanning(t *testing.T) {
 	done, _ = e.st.GetSlot(ctx, done.ID, 0)
 
 	_, body = e.get(lead, "/volunteers/"+f.event.Slug+"/planning?view=late&day=all")
-	mustContain(t, body, `aria-current="page">Tâches en retard`, "Rangement", ">en retard<")
+	mustContain(t, body, `aria-current="page">Tâches en retard`, "Rangement", ">en retard<", `id="tasks-`+done.UID+`" class="group/tasks mt-2" open`)
 
 	if strings.Contains(body, "Café") {
 		t.Error("a slot not over is late")

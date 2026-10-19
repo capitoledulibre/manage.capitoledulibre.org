@@ -101,7 +101,7 @@
      Members and OOB (out-of-band swap). */}}
 {{define "members_table"}}
 {{$l := .Lang}}
-<div id="members-table" {{if .OOB}}hx-swap-oob="true"{{end}} class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200">
+<div id="members-table" {{if .OOB}}hx-swap-oob="true"{{end}} class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{t $l "vol.manage.tab_members"}}">
 <table class="table">
   <thead><tr><th>{{t $l "vol.manage.col_name"}}</th><th>{{t $l "login.email"}}</th><th>{{t $l "vol.profile.phone"}}</th><th>{{t $l "vol.manage.col_slots"}}</th><th><span class="sr-only">{{t $l "vol.manage.col_actions"}}</span></th></tr></thead>
   <tbody>
@@ -110,7 +110,7 @@
     <td><span class="inline-flex items-center gap-2">{{template "person_avatar" .Person}}{{.Person.Label}}</span>{{if .IsManager}} <span class="badge bg-brand-50 text-brand-800">{{t $l "vol.manage.lead"}}</span>{{end}}</td>
     <td><a class="link" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
     <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
-    <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0</span>{{else}}{{.SlotCount}}{{end}}</td>
+    <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0<span class="sr-only"> · {{t $l "vol.manage.no_slot"}}</span></span>{{else}}{{.SlotCount}}{{end}}</td>
     <td class="text-right">{{if not $.Pole.IsDefault}}
       <form method="post" action="{{$.Pole.ManageURL}}/members/{{.Person.UID}}/delete" data-confirm="{{if .SlotCount}}{{tn $l "vol.manage.remove_confirm_slots" .SlotCount .Person.Label}}{{else}}{{t $l "vol.manage.remove_confirm" .Person.Label}}{{end}}">
         <button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button>
@@ -235,7 +235,7 @@
     {{if .Manage}}<a class="link text-xs" href="{{.Slot.ManageURL}}">{{t $l "vol.planning.edit_slot"}}</a>{{end}}
   </div>
   {{end}}
-  {{with .Tasks}}{{template "task_block" (dict "Lang" $l "Slot" $.Slot "Tasks" . "CanTick" $.CanTick "View" "card" "Back" $.Back)}}{{end}}
+  {{with .Tasks}}{{template "task_block" (dict "Lang" $l "Slot" $.Slot "Tasks" . "CanTick" $.CanTick "View" "card" "Back" $.Back "Open" $.OpenTasks)}}{{end}}
   {{with .Error}}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{{.}}</p>{{end}}
   {{if .Overlaps}}
   <div class="mt-3 rounded-md bg-amber-50 px-3 py-3 text-sm text-amber-900" role="alert">

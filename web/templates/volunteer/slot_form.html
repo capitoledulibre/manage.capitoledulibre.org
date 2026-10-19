@@ -10,9 +10,13 @@
   <div class="grid gap-4 sm:grid-cols-2">
     <div><label class="label" for="s-start">{{t $l "vol.slot_form.start"}}</label><input id="s-start" class="input" type="datetime-local" name="starts_at" value="{{inputDT $s.StartsAt}}" required></div>
     <div><label class="label" for="s-end">{{t $l "vol.slot_form.end"}}</label><input id="s-end" class="input" type="datetime-local" name="ends_at" value="{{inputDT $s.EndsAt}}" required></div>
+    {{/* Saving a new time or place e-mails everyone on the slot: say so
+         before, not in the message after. */}}
+    {{if and (not $f.New) $s.Filled}}<p class="help sm:col-span-2">{{tn $l "vol.slot_form.notify_note" $s.Filled}}</p>{{end}}
   </div>
   <div class="grid gap-4 sm:grid-cols-2">
-    <div><label class="label" for="s-cap">{{t $l "vol.slot_form.capacity"}}</label><input id="s-cap" class="input" type="number" name="capacity" min="1" max="500" value="{{$s.Capacity}}" required></div>
+    <div><label class="label" for="s-cap">{{t $l "vol.slot_form.capacity"}}</label><input id="s-cap" class="input" type="number" name="capacity" min="1" max="500" value="{{$s.Capacity}}" required>
+      {{if and (not $f.New) $s.Filled}}<p class="help">{{tn $l "vol.slot_form.signed_count" $s.Filled}}</p>{{end}}</div>
     <div>
       <label class="label" for="s-loc">{{t $l "vol.slot_form.location"}}</label>
       <select id="s-loc" class="input" name="location" {{if not $f.Locations}}disabled{{end}}>
