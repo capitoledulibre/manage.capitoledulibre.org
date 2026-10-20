@@ -140,3 +140,48 @@ func TestOAuth(t *testing.T) {
 		t.Errorf("a revoked grant renews: %v", err)
 	}
 }
+
+// TestOAuthClientPurge: a client granted nothing for a month goes; one
+// with a grant stays.
+func TestOAuthClientPurge(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+
+	p, err := s.EnsureVolunteer(ctx, "lou@example.org", "Lou", "", "fr")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	idle, err := s.RegisterOAuthClient(ctx, "Idle", []string{"https://idle.example/cb"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	used, err := s.RegisterOAuthClient(ctx, "Used", []string{"https://used.example/cb"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := s.IssueOAuthTokens(ctx, used, &OAuthGrant{ClientID: used.ID, PersonID: p.ID}, time.Hour, 90*24*time.Hour); err != nil {
+		t.Fatal(err)
+	}
+
+	recent, err := s.RegisterOAuthClient(ctx, "Recent", []string{"https://recent.example/cb"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.db.ExecContext(ctx, `UPDATE oauth_clients SET created_at = ? WHERE id IN (?, ?)`, now().Add(-40*24*time.Hour), idle.ID, used.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	for c, want := range map[*OAuthClient]bool{idle: false, used: true, recent: true} {
+		if _, err := s.GetOAuthClient(ctx, c.ClientID); (err == nil) != want {
+			t.Errorf("%s kept: %v, want %v", c.Name, err == nil, want)
+		}
+	}
+}

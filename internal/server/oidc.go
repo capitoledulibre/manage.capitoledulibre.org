@@ -55,14 +55,19 @@ func newOIDCClient(ctx context.Context, cfg *config.Config) (*oidcClient, error)
 // adminLogin starts the OIDC authorization code flow (with PKCE), or shows
 // the development login form when OIDC is disabled.
 func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) error {
+	if s.oidc == nil && !s.devAdminLogin(r) {
+		return errNotFound
+	}
+
+	// Where to come back to: the page that asked, else the administration
+	// (a login left halfway leaves nothing behind for the next one).
 	if next := r.URL.Query().Get("next"); next != "" {
 		s.setCookie(w, adminNextCookie, safeRedirect(next, "/admin/"), 15*time.Minute)
+	} else {
+		s.clearCookie(w, adminNextCookie)
 	}
 
 	if s.oidc == nil {
-		if !s.devAdminLogin(r) {
-			return errNotFound
-		}
 
 		p := s.page(r, "Connexion staff")
 

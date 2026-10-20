@@ -69,6 +69,24 @@ func TestOAuthFlow(t *testing.T) {
 		t.Fatalf("resource metadata: %v", meta)
 	}
 
+	// A browser's preflight is answered, for an assistant in a page.
+	pre, err := http.NewRequest(http.MethodOptions, base+"/.well-known/oauth-protected-resource", nil)
+	mustOK(t, err)
+	pre.Header.Set("Origin", "https://inspector.example")
+	pre.Header.Set("Access-Control-Request-Headers", "mcp-protocol-version")
+
+	resp, err = http.DefaultClient.Do(pre)
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent || resp.Header.Get("Access-Control-Allow-Origin") != "*" {
+		t.Errorf("preflight: %d %v", resp.StatusCode, resp.Header)
+	}
+
+	if resp, err := http.Post(base+"/.well-known/oauth-authorization-server", "application/json", nil); err != nil || resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("metadata posted to: %v %v", err, resp)
+	}
+
 	_, as := jsonOf(t)(http.Get(base + "/.well-known/oauth-authorization-server"))
 	if as["registration_endpoint"] == nil || as["code_challenge_methods_supported"].([]any)[0] != "S256" {
 		t.Fatalf("server metadata: %v", as)
@@ -233,6 +251,14 @@ func TestOAuthFlow(t *testing.T) {
 		t.Fatalf("refresh: %d %v", code, renewed)
 	}
 
+	// The same refresh token again, at once (a lost answer, two refreshes
+	// at a time): the same tokens, not the end of the grant.
+	code, again := jsonOf(t)(http.PostForm(base+"/oauth/token", url.Values{"grant_type": {"refresh_token"}, "client_id": {clientID},
+		"refresh_token": {tokens["refresh_token"].(string)}}))
+	if code != http.StatusOK || again["access_token"] != renewed["access_token"] || again["refresh_token"] != renewed["refresh_token"] {
+		t.Errorf("a second refresh at once: %d %v", code, again)
+	}
+
 	resp, err = (&http.Client{Transport: bearer{tokens["access_token"].(string)}}).Post(base+"/mcp", "application/json", strings.NewReader(`{}`))
 	mustOK(t, err)
 	_, _ = io.Copy(io.Discard, resp.Body)
@@ -266,6 +292,40 @@ func TestStaffLoginComesBack(t *testing.T) {
 		if got := resp.Header.Get("Location"); got != want {
 			t.Errorf("next %s: back to %q, want %q", next, got, want)
 		}
+	}
+
+	// A login left halfway leaves nothing behind for the next one.
+	c := noRedirect(e.client())
+
+	for _, path := range []string{"/admin/login?next=" + url.QueryEscape("/oauth/authorize?client_id=x"), "/admin/login"} {
+		resp, err := c.Get(e.srv.URL + path)
+		mustOK(t, err)
+		resp.Body.Close()
+	}
+
+	resp, err := c.PostForm(e.srv.URL+"/admin/login", url.Values{"email": {"staff@conf.test"}})
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if got := resp.Header.Get("Location"); got != "/admin/" {
+		t.Errorf("after a login left halfway: %q", got)
+	}
+}
+
+// TestOAuthWithoutStaffLogin: where the staff cannot log in, the
+// authorization does not offer it.
+func TestOAuthWithoutStaffLogin(t *testing.T) {
+	e := newEnv(t, func(c *config.Config) { c.Dev = false })
+
+	client, err := e.st.RegisterOAuthClient(context.Background(), "Claude", []string{"https://claude.ai/cb"})
+	mustOK(t, err)
+
+	_, page := e.get(e.client(), "/oauth/authorize?"+url.Values{"response_type": {"code"}, "client_id": {client.ClientID},
+		"redirect_uri": {"https://claude.ai/cb"}, "code_challenge": {strings.Repeat("c", 43)}, "code_challenge_method": {"S256"}}.Encode())
+	mustContain(t, page, "/volunteers/login?next=")
+
+	if strings.Contains(page, "/admin/login") {
+		t.Error("a staff login offered where there is none")
 	}
 }
 

@@ -44,9 +44,10 @@ const (
 )
 
 func (s *Server) oauthRoutes(mux *router) {
-	mux.Handle("GET /.well-known/oauth-protected-resource", cors(http.HandlerFunc(s.oauthResource)))
-	mux.Handle("GET /.well-known/oauth-protected-resource/mcp", cors(http.HandlerFunc(s.oauthResource)))
-	mux.Handle("GET /.well-known/oauth-authorization-server", cors(http.HandlerFunc(s.oauthMetadata)))
+	// Any method, for cors to answer a browser's preflight (OPTIONS).
+	mux.Handle("/.well-known/oauth-protected-resource", cors(http.HandlerFunc(s.oauthResource)))
+	mux.Handle("/.well-known/oauth-protected-resource/mcp", cors(http.HandlerFunc(s.oauthResource)))
+	mux.Handle("/.well-known/oauth-authorization-server", cors(http.HandlerFunc(s.oauthMetadata)))
 	mux.Handle("/oauth/register", cors(http.HandlerFunc(s.oauthRegister)))
 	mux.Handle("/oauth/token", cors(http.HandlerFunc(s.oauthToken)))
 	mux.Handle("GET /oauth/authorize", s.wrap(s.oauthAuthorize))
@@ -89,7 +90,22 @@ func (s *Server) resourceMetadataURL() string {
 	return s.cfg.BaseURL + "/.well-known/oauth-protected-resource"
 }
 
-func (s *Server) oauthResource(w http.ResponseWriter, _ *http.Request) {
+// readOnlyMethod refuses anything but reading.
+func readOnlyMethod(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+
+		return false
+	}
+
+	return true
+}
+
+func (s *Server) oauthResource(w http.ResponseWriter, r *http.Request) {
+	if !readOnlyMethod(w, r) {
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"resource":                 s.cfg.BaseURL + "/mcp",
 		"resource_name":            s.site.Name,
@@ -99,7 +115,11 @@ func (s *Server) oauthResource(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-func (s *Server) oauthMetadata(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) oauthMetadata(w http.ResponseWriter, r *http.Request) {
+	if !readOnlyMethod(w, r) {
+		return
+	}
+
 	base := s.cfg.BaseURL
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -343,7 +363,12 @@ func (s *Server) oauthAuthorize(w http.ResponseWriter, r *http.Request) error {
 
 	next := url.QueryEscape(r.URL.RequestURI())
 	d := map[string]any{"Client": req.Client.Name, "Mode": "consent", "Req": req, "Form": r.Form,
-		"StaffLogin": "/admin/login?next=" + next, "VolunteerLogin": "/volunteers/login?next=" + next}
+		"VolunteerLogin": "/volunteers/login?next=" + next}
+
+	// The staff login, where there is one, as on the site's door.
+	if s.oidc != nil || s.devAdminLogin(r) {
+		d["StaffLogin"] = "/admin/login?next=" + next
+	}
 
 	if u, err := url.Parse(req.RedirectURI); err == nil {
 		d["Host"] = u.Host
@@ -421,6 +446,50 @@ func (s *Server) oauthDecide(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// oauthRefreshGrace is how long a refresh token, once used, still gives the
+// tokens it was renewed into.
+const oauthRefreshGrace = time.Minute
+
+// renewal is what a refresh token was renewed into.
+type renewal struct {
+	access, refresh string
+	writes          bool
+	until           time.Time
+	clientID        int64
+}
+
+// refresh renews a grant's tokens. A refresh token used again within
+// oauthRefreshGrace gives the same tokens as the first time, rather than
+// ending the grant: the answer may have been lost on the way, or the
+// client may have refreshed twice at once.
+func (s *Server) refresh(r *http.Request, client *store.OAuthClient) (string, string, bool, error) {
+	key := store.HashToken(r.PostForm.Get("refresh_token"))
+
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+
+	now := time.Now()
+
+	for k, v := range s.refreshes {
+		if now.After(v.until) {
+			delete(s.refreshes, k)
+		}
+	}
+
+	if v, ok := s.refreshes[key]; ok && v.clientID == client.ID {
+		return v.access, v.refresh, v.writes, nil
+	}
+
+	access, refresh, writes, err := s.store.RefreshOAuthTokens(r.Context(), client, r.PostForm.Get("refresh_token"), oauthAccessTTL)
+	if err != nil {
+		return "", "", false, err
+	}
+
+	s.refreshes[key] = &renewal{access: access, refresh: refresh, writes: writes, until: now.Add(oauthRefreshGrace), clientID: client.ID}
+
+	return access, refresh, writes, nil
+}
+
 // pkceMatches tells whether a code verifier is the one behind a challenge.
 func pkceMatches(verifier, challenge string) bool {
 	if len(verifier) < 43 || len(verifier) > 128 {
@@ -483,7 +552,11 @@ func (s *Server) oauthToken(w http.ResponseWriter, r *http.Request) {
 
 		writes = g.Writes
 	case "refresh_token":
-		if access, refresh, writes, err = s.store.RefreshOAuthTokens(ctx, client, r.PostForm.Get("refresh_token"), oauthAccessTTL); err != nil {
+		if access, refresh, writes, err = s.refresh(r, client); err != nil {
+			if !errors.Is(err, store.ErrNotFound) {
+				slog.Error("oauth refresh", "err", err)
+			}
+
 			oauthError(w, http.StatusBadRequest, "invalid_grant", "the refresh token is invalid, expired or revoked")
 
 			return

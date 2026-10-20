@@ -8,7 +8,7 @@
     <p class="text-sm text-gray-700">{{t $l "oauth.login_intro" $d.Client .Site.Name}}</p>
     <div class="mt-6 flex flex-col gap-3">
       <a class="btn" href="{{$d.VolunteerLogin}}">{{t $l "oauth.login_volunteer"}}</a>
-      <a class="btn-secondary" href="{{$d.StaffLogin}}">{{t $l "oauth.login_staff"}}</a>
+      {{with $d.StaffLogin}}<a class="btn-secondary" href="{{.}}">{{t $l "oauth.login_staff"}}</a>{{end}}
     </div>
   {{else if eq $d.Mode "noroles"}}
     <p class="text-sm text-gray-700">{{t $l "oauth.no_roles"}}</p>

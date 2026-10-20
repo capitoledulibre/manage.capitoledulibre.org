@@ -159,7 +159,14 @@ func (s *Store) Cleanup(ctx context.Context) error {
 	}
 
 	// A used code is kept an hour past its end, to tell a second use.
-	_, err := s.db.ExecContext(ctx, `DELETE FROM oauth_codes WHERE expires_at <= ?`, now().Add(-time.Hour))
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM oauth_codes WHERE expires_at <= ?`, now().Add(-time.Hour)); err != nil {
+		return err
+	}
+
+	// Anyone may register a client: one granted nothing for a month goes.
+	_, err := s.db.ExecContext(ctx, `DELETE FROM oauth_clients WHERE created_at <= ?
+		AND NOT EXISTS (SELECT 1 FROM api_tokens t WHERE t.client_id = oauth_clients.id)
+		AND NOT EXISTS (SELECT 1 FROM oauth_codes c WHERE c.client_id = oauth_clients.id)`, now().Add(-30*24*time.Hour))
 
 	return err
 }

@@ -38,6 +38,12 @@ type Server struct {
 	// registerByIP, the OAuth clients it registers.
 	loginByIP    *ratelimit.Limiter
 	registerByIP *ratelimit.Limiter
+
+	// refreshes remembers the tokens a refresh token was just renewed into,
+	// for a while (oauthRefreshGrace): a client that did not get the answer,
+	// or refreshed twice at once, gets the same tokens again.
+	refreshMu sync.Mutex
+	refreshes map[string]*renewal
 	// bg tracks the work done off the request (e-mails, reminders), which a
 	// shutdown waits for before the database closes.
 	bg sync.WaitGroup
@@ -89,7 +95,10 @@ func New(ctx context.Context, cfg *config.Config, st *store.Store, fs *files.Sto
 
 	s.gravatar = gravatar.New(st, fs, cfg.Gravatar, gravatarURL)
 	s.loginByIP = ratelimit.New(loginsPerIP, 15*time.Minute)
-	s.registerByIP = ratelimit.New(20, time.Hour)
+	// Hosted assistants register from a few shared addresses, one client
+	// per person: the limit only stops a flood.
+	s.registerByIP = ratelimit.New(300, time.Hour)
+	s.refreshes = map[string]*renewal{}
 
 	if cfg.OIDCEnabled() {
 		s.oidc, err = newOIDCClient(ctx, cfg)
