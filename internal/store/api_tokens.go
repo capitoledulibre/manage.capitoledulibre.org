@@ -9,17 +9,19 @@ import (
 // APIToken is a personal token for the API (MCP). Staff tells that it
 // carries the staff's rights.
 type APIToken struct {
-	ID         int64
-	UID        string
-	PersonID   int64
-	Staff      bool
+	ID       int64
+	UID      string
+	PersonID int64
+	Staff    bool
+	// Writes lets the token change things, not only read them.
+	Writes     bool
 	Name       string
 	ExpiresAt  time.Time
 	LastUsedAt *time.Time
 	CreatedAt  time.Time
 }
 
-const apiTokenCols = `id, uid, person_id, admin_id IS NOT NULL, name, expires_at, last_used_at, created_at`
+const apiTokenCols = `id, uid, person_id, admin_id IS NOT NULL, writes, name, expires_at, last_used_at, created_at`
 
 func scanAPIToken(row interface{ Scan(...any) error }) (*APIToken, error) {
 	var (
@@ -27,7 +29,7 @@ func scanAPIToken(row interface{ Scan(...any) error }) (*APIToken, error) {
 		used sql.NullTime
 	)
 
-	if err := row.Scan(&t.ID, &t.UID, &t.PersonID, &t.Staff, &t.Name, &t.ExpiresAt, &used, &t.CreatedAt); err != nil {
+	if err := row.Scan(&t.ID, &t.UID, &t.PersonID, &t.Staff, &t.Writes, &t.Name, &t.ExpiresAt, &used, &t.CreatedAt); err != nil {
 		return nil, notFound(err)
 	}
 
@@ -37,9 +39,9 @@ func scanAPIToken(row interface{ Scan(...any) error }) (*APIToken, error) {
 }
 
 // CreateAPIToken makes a token for a person, valid for ttl; with an
-// adminID, it carries that staff member's rights. It returns the token,
-// shown once: only its hash is kept.
-func (s *Store) CreateAPIToken(ctx context.Context, personID int64, adminID *int64, name string, ttl time.Duration) (string, *APIToken, error) {
+// adminID, it carries that staff member's rights; writes lets it change
+// things. It returns the token, shown once: only its hash is kept.
+func (s *Store) CreateAPIToken(ctx context.Context, personID int64, adminID *int64, name string, writes bool, ttl time.Duration) (string, *APIToken, error) {
 	token, hash := NewToken()
 
 	var admin any
@@ -47,8 +49,8 @@ func (s *Store) CreateAPIToken(ctx context.Context, personID int64, adminID *int
 		admin = *adminID
 	}
 
-	row := s.db.QueryRowContext(ctx, `INSERT INTO api_tokens (uid, token_hash, person_id, admin_id, name, expires_at, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING `+apiTokenCols, NewUUID(), hash, personID, admin, name, now().Add(ttl), now())
+	row := s.db.QueryRowContext(ctx, `INSERT INTO api_tokens (uid, token_hash, person_id, admin_id, name, writes, expires_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING `+apiTokenCols, NewUUID(), hash, personID, admin, name, writes, now().Add(ttl), now())
 
 	t, err := scanAPIToken(row)
 	if err != nil {

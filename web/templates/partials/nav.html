@@ -463,6 +463,7 @@
     {{range $api.Tokens}}
     <li class="flex flex-wrap items-center justify-between gap-2 py-2">
       <span><strong>{{.Name}}</strong>{{if .Staff}} <span class="badge bg-brand-50 text-brand-800">staff</span>{{end}}
+        {{if .Writes}} <span class="badge bg-amber-100 text-amber-900">{{t $l "api.writes_badge"}}</span>{{else}} <span class="badge bg-gray-100 text-gray-700">{{t $l "api.reads_badge"}}</span>{{end}}
         <span class="text-gray-500">· {{t $l "api.expires" (date $l .ExpiresAt)}} · {{with .LastUsedAt}}{{t $l "api.used" (date $l .)}}{{else}}{{t $l "api.never_used"}}{{end}}</span></span>
       <form method="post" action="{{$api.Base}}/{{.UID}}/delete" data-confirm="{{t $l "api.revoke_confirm" .Name}}"><button class="btn-danger btn-sm">{{t $l "api.revoke"}}</button></form>
     </li>
@@ -474,6 +475,8 @@
       <input id="token-name" class="input" name="name" maxlength="60" placeholder="Claude">
     </div>
     <button class="btn">{{t $l "api.create"}}</button>
+    <label class="flex w-full items-start gap-2 text-sm"><input type="checkbox" name="writes" value="yes" class="mt-0.5 h-4 w-4 accent-brand-600">
+      <span>{{t $l "api.writes"}} <span class="block text-xs text-gray-500">{{t $l "api.writes_help"}}</span></span></label>
   </form>
   <p class="help mt-3">{{t $l "api.help"}}</p>
 </section>

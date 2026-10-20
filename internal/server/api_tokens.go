@@ -51,7 +51,7 @@ func (s *Server) meTokenCreate(w http.ResponseWriter, r *http.Request) error {
 		return errForbidden
 	}
 
-	token, _, err := s.store.CreateAPIToken(r.Context(), a.Person.ID, nil, tokenName(r), apiTokenTTL)
+	token, _, err := s.store.CreateAPIToken(r.Context(), a.Person.ID, nil, tokenName(r), r.FormValue("writes") == "yes", apiTokenTTL)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (s *Server) meTokenDelete(w http.ResponseWriter, r *http.Request) error {
 func (s *Server) adminTokenCreate(w http.ResponseWriter, r *http.Request) error {
 	admin := rc(r).Admin
 
-	token, _, err := s.store.CreateAPIToken(r.Context(), admin.PersonID, &admin.ID, tokenName(r), apiTokenTTL)
+	token, _, err := s.store.CreateAPIToken(r.Context(), admin.PersonID, &admin.ID, tokenName(r), r.FormValue("writes") == "yes", apiTokenTTL)
 	if err != nil {
 		return err
 	}

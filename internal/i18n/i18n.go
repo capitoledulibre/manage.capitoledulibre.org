@@ -373,7 +373,11 @@ var messages = map[string][2]string{
 
 	// Personal tokens of the API (MCP).
 	"api.title":          {"Accès pour un assistant IA (MCP)", "Access for an AI assistant (MCP)"},
-	"api.intro":          {"Un jeton personnel permet à un assistant IA compatible MCP, comme Claude, de lire en votre nom ce que vous voyez ici : pôles, créneaux, inscrits. Il ne peut rien modifier.", "A personal token lets an AI assistant that speaks MCP, such as Claude, read on your behalf what you see here: teams, slots, who signed up. It cannot change anything."},
+	"api.intro":          {"Un jeton personnel permet à un assistant IA compatible MCP, comme Claude, de lire en votre nom ce que vous voyez ici : pôles, créneaux, inscrits ; et, si vous l'autorisez, d'agir en votre nom.", "A personal token lets an AI assistant that speaks MCP, such as Claude, read on your behalf what you see here: teams, slots, who signed up; and, if you allow it, act on your behalf."},
+	"api.writes":         {"Autoriser les modifications", "Allow changes"},
+	"api.writes_help":    {"Inscrire ou retirer des bénévoles, publier un message, créer ou modifier des créneaux… avec vos droits. Les personnes concernées sont prévenues par e-mail comme d'habitude.", "Sign volunteers up or off, post a notice, create or change slots… with your rights. Those concerned are told by e-mail as usual."},
+	"api.writes_badge":   {"lecture et modifications", "read and change"},
+	"api.reads_badge":    {"lecture seule", "read only"},
 	"api.url":            {"Adresse du serveur MCP", "MCP server address"},
 	"api.token":          {"Jeton", "Token"},
 	"api.new":            {"Votre jeton. Copiez-le maintenant : il ne sera plus affiché.", "Your token. Copy it now: it will not be shown again."},
@@ -387,6 +391,18 @@ var messages = map[string][2]string{
 	"api.revoke_confirm": {"Révoquer le jeton « %s » ? L'assistant qui l'utilise perdra l'accès.", "Revoke the token “%s”? The assistant using it will lose access."},
 	"api.help":           {"Gardez vos jetons secrets : qui en a un lit ce que vous lisez. Un jeton dure 90 jours ; révoquez celui que vous n'utilisez plus.", "Keep your tokens secret: whoever has one reads what you read. A token lasts 90 days; revoke the one you no longer use."},
 	"flash.api.revoked":  {"Jeton révoqué.", "Token revoked."},
+
+	// What the MCP tools that change things answer the assistant (in
+	// English, whatever the person's language).
+	"mcp.signed_up.one":       {"%d personne inscrite et prévenue par e-mail", "%d person signed up and told by e-mail"},
+	"mcp.signed_up.other":     {"%d personnes inscrites et prévenues par e-mail", "%d people signed up and told by e-mail"},
+	"mcp.members_added.one":   {"%d membre ajouté au pôle", "%d member added to the pole"},
+	"mcp.members_added.other": {"%d membres ajoutés au pôle", "%d members added to the pole"},
+	"mcp.notice_sent.one":     {"message publié et envoyé à %d personne", "notice posted and e-mailed to %d person"},
+	"mcp.notice_sent.other":   {"message publié et envoyé à %d personnes", "notice posted and e-mailed to %d people"},
+	"mcp.reminded.one":        {"relance envoyée à %d personne", "reminder e-mailed to %d person"},
+	"mcp.reminded.other":      {"relance envoyée à %d personnes", "reminder e-mailed to %d people"},
+	"mcp.err.unknown_place":   {"Le pôle n'a pas d'emplacement « %s ».", "The pole has no place named “%s”."},
 
 	// The navigation of the whole site: sections of an edition, the
 	// administration, and the tabs of a section.

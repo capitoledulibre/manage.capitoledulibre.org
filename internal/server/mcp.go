@@ -11,6 +11,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"manage/internal/access"
+	"manage/internal/i18n"
 	"manage/internal/store"
 )
 
@@ -28,13 +29,23 @@ import (
 // apiTokenTTL is how long a personal token lasts.
 const apiTokenTTL = 90 * 24 * time.Hour
 
-type actorKey struct{}
+// mcpCaller is who calls the API: the token's actor, and whether the
+// token may change things.
+type mcpCaller struct {
+	actor  *access.Actor
+	writes bool
+}
+
+type callerKey struct{}
 
 func (s *Server) mcpRoutes(mux *router) {
 	h := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
-		a, _ := r.Context().Value(actorKey{}).(*access.Actor)
+		c, _ := r.Context().Value(callerKey{}).(*mcpCaller)
+		if c == nil {
+			c = &mcpCaller{actor: &access.Actor{}}
+		}
 
-		return s.mcpServer(a)
+		return s.mcpServer(c)
 	}, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
 
 	mux.Handle("/mcp", s.requireAPIToken(h))
@@ -79,7 +90,7 @@ func (s *Server) requireAPIToken(h http.Handler) http.Handler {
 			return
 		}
 
-		h.ServeHTTP(w, r.WithContext(context.WithValue(ctx, actorKey{}, a)))
+		h.ServeHTTP(w, r.WithContext(context.WithValue(ctx, callerKey{}, &mcpCaller{actor: a, writes: t.Writes})))
 	})
 }
 
@@ -91,11 +102,10 @@ func unauthorized(w http.ResponseWriter) {
 // readOnly marks a tool that changes nothing.
 var readOnly = &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true}
 
-// mcpServer is the server of an actor, with the tools they may call.
-func (s *Server) mcpServer(a *access.Actor) *mcp.Server {
-	if a == nil {
-		a = &access.Actor{}
-	}
+// mcpServer is the server of a caller, with the tools they may call: the
+// ones that change things only for a token allowed to.
+func (s *Server) mcpServer(c *mcpCaller) *mcp.Server {
+	a := c.actor
 
 	srv := mcp.NewServer(&mcp.Implementation{Name: "manage", Title: s.site.Name, Version: "1"}, &mcp.ServerOptions{
 		Instructions: "Volunteers of the editions of " + s.site.Name + ": poles, slots and who is on them, " +
@@ -152,17 +162,27 @@ func (s *Server) mcpServer(a *access.Actor) *mcp.Server {
 			return nil, out, toolErr(err)
 		})
 
+	if c.writes {
+		s.mcpWriteTools(srv, a)
+	}
+
 	return srv
 }
 
 // toolErr turns an error into what the assistant is told: a reason it can
-// act on, never an internal detail.
+// act on, never an internal detail. A refusal says why, in English.
 func toolErr(err error) error {
 	var he *httpError
+
+	rf, refusedErr := refused(err)
 
 	switch {
 	case err == nil:
 		return nil
+	case refusedErr && rf.Key == outsideKey:
+		return errors.New("the slot falls outside the dates of the edition; call again with confirm_outside to create it anyway")
+	case refusedErr:
+		return errors.New(i18n.T("en", rf.Key, anys(rf.Args)...))
 	case errors.Is(err, store.ErrNotFound), errors.As(err, &he) && he.status == http.StatusNotFound:
 		return errors.New("not found, or not visible to this person")
 	case errors.As(err, &he) && he.status == http.StatusForbidden:

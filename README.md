@@ -272,7 +272,7 @@ and can be revoked; only its hash is stored, and a staff token goes with
 its owner's staff access.
 
 The assistant reads what the person sees on the site, through the same
-rules (`internal/access`), and changes nothing:
+rules (`internal/access`):
 
 | Tool | What it reads |
 |---|---|
@@ -282,6 +282,20 @@ rules (`internal/access`), and changes nothing:
 | `pole_members` | the members of a pole the person runs, with their contact details |
 | `volunteer` | one volunteer by address, for the coordination: poles, slots, t-shirt, meals |
 | `logistics` | t-shirts and meals counted, answers missing, for the coordination |
+
+A token may also be allowed to change things, when its owner ticks the box
+(read-only otherwise). The assistant then acts with the person's rights,
+through the same services as the pages: the same checks, e-mails and
+history. These tools are marked as changing things (and those that take
+something away as destructive), for the client to ask before calling them:
+
+| Tool | What it does |
+|---|---|
+| `sign_up_people`, `take_off_slot` | sign people up on a slot (beyond its places if need be), or take one off |
+| `add_members`, `remove_member` | bring people into a pole, or take one out |
+| `post_notice` | post a notice on an edition, a pole or a slot, and e-mail it on request |
+| `create_slot`, `update_slot`, `delete_slot` | the slots of a pole |
+| `remind` | e-mail the volunteers yet to pick a slot, or to answer the logistics |
 
 Contact details only go to whoever runs the pole, as on the pages. Dietary
 needs are counted, never quoted: what a volunteer wrote stays on the site.

@@ -163,7 +163,7 @@ func TestMCP(t *testing.T) {
 	admin, err := e.st.UpsertAdmin(ctx, "sam@conf.test", "Sam")
 	mustOK(t, err)
 
-	staffToken, _, err := e.st.CreateAPIToken(ctx, admin.PersonID, &admin.ID, "Staff", time.Hour)
+	staffToken, _, err := e.st.CreateAPIToken(ctx, admin.PersonID, &admin.ID, "Staff", true, time.Hour)
 	mustOK(t, err)
 
 	staff := e.mcpClient(staffToken)
@@ -194,5 +194,145 @@ func TestMCP(t *testing.T) {
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("a revoked token: %d", resp.StatusCode)
+	}
+}
+
+func TestMCPWrites(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+
+	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, nina.ID))
+
+	// A read-only token sees no tool that changes things.
+	readToken, _, err := e.st.CreateAPIToken(ctx, f.lead.ID, nil, "Read", false, time.Hour)
+	mustOK(t, err)
+
+	tools, err := e.mcpClient(readToken).ListTools(ctx, nil)
+	mustOK(t, err)
+
+	for _, tool := range tools.Tools {
+		if !tool.Annotations.ReadOnlyHint {
+			t.Errorf("a read-only token offers %s", tool.Name)
+		}
+	}
+
+	// The lead's token, allowed to change things, made from their profile.
+	lead := e.loginAs(f.leadEmail)
+	_, body := e.post(lead, "/me/tokens", map[string][]string{"name": {"Claude"}, "writes": {"yes"}})
+	mustContain(t, body, "lecture et modifications")
+
+	token := regexp.MustCompile(`value="(mgt_[A-Za-z0-9_-]+)"`).FindStringSubmatch(body)[1]
+	s := e.mcpClient(token)
+
+	tools, err = s.ListTools(ctx, nil)
+	mustOK(t, err)
+
+	destructive := map[string]bool{}
+	for _, tool := range tools.Tools {
+		if !tool.Annotations.ReadOnlyHint {
+			destructive[tool.Name] = tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
+		}
+	}
+
+	if len(destructive) != 9 || !destructive["delete_slot"] || destructive["sign_up_people"] {
+		t.Errorf("tools that change things: %v", destructive)
+	}
+
+	slot := map[string]any{"edition": f.event.Slug, "pole": f.buvette.Slug, "slot": f.morning.UID}
+	with := func(extra map[string]any) map[string]any {
+		out := map[string]any{}
+		for k, v := range slot {
+			out[k] = v
+		}
+
+		for k, v := range extra {
+			out[k] = v
+		}
+
+		return out
+	}
+
+	// Two on a slot of one: done, told, and the overbooking said.
+	out, ok := call(t, s, "sign_up_people", with(map[string]any{"emails": []string{"nina@example.org", "newbie@example.org"}}))
+	if !ok || !strings.Contains(out, "2 people signed up") || !strings.Contains(out, "overbooked") {
+		t.Fatalf("sign_up_people: %s", out)
+	}
+
+	e.mailed("nina@example.org")
+	e.mailed("newbie@example.org")
+
+	out, ok = call(t, s, "take_off_slot", with(map[string]any{"email": "newbie@example.org"}))
+	if !ok {
+		t.Errorf("take_off_slot: %s", out)
+	}
+
+	// Slots: created, moved, deleted; a place must exist.
+	day := f.morning.StartsAt.Add(24 * time.Hour).In(paris).Format(time.DateOnly)
+	create := map[string]any{"edition": f.event.Slug, "pole": f.buvette.Slug, "starts_at": day + "T14:00", "ends_at": day + "T16:00", "capacity": 2}
+
+	if out, ok := call(t, s, "create_slot", map[string]any{"edition": f.event.Slug, "pole": f.buvette.Slug, "starts_at": day + "T14:00",
+		"ends_at": day + "T16:00", "place": "Nowhere"}); ok || !strings.Contains(out, "no place named") {
+		t.Errorf("create_slot at an unknown place: %s", out)
+	}
+
+	out, ok = call(t, s, "create_slot", create)
+	if !ok || !strings.Contains(out, `"capacity":2`) {
+		t.Fatalf("create_slot: %s", out)
+	}
+
+	id := regexp.MustCompile(`"id":"([^"]+)"`).FindStringSubmatch(out)[1]
+	made := map[string]any{"edition": f.event.Slug, "pole": f.buvette.Slug, "slot": id}
+
+	out, ok = call(t, s, "update_slot", map[string]any{"edition": f.event.Slug, "pole": f.buvette.Slug, "slot": id, "capacity": 5})
+	if !ok || !strings.Contains(out, `"capacity":5`) || !strings.Contains(out, day+"T14:00") {
+		t.Errorf("update_slot: %s", out)
+	}
+
+	if out, ok := call(t, s, "delete_slot", made); !ok {
+		t.Errorf("delete_slot: %s", out)
+	}
+
+	// A notice to the pole; not to the edition, which is the coordination's.
+	if out, ok := call(t, s, "post_notice", map[string]any{"edition": f.event.Slug, "pole": f.buvette.Slug, "message": "Merci !", "send_email": true}); !ok ||
+		!strings.Contains(out, "e-mailed") {
+		t.Errorf("post_notice to the pole: %s", out)
+	}
+
+	if out, ok := call(t, s, "post_notice", map[string]any{"edition": f.event.Slug, "message": "Hello"}); ok || !strings.Contains(out, "not allowed") {
+		t.Errorf("post_notice to the edition by a lead: %s", out)
+	}
+
+	if out, ok := call(t, s, "post_notice", map[string]any{"edition": f.event.Slug, "pole": f.buvette.Slug, "message": " "}); ok ||
+		!strings.Contains(out, "Write the message") {
+		t.Errorf("an empty notice: %s", out)
+	}
+
+	// Not another pole, nor the coordination's reminders.
+	if out, ok := call(t, s, "add_members", map[string]any{"edition": f.event.Slug, "pole": f.accueil.Slug, "emails": []string{"x@example.org"}}); ok {
+		t.Errorf("add_members to another pole: %s", out)
+	}
+
+	if out, ok := call(t, s, "remind", map[string]any{"edition": f.event.Slug, "audience": "idle"}); ok || !strings.Contains(out, "not allowed") {
+		t.Errorf("remind by a lead: %s", out)
+	}
+
+	// Members: added and taken out.
+	if out, ok := call(t, s, "add_members", map[string]any{"edition": f.event.Slug, "pole": f.buvette.Slug, "emails": []string{"omar@example.org"}}); !ok {
+		t.Errorf("add_members: %s", out)
+	}
+
+	if out, ok := call(t, s, "remove_member", map[string]any{"edition": f.event.Slug, "pole": f.buvette.Slug, "email": "omar@example.org"}); !ok {
+		t.Errorf("remove_member: %s", out)
+	}
+
+	// The history names the lead.
+	history, _, err := e.st.ListPoleLog(ctx, f.buvette.ID, store.LogPage{})
+	mustOK(t, err)
+
+	if len(history) == 0 || history[0].ActorID != f.lead.ID {
+		t.Errorf("history: %+v", history)
 	}
 }

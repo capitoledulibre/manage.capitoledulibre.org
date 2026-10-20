@@ -21,7 +21,7 @@ func TestAPITokens(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token, made, err := s.CreateAPIToken(ctx, p.ID, nil, "Claude", time.Hour)
+	token, made, err := s.CreateAPIToken(ctx, p.ID, nil, "Claude", false, time.Hour)
 	if err != nil || made.Staff {
 		t.Fatalf("create: %v %+v", err, made)
 	}
@@ -39,7 +39,7 @@ func TestAPITokens(t *testing.T) {
 	}
 
 	// An expired token stops working.
-	old, _, err := s.CreateAPIToken(ctx, p.ID, nil, "Old", -time.Minute)
+	old, _, err := s.CreateAPIToken(ctx, p.ID, nil, "Old", false, -time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,8 +49,8 @@ func TestAPITokens(t *testing.T) {
 	}
 
 	// A staff token goes with the staff access.
-	staffToken, made, err := s.CreateAPIToken(ctx, admin.PersonID, &admin.ID, "Staff", time.Hour)
-	if err != nil || !made.Staff {
+	staffToken, made, err := s.CreateAPIToken(ctx, admin.PersonID, &admin.ID, "Staff", true, time.Hour)
+	if err != nil || !made.Staff || !made.Writes {
 		t.Fatalf("staff token: %v %+v", err, made)
 	}
 
