@@ -98,7 +98,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	coverage, err := s.store.ListPoleCoverage(ctx, e.ID)
+	coverage, _, err := s.poleCoverage(ctx, act(r), e)
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	case "logistics":
-		if logi, err = s.logistics(r.Context(), e); err != nil {
+		if logi, err = s.logisticsOf(ctx, act(r), e); err != nil {
 			return err
 		}
 	}
@@ -666,34 +666,7 @@ func (s *Server) coordinationVolunteer(w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	volunteers, err := s.store.ListEventVolunteers(ctx, e.ID)
-	if err != nil {
-		return err
-	}
-
-	var v *store.EventVolunteer
-
-	for _, x := range volunteers {
-		if x.Person.ID == who.ID {
-			v = x
-		}
-	}
-
-	if v == nil {
-		return errNotFound
-	}
-
-	slots, err := s.store.ListPersonSlots(ctx, e.ID, who.ID)
-	if err != nil {
-		return err
-	}
-
-	waiting, err := s.store.ListPersonWaitlist(ctx, e.ID, who.ID)
-	if err != nil {
-		return err
-	}
-
-	history, err := s.store.ListPersonEventLog(ctx, e.ID, who.ID)
+	f, err := s.volunteerFileOf(ctx, act(r), e, who)
 	if err != nil {
 		return err
 	}
@@ -703,17 +676,9 @@ func (s *Server) coordinationVolunteer(w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	var details *store.VolunteerDetails
-
-	if e.AsksVolunteers() {
-		if details, err = s.store.GetVolunteerDetails(ctx, e.ID, who.ID); err != nil {
-			return err
-		}
-	}
-
 	p := s.page(r, "vol.coord.volunteers")
 	p.TitleText = who.Label()
-	p.D = map[string]any{"Event": e, "V": v, "Slots": slots, "Waiting": waiting, "History": history, "Poles": poles, "Details": details,
+	p.D = map[string]any{"Event": e, "V": f.Volunteer, "Slots": f.Slots, "Waiting": f.Waiting, "History": f.History, "Poles": poles, "Details": f.Details,
 		"Staff": act(r).Staff}
 
 	return s.render(w, r, "volunteer/volunteer", p)

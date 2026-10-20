@@ -204,7 +204,7 @@ func (s *Server) coordinationLogisticsCSV(w http.ResponseWriter, r *http.Request
 		return err
 	}
 
-	l, err := s.logistics(r.Context(), e)
+	l, err := s.logisticsOf(r.Context(), act(r), e)
 	if err != nil {
 		return err
 	}

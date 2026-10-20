@@ -66,7 +66,7 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	case "members":
-		members, err := s.store.ListPoleMembers(ctx, v.Pole.ID)
+		members, err := s.poleMembers(ctx, act(r), v)
 		if err != nil {
 			return err
 		}

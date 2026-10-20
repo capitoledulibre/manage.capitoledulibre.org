@@ -282,28 +282,19 @@ func (s *Server) eventHome(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	coverage, err := s.store.ListPoleCoverage(ctx, e.ID)
-	if err != nil {
-		return err
-	}
-
-	members, err := s.store.MemberPoleIDs(ctx, e.ID, person.ID)
-	if err != nil {
-		return err
-	}
-
 	a := act(r)
 	coordinator := a.Coordinates(e.ID)
+
+	// Restricted poles stay invisible to the people who are not in them.
+	coverage, members, err := s.poleCoverage(ctx, a, e)
+	if err != nil {
+		return err
+	}
 
 	var cards []*poleCard
 
 	for _, c := range coverage {
 		id := c.Pole.ID
-		// Restricted poles stay invisible to the people who are not in them.
-		if !a.ListsPole(c.Pole, members[id]) {
-			continue
-		}
-
 		manage := a.ManagesPole(c.Pole)
 
 		// The default pole only shows once it holds something: an empty card

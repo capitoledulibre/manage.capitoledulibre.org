@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/csv"
 	"html/template"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"manage/internal/access"
 	"manage/internal/store"
 )
 
@@ -50,33 +52,80 @@ type planDay struct {
 
 // planQuery selects the slots of a planning.
 type planQuery struct {
-	PersonID int64          // whose slots are Mine
-	Visible  map[int64]bool // the poles shown, nil for all of them
-	Pole     *store.Pole    // a single pole, nil for every visible one
-	View     string         // "mine", "open" or "all"
-	Day      string         // a single day, empty for all of them
+	Pole *store.Pole // a single pole, nil for every one the actor plans
+	View string      // "mine", "open", "late" or "all"
+	Day  string      // a single day, empty for all of them
 	// Layout is "grid" for each pole's day as a timetable instead of
 	// cards, "names" for that timetable with who is on each slot, empty
 	// for the cards.
 	Layout string
 }
 
-// planning gathers the slots of an edition, day by day and pole by pole.
-// days lists the days the other filters leave, for the day filter.
-func (s *Server) planning(r *http.Request, e *store.Event, q planQuery) (out []*planDay, days []string, err error) {
-	ctx := r.Context()
-
-	poleID := int64(0)
-	if q.Pole != nil {
-		poleID = q.Pole.ID
-	}
-
-	slots, err := s.store.ListEventSlots(ctx, e.ID, q.PersonID)
+// planPoles are the poles of an edition whose slots the actor's planning
+// shows (access.PlansPole): every one for the coordination; else those the
+// actor is in or runs, and the open ones they may join. members are the
+// poles the actor is in.
+func (s *Server) planPoles(ctx context.Context, a *access.Actor, e *store.Event) (shown []*store.Pole, members map[int64]bool, err error) {
+	poles, err := s.store.ListPoles(ctx, e.ID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	poles, err := s.store.ListPoles(ctx, e.ID)
+	members = map[int64]bool{}
+
+	if a.Person != nil {
+		if members, err = s.store.MemberPoleIDs(ctx, e.ID, a.Person.ID); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	for _, p := range poles {
+		if a.PlansPole(p, members[p.ID]) {
+			shown = append(shown, p)
+		}
+	}
+
+	return shown, members, nil
+}
+
+// planning gathers the slots of an edition the actor plans, day by day and
+// pole by pole: those of the poles they may see (planPoles), and in the
+// "late" view, of the poles they run. days lists the days the other
+// filters leave, for the day filter.
+func (s *Server) planning(ctx context.Context, a *access.Actor, e *store.Event, q planQuery) (out []*planDay, days []string, err error) {
+	if !a.SeesEvent(e) {
+		return nil, nil, errNotFound
+	}
+
+	poles, _, err := s.planPoles(ctx, a, e)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	visible := map[int64]bool{}
+
+	for _, p := range poles {
+		// Late tasks are for whoever runs the pole to chase.
+		if q.View != "late" || a.ManagesPole(p) {
+			visible[p.ID] = true
+		}
+	}
+
+	poleID := int64(0)
+	if q.Pole != nil {
+		if !visible[q.Pole.ID] {
+			return nil, nil, errNotFound
+		}
+
+		poleID = q.Pole.ID
+	}
+
+	var personID int64
+	if a.Person != nil {
+		personID = a.Person.ID
+	}
+
+	slots, err := s.store.ListEventSlots(ctx, e.ID, personID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -102,7 +151,7 @@ func (s *Server) planning(r *http.Request, e *store.Event, q planQuery) (out []*
 
 	for _, sl := range slots {
 		switch {
-		case q.Visible != nil && !q.Visible[sl.PoleID],
+		case !visible[sl.PoleID],
 			poleID != 0 && sl.PoleID != poleID,
 			q.View == "mine" && !sl.Mine,
 			q.View == "open" && (sl.IsFull() || !sl.StartsAt.After(now)),
@@ -170,30 +219,11 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 
 	a := act(r)
 	coordinator := a.Coordinates(e.ID)
-
-	poles, err := s.store.ListPoles(ctx, e.ID)
-	if err != nil {
-		return err
-	}
-
-	members, err := s.store.MemberPoleIDs(ctx, e.ID, person.ID)
-	if err != nil {
-		return err
-	}
-
 	managed := a.LedPoles(e.ID)
 
-	// The poles shown: every one for the coordination; else those the
-	// person belongs to or runs, and the open ones they may join.
-	var shown []*store.Pole
-
-	visible := map[int64]bool{}
-
-	for _, p := range poles {
-		if a.PlansPole(p, members[p.ID]) {
-			visible[p.ID] = true
-			shown = append(shown, p)
-		}
+	shown, members, err := s.planPoles(ctx, a, e)
+	if err != nil {
+		return err
 	}
 
 	query := r.URL.Query()
@@ -203,10 +233,11 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		views = append(slices.Clone(planViews), leadViews...)
 	}
 
-	q := planQuery{PersonID: person.ID, Visible: visible, View: query.Get("view"), Layout: query.Get("layout")}
+	q := planQuery{View: query.Get("view"), Layout: query.Get("layout")}
 	if q.Layout != "grid" && q.Layout != "names" {
 		q.Layout = ""
 	}
+
 	if !slices.Contains(views, q.View) {
 		q.View = "all"
 
@@ -224,13 +255,8 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	// Late tasks are for whoever runs the pole to chase.
-	if q.View == "late" && !coordinator {
-		q.Visible = managed
-	}
-
 	for _, p := range shown {
-		if p.Slug == query.Get("pole") {
+		if p.Slug == query.Get("pole") && (q.View != "late" || a.ManagesPole(p)) {
 			q.Pole = p
 		}
 	}
@@ -239,7 +265,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	// a volunteer opens in a corridor.
 	day := query.Get("day")
 
-	days, all, err := s.planning(r, e, q)
+	days, all, err := s.planning(ctx, a, e, q)
 	if err != nil {
 		return err
 	}
@@ -474,7 +500,7 @@ func (s *Server) manageSignupsCSV(w http.ResponseWriter, r *http.Request) error 
 // signupsCSV writes one line per volunteer and slot, and one per slot left
 // without anybody, so that a spreadsheet shows the gaps too.
 func (s *Server) signupsCSV(w http.ResponseWriter, r *http.Request, e *store.Event, pole *store.Pole, name string) error {
-	days, _, err := s.planning(r, e, planQuery{Pole: pole})
+	days, _, err := s.planning(r.Context(), act(r), e, planQuery{Pole: pole})
 	if err != nil {
 		return err
 	}
