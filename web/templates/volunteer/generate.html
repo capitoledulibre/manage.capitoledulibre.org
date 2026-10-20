@@ -139,7 +139,7 @@
 
   <div class="flex flex-wrap gap-3">
     <button class="{{if and $p (not $p.Errors) $p.Slots}}btn-secondary{{else}}btn{{end}}" name="action" value="preview">{{if $p}}{{t $l "vol.gen.refresh"}}{{else}}{{t $l "vol.gen.show_preview"}}{{end}}</button>
-    {{if and $p (not $p.Errors) $p.Slots}}<button class="btn" name="action" value="create" data-gen-create data-one="{{t $l "vol.gen.create.one"}}" data-other="{{t $l "vol.gen.create.other"}}">{{tn $l "vol.gen.create" $p.Slots}}</button>{{end}}
+    {{if and $p (not $p.Errors) $p.Slots}}<button class="btn" name="action" value="create" data-gen-create data-single="{{t $l "vol.gen.create.one"}}" data-other="{{t $l "vol.gen.create.other"}}">{{tn $l "vol.gen.create" $p.Slots}}</button>{{end}}
   </div>
 </form>
 {{end}}

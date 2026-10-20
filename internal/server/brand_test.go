@@ -145,6 +145,30 @@ func TestNoNativeDialogs(t *testing.T) {
 	mustContain(t, body, `<dialog id="confirm-dialog"`, `data-confirm-message`, `value="ok"`, ">Confirmer<", ">Annuler<")
 }
 
+// TestNoDataOnAttributes: html/template takes data-on… attributes for event
+// handlers and writes the text put in them as a quoted JavaScript string.
+func TestNoDataOnAttributes(t *testing.T) {
+	attr := regexp.MustCompile(`\sdata-on[\w-]*=`)
+
+	err := fs.WalkDir(web.Templates, "templates", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+
+		src, err := fs.ReadFile(web.Templates, path)
+		if err != nil {
+			return err
+		}
+
+		if m := attr.Find(src); m != nil {
+			t.Errorf("%s: %s is escaped as JavaScript", path, m)
+		}
+
+		return nil
+	})
+	mustOK(t, err)
+}
+
 // TestUserMenu: logged-in users get a drop-down with profile, theme and
 // logout; other pages keep the theme switch in the header.
 func TestUserMenu(t *testing.T) {

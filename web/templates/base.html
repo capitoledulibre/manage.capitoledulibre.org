@@ -32,21 +32,21 @@
         {{else}}
           <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-md bg-brand-600 px-1 text-sm text-white">{{.Site.Initials}}</span>
         {{end}}
-        <span class="hidden sm:inline">{{.Site.Name}}</span>
+        <span class="hidden xl:inline">{{.Site.Name}}</span>
       </a>
       {{with $nav}}{{with .Event}}{{template "edition_switch" $}}{{end}}{{end}}
       {{with $nav}}{{if .Sections}}
       {{/* On a phone, the volunteer pages have their bar at the bottom. */}}
-      <nav class="order-last -mx-3 w-full flex-wrap items-center gap-1 sm:order-none sm:mx-0 sm:w-auto sm:flex-1 {{if and (eq $.Area "volunteer") $.Vol $.Vol.Event (le (len .Sections) 2)}}hidden sm:flex{{else}}flex{{end}}" aria-label="{{t $.Lang "nav.label"}}">
-        {{range .Sections}}<a class="nav-link {{if .On}}nav-link-active{{end}}" {{if .On}}aria-current="page"{{end}} href="{{.URL}}">{{t $.Lang .Label}}</a>{{end}}
+      <nav class="order-last -mx-3 w-full flex-wrap items-center gap-1 sm:order-none sm:mx-0 sm:w-auto sm:flex-1 sm:flex-nowrap {{if and (eq $.Area "volunteer") $.Vol $.Vol.Event (le (len .Sections) 2)}}hidden sm:flex{{else}}flex{{end}}" aria-label="{{t $.Lang "nav.label"}}">
+        {{range .Sections}}<a class="nav-link whitespace-nowrap {{if .On}}nav-link-active{{end}}" {{if .On}}aria-current="page"{{end}} href="{{.URL}}">{{t $.Lang .Label}}</a>{{end}}
       </nav>
       {{end}}{{end}}
       <div class="ml-auto flex items-center gap-3 text-sm">
         {{with $nav}}{{with .Admin}}<a class="nav-link inline-flex items-center gap-1.5 {{if .On}}nav-link-active{{end}}" {{if .On}}aria-current="page"{{end}} href="{{.URL}}">
           <svg viewBox="0 0 20 20" class="h-4 w-4" fill="currentColor" aria-hidden="true"><path d="M11.3 1.5a1 1 0 0 0-2.6 0l-.2 1.2a7 7 0 0 0-1.7.7l-1-.7a1 1 0 0 0-1.8 1.8l.7 1a7 7 0 0 0-.7 1.7l-1.2.2a1 1 0 0 0 0 2.6l1.2.2c.1.6.4 1.2.7 1.7l-.7 1a1 1 0 0 0 1.8 1.8l1-.7c.5.3 1.1.6 1.7.7l.2 1.2a1 1 0 0 0 2.6 0l.2-1.2a7 7 0 0 0 1.7-.7l1 .7a1 1 0 0 0 1.8-1.8l-.7-1c.3-.5.6-1.1.7-1.7l1.2-.2a1 1 0 0 0 0-2.6l-1.2-.2a7 7 0 0 0-.7-1.7l.7-1a1 1 0 0 0-1.8-1.8l-1 .7a7 7 0 0 0-1.7-.7zM10 13a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
-          <span class="hidden sm:inline">{{t $.Lang .Label}}</span><span class="sr-only sm:hidden">{{t $.Lang .Label}}</span></a>{{end}}{{end}}
+          <span class="hidden lg:inline">{{t $.Lang .Label}}</span><span class="sr-only lg:hidden">{{t $.Lang .Label}}</span></a>{{end}}{{end}}
         {{if ne .Area "admin"}}
-          {{if eq .Lang "fr"}}<a class="link inline-flex items-center gap-1.5" href="/lang/en?next={{.RequestURI}}" hreflang="en" lang="en">{{template "flag" "en"}}<span class="hidden sm:inline">English</span></a>{{else}}<a class="link inline-flex items-center gap-1.5" href="/lang/fr?next={{.RequestURI}}" hreflang="fr" lang="fr">{{template "flag" "fr"}}<span class="hidden sm:inline">Français</span></a>{{end}}
+          {{if eq .Lang "fr"}}<a class="link inline-flex items-center gap-1.5" href="/lang/en?next={{.RequestURI}}" hreflang="en" lang="en">{{template "flag" "en"}}<span class="hidden xl:inline">English</span></a>{{else}}<a class="link inline-flex items-center gap-1.5" href="/lang/fr?next={{.RequestURI}}" hreflang="fr" lang="fr">{{template "flag" "fr"}}<span class="hidden xl:inline">Français</span></a>{{end}}
         {{end}}
         {{if and (eq .Area "admin") .Admin}}
           {{template "user_menu" (dict "Page" . "Admin" .Admin "Name" .Admin.Label "Email" .Admin.Email "Initials" .Admin.Initials

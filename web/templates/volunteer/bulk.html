@@ -12,7 +12,7 @@
 <form id="bulk-delete" method="post" action="{{$pole.ManageURL}}/slots/bulk/delete" data-bulk
       data-confirm="{{t $l "vol.bulk.confirm_none"}}"
       data-confirm-one="{{t $l "vol.bulk.confirm.one"}}" data-confirm-other="{{t $l "vol.bulk.confirm.other"}}"
-      data-one="{{t $l "vol.bulk.delete.one"}}" data-other="{{t $l "vol.bulk.delete.other"}}" data-lang="{{$l}}"
+      data-single="{{t $l "vol.bulk.delete.one"}}" data-other="{{t $l "vol.bulk.delete.other"}}" data-lang="{{$l}}"
       class="sticky top-0 z-10 mb-6 flex flex-wrap items-center gap-3 rounded-lg bg-surface p-3 shadow-sm ring-1 ring-gray-200">
   <button class="btn-danger" disabled data-bulk-delete>{{tn $l "vol.bulk.delete" 0}}</button>
 </form>

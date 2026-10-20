@@ -516,7 +516,7 @@
 
     total.textContent = pick(preview, slots, "totalOne", "totalOther").replace("%d", slots).replace("%d", seats);
     if (create) {
-      create.textContent = pick(create, slots, "one", "other").replace("%d", slots);
+      create.textContent = pick(create, slots, "single", "other").replace("%d", slots);
       create.disabled = slots === 0;
     }
   };
@@ -545,7 +545,7 @@
     const boxes = [...document.querySelectorAll('input[form="bulk-delete"][name=slot]:checked')];
     const signups = boxes.reduce((n, box) => n + (parseInt(box.dataset.filled, 10) || 0), 0);
 
-    button.textContent = format(pick(boxes.length, "one", "other"), boxes.length);
+    button.textContent = format(pick(boxes.length, "single", "other"), boxes.length);
     button.disabled = boxes.length === 0;
     form.dataset.confirm = format(pick(boxes.length, "confirmOne", "confirmOther"), boxes.length, signups);
   };
@@ -563,7 +563,7 @@
 })();
 
 // A search field filtering the rows of a table (data-filter: the table),
-// with a live count (data-filter-count, data-one / data-other with %d).
+// with a live count (data-filter-count, data-single / data-other with %d).
 (() => {
   document.addEventListener("input", (event) => {
     const input = event.target;
@@ -579,6 +579,6 @@
     });
 
     const count = document.querySelector(input.dataset.filterCount || "");
-    if (count) count.textContent = (shown === 1 ? input.dataset.one : input.dataset.other).replace("%d", shown);
+    if (count) count.textContent = (shown === 1 ? input.dataset.single : input.dataset.other).replace("%d", shown);
   });
 })();
