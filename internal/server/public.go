@@ -505,13 +505,16 @@ func (s *Server) publicLogo(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	c := rc(r)
+	a, err := s.actor(r)
+	if err != nil {
+		return err
+	}
 
 	switch {
 	case confirmed:
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-	case c.Admin != nil || (c.Org != nil && c.Org.ID == org.ID):
+	case a.ActsFor(org.ID):
 		w.Header().Set("Cache-Control", "private, no-cache")
 	default:
 		return errNotFound
@@ -535,7 +538,12 @@ func (s *Server) avatar(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	allowed := c.Admin != nil
+	a, err := s.actor(r)
+	if err != nil {
+		return err
+	}
+
+	allowed := a.Staff
 
 	if !allowed && c.Person != nil {
 		if allowed, err = s.store.IsVolunteer(ctx, owner.ID); err != nil {
@@ -545,14 +553,14 @@ func (s *Server) avatar(w http.ResponseWriter, r *http.Request) error {
 		allowed = allowed || owner.ID == c.Person.ID
 	}
 
-	if a, err := s.store.AdminByAvatarFile(ctx, file); !allowed && err == nil && c.Org != nil {
+	if staff, err := s.store.AdminByAvatarFile(ctx, file); !allowed && err == nil && c.Org != nil {
 		partnerships, err := s.store.ListOrgPartnerships(ctx, c.Org.ID)
 		if err != nil {
 			return err
 		}
 
 		for _, p := range partnerships {
-			if p.VisibleToPartner() && p.OwnerAdminID != nil && *p.OwnerAdminID == a.ID {
+			if a.SeesPartnership(p) && p.OwnerAdminID != nil && *p.OwnerAdminID == staff.ID {
 				allowed = true
 			}
 		}

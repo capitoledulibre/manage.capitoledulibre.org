@@ -95,6 +95,17 @@ func (s *Server) requireOrg(next handlerFunc) handlerFunc {
 			return nil
 		}
 
+		// The organization of the session is the actor's to act for: the
+		// rules below rest on it.
+		a, err := s.actor(r)
+		if err != nil {
+			return err
+		}
+
+		if !a.ActsFor(rc(r).Org.ID) {
+			return errForbidden
+		}
+
 		return next(w, r)
 	}
 }
@@ -126,7 +137,7 @@ func (s *Server) currentPartnership(r *http.Request) (*partnerContext, error) {
 	want := r.PathValue("event")
 
 	for _, p := range all {
-		if !p.VisibleToPartner() && !rc(r).Impersonating {
+		if !act(r).SeesPartnership(p) {
 			continue
 		}
 
@@ -404,7 +415,7 @@ func (s *Server) partnerDocument(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if !p.VisibleToPartner() && !rc(r).Impersonating {
+	if !act(r).SeesPartnership(p) {
 		return errNotFound
 	}
 
@@ -446,7 +457,7 @@ func (s *Server) partnerSignedQuote(w http.ResponseWriter, r *http.Request) erro
 
 	back := partnerBase(e) + "/"
 
-	if !p.VisibleToPartner() && !rc(r).Impersonating || p.QuoteFile == "" && p.QuoteSentAt == nil {
+	if !act(r).SeesPartnership(p) || p.QuoteFile == "" && p.QuoteSentAt == nil {
 		return errNotFound
 	}
 
@@ -712,7 +723,7 @@ func (s *Server) renderAttendees(w http.ResponseWriter, r *http.Request, form ma
 		if form != nil && form["Editing"] != nil {
 			data["Editing"] = form["Editing"]
 		}
-		data["Locked"] = pc.Event.AttendeesLocked() && !rc(r).Impersonating
+		data["Locked"] = !act(r).ChangesAttendees(pc.Event, rc(r).Org.ID)
 		data["Full"] = pc.Level != nil && pc.Level.MaxAttendees > 0 && len(attendees) >= pc.Level.MaxAttendees
 	}
 
@@ -734,7 +745,7 @@ func (s *Server) partnerAttendeeAdd(w http.ResponseWriter, r *http.Request) erro
 		return errNotFound
 	}
 
-	if pc.Event.AttendeesLocked() && !rc(r).Impersonating {
+	if !act(r).ChangesAttendees(pc.Event, rc(r).Org.ID) {
 		return errForbidden
 	}
 
@@ -807,7 +818,7 @@ func (s *Server) partnerAttendeeUpdate(w http.ResponseWriter, r *http.Request) e
 		return errNotFound
 	}
 
-	if pc.Event.AttendeesLocked() && !rc(r).Impersonating {
+	if !act(r).ChangesAttendees(pc.Event, rc(r).Org.ID) {
 		uid := r.PathValue("attendee")
 		if err := s.store.UpdateAttendeeDietary(r.Context(), pc.Partnership.ID, uid, strings.TrimSpace(r.FormValue("dietary"))); err != nil {
 			return err
@@ -850,7 +861,7 @@ func (s *Server) partnerAttendeeDelete(w http.ResponseWriter, r *http.Request) e
 		return errNotFound
 	}
 
-	if pc.Event.AttendeesLocked() && !rc(r).Impersonating {
+	if !act(r).ChangesAttendees(pc.Event, rc(r).Org.ID) {
 		return errForbidden
 	}
 

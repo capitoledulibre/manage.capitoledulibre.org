@@ -46,7 +46,7 @@ func (s *Server) exportJSON(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) exportAuthorized(r *http.Request) bool {
-	if rc(r).Admin != nil {
+	if a, err := s.actor(r); err == nil && a.Staff {
 		return true
 	}
 

@@ -1,7 +1,9 @@
-// Package access says who may do what with the volunteers of an edition.
+// Package access says who may do what: with the volunteers of an edition,
+// and with a partner organization.
 //
 // An Actor is who acts, with the roles that decide their rights: the staff,
-// the coordinators of an edition, the managers of a pole. Its rules are pure
+// the coordinators of an edition, the managers of a pole, the contacts of
+// a partner. Its rules are pure
 // functions of those roles and of what is acted upon, the same whichever
 // way the action comes (a page, a form, an API), so they are written and
 // tested once, here.
@@ -27,12 +29,14 @@ type Actor struct {
 
 	coordinated map[int64]bool  // edition IDs
 	led         map[int64]int64 // pole ID → edition ID
+	contacts    map[int64]bool  // organization IDs
 }
 
 // Roles is where an Actor's roles come from.
 type Roles interface {
 	CoordinatedEventIDs(ctx context.Context, personID int64) (map[int64]bool, error)
 	LedPoles(ctx context.Context, personID int64) (map[int64]int64, error)
+	ManagedOrgIDs(ctx context.Context, personID int64) (map[int64]bool, error)
 }
 
 // Load gathers the roles of a person, once for all the rules of a request.
@@ -51,6 +55,10 @@ func Load(ctx context.Context, src Roles, person *store.Person, staff bool) (*Ac
 	}
 
 	if a.led, err = src.LedPoles(ctx, person.ID); err != nil {
+		return nil, err
+	}
+
+	if a.contacts, err = src.ManagedOrgIDs(ctx, person.ID); err != nil {
 		return nil, err
 	}
 
@@ -167,4 +175,26 @@ func (a *Actor) CanAppointCoordinators() bool {
 // coordinator, a pole's manager. Personal API tokens are theirs.
 func (a *Actor) HasRoles() bool {
 	return a.Staff || len(a.coordinated) > 0 || len(a.led) > 0
+}
+
+// --- partners -----------------------------------------------------------------
+
+// ActsFor tells whether the actor may act for a partner organization: its
+// contacts, and the staff (who may see any as the partner does).
+func (a *Actor) ActsFor(orgID int64) bool {
+	return a.Staff || a.contacts[orgID]
+}
+
+// SeesPartnership tells whether the actor may see a partnership: the staff
+// always, the organization's contacts once it is shown to them (not while
+// the staff prepares it).
+func (a *Actor) SeesPartnership(p *store.Partnership) bool {
+	return a.Staff || a.contacts[p.OrgID] && p.VisibleToPartner()
+}
+
+// ChangesAttendees tells whether the actor may change the attendees an
+// organization sends to an edition: its contacts until the edition's
+// deadline, the staff whenever.
+func (a *Actor) ChangesAttendees(e *store.Event, orgID int64) bool {
+	return a.Staff || a.contacts[orgID] && !e.AttendeesLocked()
 }

@@ -3,6 +3,7 @@ package access
 import (
 	"context"
 	"testing"
+	"time"
 
 	"manage/internal/store"
 )
@@ -10,6 +11,7 @@ import (
 type roles struct {
 	coordinated map[int64]bool
 	led         map[int64]int64
+	contacts    map[int64]bool
 }
 
 func (r roles) CoordinatedEventIDs(context.Context, int64) (map[int64]bool, error) {
@@ -17,6 +19,8 @@ func (r roles) CoordinatedEventIDs(context.Context, int64) (map[int64]bool, erro
 }
 
 func (r roles) LedPoles(context.Context, int64) (map[int64]int64, error) { return r.led, nil }
+
+func (r roles) ManagedOrgIDs(context.Context, int64) (map[int64]bool, error) { return r.contacts, nil }
 
 func load(t *testing.T, r roles, staff bool) *Actor {
 	t.Helper()
@@ -93,6 +97,41 @@ func TestRules(t *testing.T) {
 		{"a volunteer has none", volunteer.HasRoles(), false},
 
 		{"the zero actor may do nothing", nobody.Prepares(1) || nobody.ManagesPole(public) || nobody.SeesEvent(draft), false},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s: got %v", c.name, c.got)
+		}
+	}
+}
+
+func TestPartnerRules(t *testing.T) {
+	past := time.Now().Add(-72 * time.Hour)
+	open := &store.Event{ID: 1}
+	locked := &store.Event{ID: 2, AttendeesDeadline: &past}
+
+	shown := &store.Partnership{OrgID: 7, Status: store.StatusConfirmed}
+	prepared := &store.Partnership{OrgID: 7, Status: store.StatusProspect}
+
+	staff := load(t, roles{}, true)
+	contact := load(t, roles{contacts: map[int64]bool{7: true}}, false)
+	other := load(t, roles{contacts: map[int64]bool{8: true}}, false)
+
+	for _, c := range []struct {
+		name string
+		got  bool
+		want bool
+	}{
+		{"a contact acts for their organization", contact.ActsFor(7), true},
+		{"not another", other.ActsFor(7), false},
+		{"the staff for any", staff.ActsFor(7), true},
+		{"a contact sees a partnership shown to them", contact.SeesPartnership(shown), true},
+		{"not one the staff prepares", contact.SeesPartnership(prepared), false},
+		{"nor another's", other.SeesPartnership(shown), false},
+		{"the staff sees all", staff.SeesPartnership(prepared), true},
+		{"a contact changes attendees before the deadline", contact.ChangesAttendees(open, 7), true},
+		{"not after", contact.ChangesAttendees(locked, 7), false},
+		{"the staff whenever", staff.ChangesAttendees(locked, 7), true},
+		{"nor for another organization", other.ChangesAttendees(open, 7), false},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s: got %v", c.name, c.got)

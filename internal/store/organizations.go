@@ -511,3 +511,9 @@ func (s *Store) PruneLogos(ctx context.Context, orgID int64, variant string, kee
 
 	return removed, nil
 }
+
+// ManagedOrgIDs returns the organizations a person is a contact of: what
+// they may act for, loaded once for their rights.
+func (s *Store) ManagedOrgIDs(ctx context.Context, personID int64) (map[int64]bool, error) {
+	return s.idSet(ctx, `SELECT organization_id FROM managers WHERE person_id = ?`, personID)
+}

@@ -232,7 +232,7 @@ func (s *Server) currentVolunteerEvent(r *http.Request) (*store.Event, error) {
 		return e, err
 	}
 
-	if rc(r).Admin != nil {
+	if act(r).Staff {
 		return s.store.CurrentEvent(ctx)
 	}
 
@@ -639,7 +639,7 @@ func (s *Server) renderVolunteerProfile(w http.ResponseWriter, r *http.Request, 
 	}
 
 	p := s.page(r, "vol.profile.title")
-	p.D = map[string]any{"Next": r.URL.Query().Get("next"), "PoleManager": manager, "OtherRoles": len(contacts) > 0 || c.Admin != nil,
+	p.D = map[string]any{"Next": r.URL.Query().Get("next"), "PoleManager": manager, "OtherRoles": len(contacts) > 0 || act(r).Staff,
 		"Gravatar": s.gravatar.Enabled(), "MaxAvatar": maxAvatarSize}
 
 	// API tokens are for those who run something; the staff's are on their

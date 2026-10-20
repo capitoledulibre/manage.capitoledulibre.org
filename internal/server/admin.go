@@ -96,7 +96,12 @@ func (s *Server) requireAdmin(next handlerFunc) handlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		rc(r).area = "admin"
 
-		if rc(r).Admin == nil {
+		a, err := s.actor(r)
+		if err != nil {
+			return err
+		}
+
+		if !a.Staff {
 			http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 
 			return nil
