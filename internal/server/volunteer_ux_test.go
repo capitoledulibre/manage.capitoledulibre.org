@@ -179,7 +179,7 @@ func TestDayOfEventNavigation(t *testing.T) {
 
 	// With the names: who is on each slot, under it.
 	_, body = e.get(nina, planning+"?day=all&view=all&layout=names")
-	mustContain(t, body, `aria-current="true">Grille &#43; noms`, `href="`+f.morning.URL()+`"`, ">1/1</span>", ">Nina</span>")
+	mustContain(t, body, `role="switch" aria-checked="true"`, "Afficher les noms", `href="`+f.morning.URL()+`"`, ">1/1</span>", ">Nina</span>")
 
 	// Her calendar: one tap from the home page.
 	_, body = e.get(nina, "/"+f.event.Slug)

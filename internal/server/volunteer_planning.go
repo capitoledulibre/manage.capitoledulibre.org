@@ -333,8 +333,17 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	dp := dayParam(day, all)
 	layouts := []planLink{
 		{Label: "vol.planning.layout_list", URL: base + planURLQuery(q.View, q.Pole, dp, ""), On: q.Layout == ""},
-		{Label: "vol.planning.layout_grid", URL: base + planURLQuery(q.View, q.Pole, dp, "grid"), On: q.Layout == "grid"},
-		{Label: "vol.planning.layout_names", URL: base + planURLQuery(q.View, q.Pole, dp, "names"), On: q.Layout == "names"},
+		{Label: "vol.planning.layout_grid", URL: base + planURLQuery(q.View, q.Pole, dp, "grid"), On: q.Layout != ""},
+	}
+
+	// On the grid, a switch shows who is on each slot, or hides them.
+	var names *planLink
+
+	switch q.Layout {
+	case "grid":
+		names = &planLink{Label: "vol.planning.names", URL: base + planURLQuery(q.View, q.Pole, dp, "names")}
+	case "names":
+		names = &planLink{Label: "vol.planning.names", URL: base + planURLQuery(q.View, q.Pole, dp, "grid"), On: true}
 	}
 
 	var viewLinks, poleLinks, dayLinks []planLink
@@ -372,7 +381,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 
 	data := map[string]any{
 		"Event": e, "Days": days, "View": q.View, "Pole": q.Pole, "Today": dayKey(now), "Printed": now,
-		"Views": viewLinks, "PoleLinks": poleLinks, "DayLinks": dayLinks, "CSV": csvURL, "Layouts": layouts, "Grid": q.Layout != "",
+		"Views": viewLinks, "PoleLinks": poleLinks, "DayLinks": dayLinks, "CSV": csvURL, "Layouts": layouts, "Names": names, "Grid": q.Layout != "",
 		"OpenURL": base + planURLQuery("open", q.Pole, dp, q.Layout),
 	}
 
