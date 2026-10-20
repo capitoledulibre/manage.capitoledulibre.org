@@ -140,3 +140,68 @@ func TestSlotService(t *testing.T) {
 
 	e.mailed("nina@example.org", "supprimé")
 }
+
+// TestGeneratorService previews and creates the generator's slots without
+// HTTP.
+func TestGeneratorService(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	app := e.app
+
+	lead, err := access.Load(ctx, e.st, f.lead, false)
+	mustOK(t, err)
+
+	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+
+	volunteer, err := access.Load(ctx, e.st, nina, false)
+	mustOK(t, err)
+
+	v, err := app.poleViewOf(ctx, lead, f.event, f.buvette)
+	mustOK(t, err)
+
+	day := f.morning.StartsAt.Add(5 * 24 * time.Hour).In(paris).Format(time.DateOnly)
+	form := func() *genForm {
+		g := &genForm{From: day, To: day, Capacity: 2, Title: "Bar", NewLocations: "Comptoir\nTerrasse",
+			Hours: genHours{Mode: "regular", DayStart: "10:00", DayEnd: "14:00", Length: 120}}
+		g.fillDays(nil)
+
+		return g
+	}
+
+	if _, _, err := app.planSlots(ctx, volunteer, v, form()); !errors.Is(err, errForbidden) {
+		t.Errorf("a volunteer previews: %v", err)
+	}
+
+	// The preview: two ranges at two new places, nothing created.
+	plan, _, err := app.planSlots(ctx, lead, v, form())
+	mustOK(t, err)
+
+	before, _ := e.st.ListSlots(ctx, f.buvette.ID, 0)
+
+	if plan.Slots != 4 || len(plan.Errors) > 0 {
+		t.Fatalf("preview: %d slots, %v", plan.Slots, plan.Errors)
+	}
+
+	// A form with an error creates nothing.
+	bad := form()
+	bad.Capacity = 0
+
+	if plan, n, err := app.generateSlots(ctx, lead, v, bad); err != nil || n != 0 || len(plan.Errors) == 0 {
+		t.Errorf("a bad form: %d created, %v, %v", n, plan.Errors, err)
+	}
+
+	// Created, once: a second time finds them there.
+	_, n, err := app.generateSlots(ctx, lead, v, form())
+	mustOK(t, err)
+
+	again, _, err := app.generateSlots(ctx, lead, v, form())
+	mustOK(t, err)
+
+	after, _ := e.st.ListSlots(ctx, f.buvette.ID, 0)
+
+	if n != 4 || len(after) != len(before)+4 || again.Slots != 0 {
+		t.Errorf("generated %d (%d → %d slots), then %d to create", n, len(before), len(after), again.Slots)
+	}
+}

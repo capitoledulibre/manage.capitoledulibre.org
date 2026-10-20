@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"manage/internal/access"
 	"manage/internal/store"
 )
 
@@ -375,8 +376,63 @@ func parseRanges(list string, capacity int) ([]genRange, bool) {
 	return out, true
 }
 
+// planSlots is the generator's preview, for whoever runs the pole: the
+// slots a form would create, checked on the way, with the pole's places.
+// It changes nothing; generateSlots does.
+func (s *Server) planSlots(ctx context.Context, a *access.Actor, v *poleView, f *genForm) (*genPlan, []*store.Location, error) {
+	if err := runs(a, v, nil); err != nil {
+		return nil, nil, err
+	}
+
+	locations, err := s.store.ListLocations(ctx, v.Pole.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	plan, err := s.plan(ctx, v, f, locations)
+
+	return plan, locations, err
+}
+
+// generateSlots creates what the generator's form lays out, in a pole the
+// actor runs: the timetable of the preview, as ticked and typed, the new
+// places first. A form with an error creates nothing: the plan says why.
+// It returns the plan and how many slots it created.
+func (s *Server) generateSlots(ctx context.Context, a *access.Actor, v *poleView, f *genForm) (*genPlan, int, error) {
+	plan, _, err := s.planSlots(ctx, a, v, f)
+	if err != nil || len(plan.Errors) > 0 || plan.Slots == 0 {
+		return plan, 0, err
+	}
+
+	var planned []plannedSlot
+
+	for _, d := range plan.Days {
+		for i, row := range d.Grid {
+			g := d.Ranges[i]
+
+			for j, cell := range row {
+				if cell.Exists || cell.Skip {
+					continue
+				}
+
+				place := ""
+				if len(plan.Places) > 0 {
+					place = plan.Places[j]
+				}
+
+				start, end := genTimes(d.Day, g)
+				planned = append(planned, plannedSlot{Place: place, StartsAt: start, EndsAt: end, Capacity: cell.Capacity, Title: f.Title})
+			}
+		}
+	}
+
+	created, err := s.createPlanned(ctx, a, v, plan.NewPlaces, planned, nonBlankLines(f.Tasks))
+
+	return plan, created, err
+}
+
 // plan works out what a form creates, checking it on the way.
-func (s *Server) plan(r *http.Request, v *poleView, f *genForm, locations []*store.Location) (*genPlan, error) {
+func (s *Server) plan(ctx context.Context, v *poleView, f *genForm, locations []*store.Location) (*genPlan, error) {
 	p := &genPlan{}
 
 	if _, _, ok := f.genDates(); !ok {
@@ -424,23 +480,39 @@ func (s *Server) plan(r *http.Request, v *poleView, f *genForm, locations []*sto
 		chosen[uid] = true
 	}
 
-	existing := map[string]bool{}
+	// existing are the pole's places by name, lower case; in, those
+	// already in the plan.
+	existing, in := map[string]string{}, map[string]bool{}
 
 	for _, l := range locations {
-		existing[strings.ToLower(l.Name)] = true
+		existing[strings.ToLower(l.Name)] = l.Name
 
 		if chosen[l.UID] {
 			p.Places = append(p.Places, l.Name)
+			in[strings.ToLower(l.Name)] = true
 		}
 	}
 
+	// A new place already there is that place: the same form sent twice
+	// (a double click, the back button) lays out the same slots, rather
+	// than, its places now existing and not ticked, slots for the whole
+	// pole.
 	for line := range strings.SplitSeq(f.NewLocations, "\n") {
 		name := strings.TrimSpace(line)
-		if name == "" || existing[strings.ToLower(name)] {
+		key := strings.ToLower(name)
+
+		if name == "" || in[key] {
 			continue
 		}
 
-		existing[strings.ToLower(name)] = true
+		in[key] = true
+
+		if known, ok := existing[key]; ok {
+			p.Places = append(p.Places, known)
+
+			continue
+		}
+
 		p.NewPlaces = append(p.NewPlaces, name)
 		p.Places = append(p.Places, name)
 	}
@@ -453,7 +525,7 @@ func (s *Server) plan(r *http.Request, v *poleView, f *genForm, locations []*sto
 
 	// What already exists is not created twice: the generator can run again
 	// after a change without doubling the planning.
-	have, err := s.existingSlots(r.Context(), v)
+	have, err := s.existingSlots(ctx, v)
 	if err != nil {
 		return nil, err
 	}
@@ -567,55 +639,35 @@ func (s *Server) existingSlots(ctx context.Context, v *poleView) (map[string]boo
 }
 
 func (s *Server) generateSubmit(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, err := s.managedPole(r)
-	if err != nil {
-		return err
-	}
-
-	locations, err := s.store.ListLocations(ctx, v.Pole.ID)
 	if err != nil {
 		return err
 	}
 
 	f := readGenForm(r)
 
-	plan, err := s.plan(r, v, f, locations)
-	if err != nil {
-		return err
-	}
+	if r.FormValue("action") != "create" {
+		plan, locations, err := s.planSlots(r.Context(), act(r), v, f)
+		if err != nil {
+			return err
+		}
 
-	if r.FormValue("action") != "create" || len(plan.Errors) > 0 || plan.Slots == 0 {
 		return s.renderGenerate(w, r, v, f, locations, plan)
 	}
 
-	// The timetable of the preview, as ticked and typed.
-	var planned []plannedSlot
-
-	for _, d := range plan.Days {
-		for i, row := range d.Grid {
-			g := d.Ranges[i]
-
-			for j, cell := range row {
-				if cell.Exists || cell.Skip {
-					continue
-				}
-
-				place := ""
-				if len(plan.Places) > 0 {
-					place = plan.Places[j]
-				}
-
-				start, end := genTimes(d.Day, g)
-				planned = append(planned, plannedSlot{Place: place, StartsAt: start, EndsAt: end, Capacity: cell.Capacity, Title: f.Title})
-			}
-		}
-	}
-
-	created, err := s.createPlanned(ctx, act(r), v, plan.NewPlaces, planned, nonBlankLines(f.Tasks))
+	plan, created, err := s.generateSlots(r.Context(), act(r), v, f)
 	if err != nil {
 		return err
+	}
+
+	// Nothing to create, or an error: the form again, with the preview.
+	if created == 0 && (len(plan.Errors) > 0 || plan.Slots == 0) {
+		locations, err := s.store.ListLocations(r.Context(), v.Pole.ID)
+		if err != nil {
+			return err
+		}
+
+		return s.renderGenerate(w, r, v, f, locations, plan)
 	}
 
 	s.flashCount(w, "flash.vol.slots_created", created)
