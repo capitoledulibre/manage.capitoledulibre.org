@@ -194,8 +194,10 @@
       <fieldset>
         <legend class="label">{{t $l "vol.manage.who_joins"}}</legend>
         <div class="space-y-2">
+        {{/* A restricted pole's mode is the coordination's to change: its
+             managers see it, not the others. */}}
         {{range $m := $d.Modes}}
-        {{if or (ne $m "restricted") $d.CanRestrict (eq $pole.AccessMode "restricted")}}
+        {{if or $d.CanRestrict (and (ne $m "restricted") (ne $pole.AccessMode "restricted")) (and (eq $m "restricted") (eq $pole.AccessMode "restricted"))}}
         <label class="flex cursor-pointer gap-3 rounded-md p-3 ring-1 ring-gray-200 has-checked:bg-brand-50 has-checked:ring-2 has-checked:ring-brand-600">
           <input type="radio" name="access_mode" value="{{$m}}" class="mt-0.5 accent-brand-600" {{if eq $m $pole.AccessMode}}checked{{end}}>
           <span class="text-sm"><strong>{{t $l (printf "vol.mode.%s" $m)}}</strong><br><span class="text-gray-600">{{t $l (printf "vol.mode.%s.help" $m)}}</span></span>

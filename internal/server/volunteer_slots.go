@@ -37,9 +37,15 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 		tab = "slots"
 	}
 
-	messages, err := s.store.ListPoleMessages(ctx, v.Pole.ID)
-	if err != nil {
-		return err
+	// The pole's notices, as its slots' (slotPage): for its people, not for
+	// a visitor of a private or invitation pole (a door code, a meeting
+	// point).
+	var messages []*store.Message
+
+	if v.Member || v.Pole.IsOpen() || v.Manage {
+		if messages, err = s.store.ListPoleMessages(ctx, v.Pole.ID); err != nil {
+			return err
+		}
 	}
 
 	managers, err := s.store.ListPoleManagers(ctx, v.Pole.ID)

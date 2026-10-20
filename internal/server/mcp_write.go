@@ -108,6 +108,12 @@ func (s *Server) mcpWriteTools(srv *mcp.Server, a *access.Actor) {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in personOnSlotIn) (*mcp.CallToolResult, doneOut, error) {
 			v, sl, err := s.mcpSlot(ctx, a, in.slotIn)
 			if err == nil {
+				err = runs(a, v, nil)
+			}
+
+			// The rights first: whether someone has an account is not for
+			// anyone else to learn.
+			if err == nil {
 				var who *store.Person
 				if who, err = s.store.PersonByEmail(ctx, store.NormalizeEmail(in.Email)); err == nil {
 					err = s.takeOff(ctx, a, v, sl, who)
@@ -129,6 +135,10 @@ func (s *Server) mcpWriteTools(srv *mcp.Server, a *access.Actor) {
 		Description: "Take a member out of a pole the person runs, and off its slots. They are told by e-mail."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in poleMemberIn) (*mcp.CallToolResult, doneOut, error) {
 			v, err := s.mcpPole(ctx, a, in.Edition, in.Pole)
+			if err == nil {
+				err = runs(a, v, nil)
+			}
+
 			if err == nil {
 				var who *store.Person
 				if who, err = s.store.PersonByEmail(ctx, store.NormalizeEmail(in.Email)); err == nil {
@@ -243,8 +253,15 @@ func (s *Server) mcpSignUpPeople(ctx context.Context, a *access.Actor, in people
 		return doneOut{}, errBadInput
 	}
 
+	// The rights first: whether someone has an account is not for anyone
+	// else to learn.
+	if err := runs(a, v, sl); err != nil {
+		return doneOut{}, err
+	}
+
 	// Someone without an account gets one, if the actor may bring people
-	// into the pole: the service checks the rest.
+	// into the pole; someone the actor may not bring in is refused alike,
+	// account or not. The service checks the rest.
 	var people []*store.Person
 
 	for _, email := range in.Emails {
@@ -253,7 +270,9 @@ func (s *Server) mcpSignUpPeople(ctx context.Context, a *access.Actor, in people
 		p, err := s.store.PersonByEmail(ctx, email)
 
 		switch {
-		case errors.Is(err, store.ErrNotFound) && validEmail(email) && a.CanAddMembers(v.Pole):
+		case errors.Is(err, store.ErrNotFound) && !a.CanAddMembers(v.Pole):
+			return doneOut{}, errForbidden
+		case errors.Is(err, store.ErrNotFound) && validEmail(email):
 			if p, err = s.store.EnsureVolunteer(ctx, email, "", "", lang(a)); err != nil {
 				return doneOut{}, err
 			}

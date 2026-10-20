@@ -231,6 +231,12 @@ func (s *Server) managePeopleSearch(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
+	// The search shows people outside the pole, with their address: for
+	// whoever may bring them in.
+	if !act(r).CanAddMembers(v.Pole) {
+		return errForbidden
+	}
+
 	d, err := s.memberSearch(r, v, strings.TrimSpace(r.URL.Query().Get("q")))
 	if err != nil {
 		return err
@@ -860,6 +866,12 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 	var people []*store.Person
 
 	if _, invite := r.PostForm["email"]; invite {
+		// Bringing in someone new, account and all: not before the right
+		// to.
+		if !act(r).CanAddMembers(v.Pole) {
+			return errForbidden
+		}
+
 		email := store.NormalizeEmail(r.FormValue("email"))
 		if !validEmail(email) {
 			http.Redirect(w, r, sl.ManageURL()+"?error=vol.err.invite_email#volunteers", http.StatusSeeOther)

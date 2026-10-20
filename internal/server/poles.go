@@ -27,8 +27,8 @@ type poleSettings struct {
 }
 
 // savePole changes the settings of a pole the actor runs. Only the
-// coordination makes a pole restricted: it hides the pole from everyone
-// else.
+// coordination makes a pole restricted, or lifts it: it hides the pole
+// from everyone else, and keeps its managers from bringing people in.
 func (s *Server) savePole(ctx context.Context, a *access.Actor, v *poleView, set poleSettings) error {
 	if err := runs(a, v, nil); err != nil {
 		return err
@@ -50,7 +50,8 @@ func (s *Server) savePole(ctx context.Context, a *access.Actor, v *poleView, set
 	p.FreezeAt = set.FreezeAt
 
 	if mode := set.AccessMode; mode != "" && !p.IsDefault && store.ValidPoleMode(mode) {
-		if mode != store.PoleRestricted || a.CanRestrict(&p) || p.AccessMode == store.PoleRestricted {
+		restricting := mode == store.PoleRestricted || p.AccessMode == store.PoleRestricted
+		if !restricting || a.CanRestrict(&p) {
 			p.AccessMode = mode
 		}
 	}
