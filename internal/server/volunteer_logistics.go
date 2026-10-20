@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/csv"
 	"net/http"
 	"slices"
@@ -8,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"manage/internal/i18n"
 	"manage/internal/store"
 )
 
@@ -140,9 +140,7 @@ func countChoices(offer []string, n map[string]int) []countOf {
 	return out
 }
 
-func (s *Server) logistics(r *http.Request, e *store.Event) (*logistics, error) {
-	ctx := r.Context()
-
+func (s *Server) logistics(ctx context.Context, e *store.Event) (*logistics, error) {
 	volunteers, err := s.store.ListEventVolunteers(ctx, e.ID)
 	if err != nil {
 		return nil, err
@@ -206,7 +204,7 @@ func (s *Server) coordinationLogisticsCSV(w http.ResponseWriter, r *http.Request
 		return err
 	}
 
-	l, err := s.logistics(r, e)
+	l, err := s.logistics(r.Context(), e)
 	if err != nil {
 		return err
 	}
@@ -253,58 +251,12 @@ func (s *Server) coordinationRemind(w http.ResponseWriter, r *http.Request) erro
 
 	audience := r.FormValue("audience")
 
-	var people []*store.Person
-
-	switch audience {
-	case "idle":
-		// Not once sign-ups close, by status or by date: the e-mail
-		// invites to pick a slot.
-		if e.SignupsLocked(nil, time.Now()) {
-			return errBadInput
-		}
-
-		volunteers, err := s.store.ListEventVolunteers(r.Context(), e.ID)
-		if err != nil {
-			return err
-		}
-
-		for _, v := range volunteers {
-			if v.Idle() {
-				people = append(people, v.Person)
-			}
-		}
-	case "details":
-		if !e.DetailsOpen(time.Now()) {
-			return errBadInput
-		}
-
-		l, err := s.logistics(r, e)
-		if err != nil {
-			return err
-		}
-
-		for _, line := range l.Pending() {
-			people = append(people, line.Volunteer.Person)
-		}
-	default:
-		return errBadInput
+	n, err := s.remind(r.Context(), act(r), e, audience)
+	if err != nil {
+		return err
 	}
 
-	planning := s.cfg.BaseURL + planningURL(e) + "?view=open"
-	home := s.cfg.BaseURL + volunteerHomeURL(e)
-
-	s.notifyPeople(people, func(lang string) string { return volSubject(lang, "mail.vol.remind_"+audience+".subject") },
-		func(p *store.Person) string {
-			link := home
-			if audience == "idle" {
-				link = planning
-			}
-
-			return s.volMail(p, e.Slug, i18n.T(p.Lang, "mail.vol.remind_"+audience+".body", e.Name, link))
-		})
-
-	s.logVol(r, &store.LogEntry{Action: store.LogReminded, EventID: e.ID, Title: audience, Count: len(people)})
-	s.flashCount(w, "flash.vol.reminded", len(people))
+	s.flashCount(w, "flash.vol.reminded", n)
 
 	if audience == "idle" {
 		http.Redirect(w, r, editionURL(e)+"/list", http.StatusSeeOther)

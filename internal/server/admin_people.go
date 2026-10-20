@@ -123,7 +123,7 @@ func (s *Server) adminPersonDelete(w http.ResponseWriter, r *http.Request) error
 		}
 	}
 
-	s.dropFile(r, p.AvatarFile)
+	s.dropFile(r.Context(), p.AvatarFile)
 	s.flash(w, "flash.person_deleted", p.Label())
 	http.Redirect(w, r, back, http.StatusSeeOther)
 
@@ -299,7 +299,7 @@ func (s *Server) adminPersonPhoto(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	s.dropFile(r, old)
+	s.dropFile(r.Context(), old)
 	s.flash(w, "flash.person_photo_saved", p.Label())
 	http.Redirect(w, r, back, http.StatusSeeOther)
 
@@ -319,7 +319,7 @@ func (s *Server) adminPersonPhotoDelete(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	s.dropFile(r, old)
+	s.dropFile(r.Context(), old)
 	s.flash(w, "flash.person_photo_removed", p.Label())
 	http.Redirect(w, r, safeRedirect(r.FormValue("back"), "/admin/people/"+p.UID), http.StatusSeeOther)
 

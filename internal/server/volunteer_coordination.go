@@ -90,15 +90,6 @@ func (s *Server) redirectCoordination(w http.ResponseWriter, r *http.Request, e 
 	return nil
 }
 
-// staffOnly refuses anyone but the staff.
-func staffOnly(r *http.Request) error {
-	if !act(r).Staff {
-		return errForbidden
-	}
-
-	return nil
-}
-
 func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
@@ -165,7 +156,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	case "logistics":
-		if logi, err = s.logistics(r, e); err != nil {
+		if logi, err = s.logistics(r.Context(), e); err != nil {
 			return err
 		}
 	}
@@ -193,21 +184,11 @@ func (s *Server) coordinationSettings(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	before := e.VolunteerStatus
-	e.VolunteerStatus = r.FormValue("status")
-	e.VolunteerFreezeAt = formTimePtr(r, "freeze_at")
-	e.TshirtSizes, e.Meals = r.FormValue("tshirt_sizes"), r.FormValue("meals")
+	set := volunteerSettings{Status: r.FormValue("status"), FreezeAt: formTimePtr(r, "freeze_at"),
+		TshirtSizes: r.FormValue("tshirt_sizes"), Meals: r.FormValue("meals")}
 
-	if err := s.store.SaveVolunteerSettings(r.Context(), e); err != nil {
-		if errors.Is(err, store.ErrBadInput) {
-			return errBadInput
-		}
-
+	if err := s.saveVolunteerSettings(r.Context(), act(r), e, set); err != nil {
 		return err
-	}
-
-	if e.VolunteerStatus != before {
-		s.logVol(r, &store.LogEntry{Action: store.LogStatus, EventID: e.ID, Title: e.VolunteerStatus})
 	}
 
 	s.flash(w, "flash.saved")
@@ -233,11 +214,10 @@ func (s *Server) coordinationLogo(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if err := s.store.SetEventLogo(r.Context(), e.ID, name); err != nil {
+	if err := s.setEditionLogo(r.Context(), act(r), e, name); err != nil {
 		return err
 	}
 
-	s.dropFile(r, e.LogoFile)
 	s.flash(w, "flash.logo_saved")
 
 	return s.redirectCoordination(w, r, e, "settings")
@@ -249,18 +229,13 @@ func (s *Server) coordinationLogoDelete(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	if err := s.store.SetEventLogo(r.Context(), e.ID, ""); err != nil {
+	if err := s.setEditionLogo(r.Context(), act(r), e, ""); err != nil {
 		return err
 	}
-
-	s.dropFile(r, e.LogoFile)
 
 	return s.redirectCoordination(w, r, e, "settings")
 }
 
-// coordinationCopy prepares the edition from another one: its poles
-// (settings, places, leads), its coordinators and its logo. The staff's
-// call, as it brings people along.
 // coordinationCopy prepares the edition from another one the person also
 // coordinates (the staff, any): its poles, coordination and logo, and on
 // request its slots, moved to the new dates.
@@ -275,34 +250,20 @@ func (s *Server) coordinationCopy(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if !act(r).Coordinates(src.ID) {
-		return errForbidden
+	withSlots := r.FormValue("slots") == "1"
+
+	err = s.copyEdition(r.Context(), act(r), e, src, withSlots)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+
+		return s.redirectCoordination(w, r, e, "settings")
 	}
 
-	var shift func(time.Time) time.Time
-
-	if r.FormValue("slots") == "1" {
-		if shift = editionShift(src, e); shift == nil {
-			s.flash(w, "vol.err.copy_no_dates")
-
-			return s.redirectCoordination(w, r, e, "settings")
-		}
-	}
-
-	if err := s.store.CopyVolunteerSide(r.Context(), src.ID, e.ID, shift); err != nil {
-		switch {
-		case errors.Is(err, store.ErrBadInput):
-			return errBadInput
-		case errors.Is(err, store.ErrDuplicate):
-			s.flash(w, "vol.err.copy_not_empty")
-
-			return s.redirectCoordination(w, r, e, "settings")
-		}
-
+	if err != nil {
 		return err
 	}
 
-	if shift != nil {
+	if withSlots {
 		s.flash(w, "flash.vol.edition_copied_slots", src.Name)
 	} else {
 		s.flash(w, "flash.vol.edition_copied", src.Name)
@@ -345,34 +306,21 @@ func editionShift(from, to *store.Event) func(time.Time) time.Time {
 // --- coordinators: the staff's call ---------------------------------------
 
 func (s *Server) coordinatorAdd(w http.ResponseWriter, r *http.Request) error {
-	if err := staffOnly(r); err != nil {
-		return err
-	}
-
 	e, err := s.coordinationEvent(r)
 	if err != nil {
 		return err
 	}
 
-	email := store.NormalizeEmail(r.FormValue("email"))
-	if !validEmail(email) {
-		s.flash(w, "flash.invalid_email")
+	p, err := s.appointCoordinator(r.Context(), act(r), e, r.FormValue("email"), rc(r).Lang)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 
 		return s.redirectCoordination(w, r, e, "settings")
 	}
 
-	p, err := s.store.EnsureVolunteer(r.Context(), email, "", "", rc(r).Lang)
 	if err != nil {
 		return err
 	}
-
-	if err := s.store.AddEventCoordinator(r.Context(), e.ID, p.ID); err != nil {
-		return err
-	}
-
-	in := &store.LogEntry{Action: store.LogCoordinatorIn, EventID: e.ID}
-	in.SetSubject(p)
-	s.logVol(r, in)
 
 	s.flash(w, "flash.vol.coordinator_added", p.Label())
 
@@ -380,10 +328,6 @@ func (s *Server) coordinatorAdd(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) coordinatorRemove(w http.ResponseWriter, r *http.Request) error {
-	if err := staffOnly(r); err != nil {
-		return err
-	}
-
 	e, err := s.coordinationEvent(r)
 	if err != nil {
 		return err
@@ -394,13 +338,9 @@ func (s *Server) coordinatorRemove(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	if err := s.store.RemoveEventCoordinator(r.Context(), e.ID, p.ID); err != nil {
+	if err := s.dismissCoordinator(r.Context(), act(r), e, p); err != nil {
 		return err
 	}
-
-	out := &store.LogEntry{Action: store.LogCoordinatorOut, EventID: e.ID}
-	out.SetSubject(p)
-	s.logVol(r, out)
 
 	s.flash(w, "flash.vol.coordinator_removed", p.Label())
 
@@ -410,44 +350,23 @@ func (s *Server) coordinatorRemove(w http.ResponseWriter, r *http.Request) error
 // --- poles ------------------------------------------------------------------
 
 func (s *Server) coordinationPoleCreate(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	e, err := s.coordinationEvent(r)
 	if err != nil {
 		return err
 	}
 
-	name := strings.TrimSpace(r.FormValue("name"))
-	if name == "" || len(name) > 100 {
+	p, err := s.createPole(r.Context(), act(r), e, newPole{Name: r.FormValue("name"), AccessMode: r.FormValue("access_mode"),
+		Icon: r.FormValue("icon"), Lead: r.FormValue("lead")}, rc(r).Lang)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+
 		return s.redirectCoordination(w, r, e, "")
 	}
 
-	poles, err := s.store.ListPoles(ctx, e.ID)
 	if err != nil {
 		return err
 	}
 
-	p := &store.Pole{EventID: e.ID, Name: name, AccessMode: r.FormValue("access_mode"), Icon: strings.TrimSpace(r.FormValue("icon")), Position: len(poles)}
-	if err := s.store.CreatePole(ctx, p); err != nil {
-		return err
-	}
-
-	if email := store.NormalizeEmail(r.FormValue("lead")); validEmail(email) {
-		lead, err := s.store.EnsureVolunteer(ctx, email, "", "", rc(r).Lang)
-		if err != nil {
-			return err
-		}
-
-		if err := s.store.AddPoleManager(ctx, p.ID, lead.ID); err != nil {
-			return err
-		}
-	}
-
-	if p, err = s.store.GetPole(ctx, p.ID); err != nil {
-		return err
-	}
-
-	s.logVol(r, logPole(store.LogPoleCreated, p, nil))
 	s.flash(w, "flash.vol.pole_created", p.Name)
 	http.Redirect(w, r, p.URL()+"?tab=settings", http.StatusSeeOther)
 
@@ -470,20 +389,17 @@ func (s *Server) coordinationPoleDelete(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	if p.IsDefault {
-		s.flash(w, "vol.err.default_pole_delete")
+	err = s.deletePole(r.Context(), act(r), e, p)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 
 		return s.redirectCoordination(w, r, e, "")
 	}
 
-	if err := s.store.DeletePole(r.Context(), p.ID); err != nil {
+	if err != nil {
 		return err
 	}
 
-	// The pole is gone: the entry keeps its name, at the edition's level.
-	s.logVol(r, &store.LogEntry{Action: store.LogPoleDeleted, EventID: e.ID, PoleName: p.Name})
-
-	s.dropFile(r, p.ImageFile)
 	s.flash(w, "flash.vol.pole_deleted", p.Name)
 
 	return s.redirectCoordination(w, r, e, "")
@@ -506,18 +422,13 @@ func (s *Server) coordinationPoleCopy(w http.ResponseWriter, r *http.Request) er
 		if target, err = s.store.GetEventBySlug(r.Context(), slug); err != nil {
 			return err
 		}
-
-		if !act(r).Coordinates(target.ID) {
-			return errForbidden
-		}
 	}
 
-	copied, err := s.store.CopyPole(r.Context(), p.ID, target.ID)
+	copied, err := s.copyPole(r.Context(), act(r), p, target)
 	if err != nil {
 		return err
 	}
 
-	s.logVol(r, logPole(store.LogPoleCreated, copied, nil))
 	s.flash(w, "flash.vol.pole_copied", p.Name)
 	http.Redirect(w, r, copied.URL()+"?tab=settings", http.StatusSeeOther)
 
@@ -527,54 +438,34 @@ func (s *Server) coordinationPoleCopy(w http.ResponseWriter, r *http.Request) er
 // --- messages ---------------------------------------------------------------
 
 func (s *Server) coordinationMessage(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	e, err := s.coordinationEvent(r)
 	if err != nil {
 		return err
 	}
 
-	body := strings.TrimSpace(r.FormValue("body"))
-	if body == "" {
-		return s.redirectCoordination(w, r, e, "messages")
-	}
-
-	// No e-mail about an edition volunteers cannot see: a draft, or last
-	// year's archived one.
-	if r.FormValue("notify") == "1" && !e.VisibleToVolunteers() {
-		return errBadInput
-	}
-
-	if err := s.store.CreateMessage(ctx, &store.Message{EventID: e.ID, Body: body}, rc(r).Person.ID); err != nil {
-		return err
-	}
-
-	// A message nobody comes back to read is a message nobody got, so the
-	// author decides whether it is worth an e-mail.
-	if r.FormValue("notify") != "1" {
-		s.flash(w, "flash.vol.message_posted")
+	sent, err := s.postNotice(r.Context(), act(r), noticeScope{Event: e}, r.FormValue("body"), r.FormValue("notify") == "1")
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 
 		return s.redirectCoordination(w, r, e, "messages")
 	}
 
-	volunteers, err := s.store.ListEventVolunteers(ctx, e.ID)
 	if err != nil {
 		return err
 	}
 
-	recipients := make([]*store.Person, 0, len(volunteers))
-	for _, v := range volunteers {
-		recipients = append(recipients, v.Person)
-	}
-
-	s.logVol(r, &store.LogEntry{Action: store.LogMessagePosted, EventID: e.ID, Count: len(recipients)})
-
-	name := e.Name
-	s.notifyMessage(recipients, e.Slug, func(lang string) string { return i18n.T(lang, "mail.vol.scope_event", name) },
-		body, s.cfg.BaseURL+volunteerHomeURL(e))
-	s.flashCount(w, "flash.vol.message_sent", len(recipients))
+	s.flashNotice(w, r.FormValue("notify") == "1", sent)
 
 	return s.redirectCoordination(w, r, e, "messages")
+}
+
+// flashNotice says a notice was posted, or how many it was e-mailed to.
+func (s *Server) flashNotice(w http.ResponseWriter, notified bool, sent int) {
+	if notified {
+		s.flashCount(w, "flash.vol.message_sent", sent)
+	} else {
+		s.flash(w, "flash.vol.message_posted")
+	}
 }
 
 func (s *Server) coordinationMessageDelete(w http.ResponseWriter, r *http.Request) error {
@@ -583,12 +474,7 @@ func (s *Server) coordinationMessageDelete(w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
-	m, err := s.store.GetMessageByUID(r.Context(), e.ID, r.PathValue("message"))
-	if err != nil {
-		return err
-	}
-
-	if err := s.store.DeleteMessage(r.Context(), m.ID); err != nil {
+	if err := s.deleteNotice(r.Context(), act(r), noticeScope{Event: e}, r.PathValue("message")); err != nil {
 		return err
 	}
 
@@ -709,18 +595,7 @@ func (s *Server) coordinationVolunteerAdd(w http.ResponseWriter, r *http.Request
 
 	back := editionURL(e) + "/list"
 
-	email := store.NormalizeEmail(r.FormValue("email"))
-	if !validEmail(email) {
-		s.flash(w, "flash.invalid_email")
-		http.Redirect(w, r, back, http.StatusSeeOther)
-
-		return nil
-	}
-
-	pole, err := s.store.DefaultPole(ctx, e.ID)
-	if err != nil {
-		return err
-	}
+	var pole *store.Pole
 
 	if slug := r.FormValue("pole"); slug != "" {
 		if pole, err = s.store.GetPoleBySlug(ctx, e.ID, slug); err != nil {
@@ -728,16 +603,19 @@ func (s *Server) coordinationVolunteerAdd(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	p, err := s.store.EnsureVolunteer(ctx, email, strings.TrimSpace(r.FormValue("name")), strings.TrimSpace(r.FormValue("phone")), rc(r).Lang)
+	p, pole, err := s.registerVolunteer(ctx, act(r), e, registration{Email: r.FormValue("email"), Name: r.FormValue("name"), Phone: r.FormValue("phone")},
+		pole, rc(r).Lang)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+		http.Redirect(w, r, back, http.StatusSeeOther)
+
+		return nil
+	}
+
 	if err != nil {
 		return err
 	}
 
-	if err := s.store.JoinPole(ctx, pole.ID, p.ID); err != nil {
-		return err
-	}
-
-	s.logVol(r, logPole(store.LogRegistered, pole, p))
 	s.flash(w, "flash.vol.volunteer_registered", p.Label(), pole.Name)
 	http.Redirect(w, r, back, http.StatusSeeOther)
 
@@ -762,11 +640,10 @@ func (s *Server) coordinationVolunteerJoin(w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
-	if err := s.store.JoinPole(r.Context(), pole.ID, who.ID); err != nil {
+	if err := s.putInPole(r.Context(), act(r), e, pole, []*store.Person{who}); err != nil {
 		return err
 	}
 
-	s.logVol(r, logPole(store.LogMemberAdded, pole, who))
 	s.flash(w, "flash.vol.member_joined", who.Label(), pole.Name)
 	http.Redirect(w, r, safeRedirect(r.FormValue("back"), editionURL(e)+"/list"), http.StatusSeeOther)
 
@@ -846,8 +723,6 @@ func (s *Server) coordinationVolunteer(w http.ResponseWriter, r *http.Request) e
 // their page: a typo, a number given by phone. The address stays the
 // staff's, since changing it logs the person out.
 func (s *Server) coordinationVolunteerSave(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	e, err := s.coordinationEvent(r)
 	if err != nil {
 		return err
@@ -858,25 +733,7 @@ func (s *Server) coordinationVolunteerSave(w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
-	// Only a volunteer of this edition: the coordination of one edition
-	// does not edit the people of another.
-	volunteers, err := s.store.ListEventVolunteers(ctx, e.ID)
-	if err != nil {
-		return err
-	}
-
-	if !slices.ContainsFunc(volunteers, func(v *store.EventVolunteer) bool { return v.Person.ID == who.ID }) {
-		return errNotFound
-	}
-
-	name := strings.TrimSpace(r.FormValue("name"))
-	phone := strings.TrimSpace(r.FormValue("phone"))
-
-	if name == "" || len(name) > 200 || len(phone) > 40 {
-		return errBadInput
-	}
-
-	if err := s.store.UpdateVolunteerProfile(ctx, who.ID, name, phone); err != nil {
+	if err := s.correctVolunteer(r.Context(), act(r), e, who, r.FormValue("name"), r.FormValue("phone")); err != nil {
 		return err
 	}
 
@@ -901,7 +758,7 @@ func (s *Server) coordinationVolunteersJoin(w http.ResponseWriter, r *http.Reque
 		return err
 	}
 
-	added := 0
+	var people []*store.Person
 
 	for _, uid := range r.Form["person"] {
 		who, err := s.store.GetPersonByUID(ctx, uid)
@@ -909,16 +766,14 @@ func (s *Server) coordinationVolunteersJoin(w http.ResponseWriter, r *http.Reque
 			return err
 		}
 
-		if err := s.store.JoinPole(ctx, pole.ID, who.ID); err != nil {
-			return err
-		}
-
-		s.logVol(r, logPole(store.LogMemberAdded, pole, who))
-
-		added++
+		people = append(people, who)
 	}
 
-	s.flashCount(w, "flash.vol.members_joined", added, pole.Name)
+	if err := s.putInPole(ctx, act(r), e, pole, people); err != nil {
+		return err
+	}
+
+	s.flashCount(w, "flash.vol.members_joined", len(people), pole.Name)
 	http.Redirect(w, r, editionURL(e)+"/list", http.StatusSeeOther)
 
 	return nil

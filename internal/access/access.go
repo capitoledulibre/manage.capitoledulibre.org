@@ -156,3 +156,9 @@ func (a *Actor) CanRestrict(p *store.Pole) bool {
 func (a *Actor) CanAppointManagers(p *store.Pole) bool {
 	return a.Coordinates(p.EventID)
 }
+
+// CanAppointCoordinators tells whether the actor may name or remove the
+// coordinators of an edition: the staff only, as it hands over its people.
+func (a *Actor) CanAppointCoordinators() bool {
+	return a.Staff
+}

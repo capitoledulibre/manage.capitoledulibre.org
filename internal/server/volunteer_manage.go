@@ -203,7 +203,7 @@ func (s *Server) managePoleImage(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	s.dropFile(r, v.Pole.ImageFile)
+	s.dropFile(r.Context(), v.Pole.ImageFile)
 	s.flash(w, "flash.vol.image_saved")
 
 	return s.redirectTab(w, r, v.Pole, "settings")
@@ -219,7 +219,7 @@ func (s *Server) managePoleImageDelete(w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	s.dropFile(r, v.Pole.ImageFile)
+	s.dropFile(r.Context(), v.Pole.ImageFile)
 
 	return s.redirectTab(w, r, v.Pole, "settings")
 }
@@ -227,12 +227,12 @@ func (s *Server) managePoleImageDelete(w http.ResponseWriter, r *http.Request) e
 // dropFile removes a stored image once nothing uses it any more. Copying a
 // pole or an edition makes two rows share one file, so clearing one must
 // not take the bytes away from the other.
-func (s *Server) dropFile(r *http.Request, file string) {
+func (s *Server) dropFile(ctx context.Context, file string) {
 	if file == "" {
 		return
 	}
 
-	used, err := s.store.FileInUse(r.Context(), file)
+	used, err := s.store.FileInUse(ctx, file)
 	if err != nil || used {
 		return
 	}
@@ -462,93 +462,52 @@ func (s *Server) manageLocationDelete(w http.ResponseWriter, r *http.Request) er
 // --- messages ---------------------------------------------------------------
 
 func (s *Server) managePoleMessage(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, err := s.managedPole(r)
 	if err != nil {
 		return err
 	}
 
-	body := strings.TrimSpace(r.FormValue("body"))
-	if body == "" {
-		return s.redirectTab(w, r, v.Pole, "messages")
-	}
+	notify := r.FormValue("notify") == "1"
 
-	// No e-mail about an edition volunteers cannot see: a draft, or last
-	// year's archived one.
-	if r.FormValue("notify") == "1" && !v.Event.VisibleToVolunteers() {
-		return errBadInput
-	}
-
-	if err := s.store.CreateMessage(ctx, &store.Message{EventID: v.Event.ID, PoleID: v.Pole.ID, Body: body}, rc(r).Person.ID); err != nil {
-		return err
-	}
-
-	if r.FormValue("notify") != "1" {
-		s.flash(w, "flash.vol.message_posted")
+	sent, err := s.postNotice(r.Context(), act(r), noticeScope{Event: v.Event, Pole: v.Pole}, r.FormValue("body"), notify)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 
 		return s.redirectTab(w, r, v.Pole, "messages")
 	}
 
-	members, err := s.store.ListPoleMembers(ctx, v.Pole.ID)
 	if err != nil {
 		return err
 	}
 
-	recipients := make([]*store.Person, 0, len(members))
-	for _, m := range members {
-		recipients = append(recipients, m.Person)
-	}
-
-	posted := logPole(store.LogMessagePosted, v.Pole, nil)
-	posted.Count = len(recipients)
-	s.logVol(r, posted)
-
-	pole := v.Pole
-	s.notifyMessage(recipients, pole.EventSlug, func(lang string) string { return i18n.T(lang, "mail.vol.scope_pole", pole.Name) },
-		body, s.poleURL(pole))
-	s.flashCount(w, "flash.vol.message_sent", len(recipients))
+	s.flashNotice(w, notify, sent)
 
 	return s.redirectTab(w, r, v.Pole, "messages")
 }
 
 func (s *Server) manageSlotMessage(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, sl, err := s.managedSlot(r)
 	if err != nil {
 		return err
 	}
 
-	body := strings.TrimSpace(r.FormValue("body"))
+	notify := r.FormValue("notify") == "1"
+	back := sl.ManageURL() + "#messages"
 
-	// No e-mail about an edition volunteers cannot see: a draft, or last
-	// year's archived one.
-	if r.FormValue("notify") == "1" && !v.Event.VisibleToVolunteers() {
-		return errBadInput
+	sent, err := s.postNotice(r.Context(), act(r), noticeScope{Event: v.Event, Pole: v.Pole, Slot: sl}, r.FormValue("body"), notify)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+		http.Redirect(w, r, back, http.StatusSeeOther)
+
+		return nil
 	}
 
-	if body != "" {
-		if err := s.store.CreateMessage(ctx, &store.Message{EventID: v.Event.ID, PoleID: v.Pole.ID, SlotID: sl.ID, Body: body}, rc(r).Person.ID); err != nil {
-			return err
-		}
-
-		if r.FormValue("notify") == "1" {
-			volunteers, err := s.store.ListSlotVolunteers(ctx, sl.ID)
-			if err != nil {
-				return err
-			}
-
-			s.notifyMessage(volunteers, sl.EventSlug, func(lang string) string {
-				return i18n.T(lang, "mail.vol.scope_slot", slotWhen(lang, sl.StartsAt, sl.EndsAt))
-			}, body, s.slotURL(sl))
-			s.flashCount(w, "flash.vol.message_sent", len(volunteers))
-		} else {
-			s.flash(w, "flash.vol.message_posted")
-		}
+	if err != nil {
+		return err
 	}
 
-	http.Redirect(w, r, sl.ManageURL()+"#messages", http.StatusSeeOther)
+	s.flashNotice(w, notify, sent)
+	http.Redirect(w, r, back, http.StatusSeeOther)
 
 	return nil
 }
@@ -560,16 +519,7 @@ func (s *Server) manageMessageDelete(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	m, err := s.store.GetMessageByUID(r.Context(), v.Event.ID, r.PathValue("message"))
-	if err != nil {
-		return err
-	}
-
-	if m.PoleID != v.Pole.ID {
-		return errNotFound
-	}
-
-	if err := s.store.DeleteMessage(r.Context(), m.ID); err != nil {
+	if err := s.deleteNotice(r.Context(), act(r), noticeScope{Event: v.Event, Pole: v.Pole}, r.PathValue("message")); err != nil {
 		return err
 	}
 

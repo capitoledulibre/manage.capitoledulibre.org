@@ -86,6 +86,9 @@ func TestRules(t *testing.T) {
 		{"nor appoint managers", lead.CanAppointManagers(restricted), false},
 		{"the coordination does", coordinator.CanAppointManagers(restricted), true},
 
+		{"the staff names coordinators", staff.CanAppointCoordinators(), true},
+		{"a coordinator does not", coordinator.CanAppointCoordinators(), false},
+
 		{"the zero actor may do nothing", nobody.Prepares(1) || nobody.ManagesPole(public) || nobody.SeesEvent(draft), false},
 	} {
 		if c.got != c.want {

@@ -221,7 +221,7 @@ func (s *Server) adminEventPurge(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	for _, f := range res.Files {
-		s.dropFile(r, f)
+		s.dropFile(r.Context(), f)
 	}
 
 	slog.Info("edition purged", "event", e.Slug, "attendees", res.Attendees, "signups", res.Signups, "people", res.People)

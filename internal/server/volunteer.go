@@ -726,7 +726,7 @@ func (s *Server) profilePhoto(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	s.dropFile(r, old)
+	s.dropFile(r.Context(), old)
 	s.flash(w, "flash.vol.photo_saved")
 	http.Redirect(w, r, "/me", http.StatusSeeOther)
 
@@ -741,7 +741,7 @@ func (s *Server) profilePhotoDelete(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	s.dropFile(r, old)
+	s.dropFile(r.Context(), old)
 	s.flash(w, "flash.vol.photo_removed")
 	http.Redirect(w, r, "/me", http.StatusSeeOther)
 
@@ -763,7 +763,7 @@ func (s *Server) profileGravatar(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	s.dropFile(r, old)
+	s.dropFile(r.Context(), old)
 
 	switch found, err := s.gravatar.Lookup(ctx, person.ID); {
 	case err != nil:
@@ -817,7 +817,7 @@ func (s *Server) volunteerLeave(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	s.dropFile(r, person.AvatarFile)
+	s.dropFile(r.Context(), person.AvatarFile)
 	s.clearCookie(w, personCookie)
 	s.flash(w, "flash.vol.account_deleted")
 	http.Redirect(w, r, "/volunteers/login", http.StatusSeeOther)

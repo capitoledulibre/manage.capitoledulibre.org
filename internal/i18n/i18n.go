@@ -768,6 +768,8 @@ var messages = map[string][2]string{
 	"vol.err.no_address":    {"Aucune adresse e-mail valide.", "No valid email address."},
 	"vol.err.slot_times":    {"Indiquez un début et une fin, la fin après le début.", "Give a start and an end, the end after the start."},
 	"vol.err.slot_capacity": {"Le nombre de bénévoles souhaités va de 1 à 500.", "The number of volunteers needed goes from 1 to 500."},
+	"vol.err.empty_message": {"Écrivez le message avant de le publier.", "Write the message before posting it."},
+	"vol.err.pole_name":     {"Donnez au pôle un nom, de 100 caractères au plus.", "Give the pole a name, of 100 characters at most."},
 	"vol.err.pick_member":   {"Cochez au moins un bénévole à inscrire.", "Tick at least one volunteer to sign up."},
 	"vol.err.invite_email":  {"Indiquez une adresse e-mail valide pour inscrire quelqu'un qui n'a pas encore de compte.", "Give a valid email address to sign up someone who has no account yet."},
 
