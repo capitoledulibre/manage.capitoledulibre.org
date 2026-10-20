@@ -47,6 +47,7 @@ func (s *Server) coordinationRoutes(mux *http.ServeMux) {
 	c("POST "+base+"/volunteers/join", s.coordinationVolunteersJoin)
 	c("GET "+base+"/volunteers/{person}", s.coordinationVolunteer)
 	c("POST "+base+"/volunteers/{person}/join", s.coordinationVolunteerJoin)
+	c("POST "+base+"/volunteers/{person}", s.coordinationVolunteerSave)
 }
 
 // requireCoordination lets in the coordinators of the edition of the path,
@@ -842,9 +843,54 @@ func (s *Server) coordinationVolunteer(w http.ResponseWriter, r *http.Request) e
 
 	p := s.page(r, "vol.coord.volunteers")
 	p.TitleText = who.Label()
-	p.D = map[string]any{"Event": e, "V": v, "Slots": slots, "Waiting": waiting, "History": history, "Poles": poles, "Details": details}
+	p.D = map[string]any{"Event": e, "V": v, "Slots": slots, "Waiting": waiting, "History": history, "Poles": poles, "Details": details,
+		"Staff": rc(r).Admin != nil}
 
 	return s.render(w, r, "volunteer/volunteer", p)
+}
+
+// coordinationVolunteerSave corrects a volunteer's name and phone, from
+// their page: a typo, a number given by phone. The address stays the
+// staff's, since changing it logs the person out.
+func (s *Server) coordinationVolunteerSave(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	e, err := s.coordinationEvent(r)
+	if err != nil {
+		return err
+	}
+
+	who, err := s.pathPerson(r)
+	if err != nil {
+		return err
+	}
+
+	// Only a volunteer of this edition: the coordination of one edition
+	// does not edit the people of another.
+	volunteers, err := s.store.ListEventVolunteers(ctx, e.ID)
+	if err != nil {
+		return err
+	}
+
+	if !slices.ContainsFunc(volunteers, func(v *store.EventVolunteer) bool { return v.Person.ID == who.ID }) {
+		return errNotFound
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	phone := strings.TrimSpace(r.FormValue("phone"))
+
+	if name == "" || len(name) > 200 || len(phone) > 40 {
+		return errBadInput
+	}
+
+	if err := s.store.UpdateVolunteerProfile(ctx, who.ID, name, phone); err != nil {
+		return err
+	}
+
+	s.flash(w, "flash.saved")
+	http.Redirect(w, r, editionURL(e)+"/volunteers/"+who.UID, http.StatusSeeOther)
+
+	return nil
 }
 
 // coordinationVolunteersJoin adds the volunteers ticked in the list to a

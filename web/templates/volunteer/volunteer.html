@@ -38,6 +38,15 @@
     </section>
   </div>
   <div class="space-y-6">
+    <section class="card">
+      <h2 class="card-title">{{t $l "vol.person.contact"}}</h2>
+      <form method="post" action="{{$base}}/volunteers/{{$p.UID}}" class="space-y-3">
+        <div><label class="label" for="vf-name">{{t $l "vol.profile.name"}}</label><input id="vf-name" class="input" name="name" value="{{$p.Name}}" required maxlength="200"></div>
+        <div><label class="label" for="vf-phone">{{t $l "vol.profile.phone"}}</label><input id="vf-phone" class="input" type="tel" name="phone" value="{{$p.Phone}}" maxlength="40"></div>
+        <button class="btn btn-sm">{{t $l "vol.save"}}</button>
+        <p class="help">{{if $d.Staff}}{{t $l "vol.person.email_staff"}} <a class="link" href="/admin/people/{{$p.UID}}">{{t $l "vol.person.staff_page"}}</a>{{else}}{{t $l "vol.person.email_help"}}{{end}}</p>
+      </form>
+    </section>
     {{with $d.Details}}
     <section class="card">
       <h2 class="card-title">{{t $l "vol.details.title"}}</h2>

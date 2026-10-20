@@ -133,20 +133,20 @@
 {{with .Dietary}}
 <section class="mb-8">
   <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.logi.dietary"}}</h2>
-  <ul class="space-y-1 text-sm">{{range .}}<li><strong>{{.Volunteer.Person.Label}}</strong>{{with .Details.Meals}} <span class="text-gray-500">({{range $i, $m := .}}{{if $i}}, {{end}}{{$m}}{{end}})</span>{{end}}&nbsp;: {{.Details.Dietary}}</li>{{end}}</ul>
+  <ul class="space-y-1 text-sm">{{range .}}<li><strong>{{template "person_name" (dict "Lang" $l "Person" .Volunteer.Person "Manage" true "Fiche" (printf "%s/volunteers/" $base))}}</strong>{{with .Details.Meals}} <span class="text-gray-500">({{range $i, $m := .}}{{if $i}}, {{end}}{{$m}}{{end}})</span>{{end}}&nbsp;: {{.Details.Dietary}}</li>{{end}}</ul>
 </section>
 {{end}}
 {{with .Unanswered}}
 <section class="mb-8">
   <h2 class="mb-3 text-lg font-semibold">{{tn $l "vol.logi.unanswered" (len .)}}</h2>
-  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{$x.Volunteer.Person.Label}}{{end}}</p>
+  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{template "person_name" (dict "Lang" $l "Person" $x.Volunteer.Person "Manage" true "Fiche" (printf "%s/volunteers/" $base))}}{{end}}</p>
 </section>
 {{end}}
 {{with .Outdated}}
 <section class="mb-8">
   <h2 class="mb-3 text-lg font-semibold">{{tn $l "vol.logi.outdated" (len .)}}</h2>
   <p class="help mb-2">{{t $l "vol.logi.outdated_help"}}</p>
-  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{$x.Volunteer.Person.Label}}{{end}}</p>
+  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{template "person_name" (dict "Lang" $l "Person" $x.Volunteer.Person "Manage" true "Fiche" (printf "%s/volunteers/" $base))}}{{end}}</p>
 </section>
 {{end}}
 {{if .Idle}}<p class="help">{{tn $l "vol.logi.idle" .Idle}} <a class="link" href="{{$base}}/volunteers?filter=idle">{{t $l "vol.logi.idle_link"}}</a></p>{{end}}
@@ -208,7 +208,7 @@
       <p class="help mb-3">{{t $l "vol.coord.coordinators_help"}}</p>
       <ul class="mb-3 space-y-2">
         {{range $d.Coordinators}}
-        <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_avatar" .}}<span class="flex-1">{{.Label}} <span class="text-gray-500">{{.Email}}</span></span>
+        <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_avatar" .}}<span class="flex-1">{{template "person_name" (dict "Lang" $l "Person" . "Manage" true "Fiche" (printf "%s/volunteers/" $base))}} <span class="text-gray-500">{{.Email}}</span></span>
           {{if $d.Staff}}<form method="post" action="{{$base}}/coordinators/{{.UID}}/delete" data-confirm="{{t $l "vol.coord.coordinator_remove_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button></form>{{end}}</li>
         {{else}}<li class="text-sm text-gray-500">{{t $l "vol.coord.no_coordinators"}}</li>{{end}}
       </ul>

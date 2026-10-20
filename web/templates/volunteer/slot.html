@@ -21,7 +21,7 @@
     {{if $d.ShowPeople}}
     {{with $d.Volunteers}}
     <ul class="space-y-2">
-      {{range .}}<li class="flex items-center gap-2 text-sm">{{template "person_avatar" .}}<span>{{template "person_name" (dict "Lang" $l "Person" . "Manage" $v.Manage)}}{{if and $v.Manage .Phone}} <span class="text-gray-500">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
+      {{range .}}<li class="flex items-center gap-2 text-sm">{{template "person_avatar" .}}<span>{{template "person_name" (dict "Lang" $l "Person" . "Manage" $v.Manage "Fiche" $v.Fiche)}}{{if and $v.Manage .Phone}} <span class="text-gray-500">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
     </ul>
     {{else}}<p class="text-sm text-gray-500">{{t $l "vol.slot.nobody"}}</p>{{end}}
     {{end}}

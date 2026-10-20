@@ -130,6 +130,18 @@ func (s *Server) coordinates(r *http.Request, eventID int64) (bool, error) {
 	return s.store.IsEventCoordinator(r.Context(), eventID, c.Person.ID)
 }
 
+// ficheBase is the start of the volunteers' pages of an edition, their
+// UID to follow, for its coordination (and the staff): everywhere a name is
+// cited, it leads there. Empty for anyone else.
+func (s *Server) ficheBase(r *http.Request, e *store.Event) (string, error) {
+	ok, err := s.coordinates(r, e.ID)
+	if err != nil || !ok {
+		return "", err
+	}
+
+	return editionURL(e) + "/volunteers/", nil
+}
+
 // managesPole tells whether the person runs a pole: its managers, and
 // whoever coordinates its edition.
 func (s *Server) managesPole(r *http.Request, p *store.Pole) (bool, error) {
@@ -180,6 +192,9 @@ type poleView struct {
 	Member bool
 	Manage bool
 	Locked bool
+	// Fiche is where a volunteer's page starts, for the coordination;
+	// empty for anyone else, who sees names only.
+	Fiche string
 }
 
 // volunteerPole loads the pole of the path and the person's place in it. A
@@ -201,6 +216,10 @@ func (s *Server) volunteerPole(r *http.Request) (*poleView, error) {
 	v := &poleView{Event: e, Pole: p, Locked: e.SignupsLocked(p.FreezeAt, time.Now())}
 
 	if v.Manage, err = s.managesPole(r, p); err != nil {
+		return nil, err
+	}
+
+	if v.Fiche, err = s.ficheBase(r, e); err != nil {
 		return nil, err
 	}
 

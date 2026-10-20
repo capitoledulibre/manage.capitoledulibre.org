@@ -16,8 +16,10 @@
      *store.Person. */}}
 {{/* person_name is a person as volunteers see them: their name, never the
      address of someone added by e-mail who has not given one yet; whoever
-     runs the pole sees the address. Expects Lang, Person and Manage. */}}
-{{define "person_name"}}{{if or .Person.Name .Manage}}{{.Person.Label}}{{else}}{{t .Lang "vol.unnamed"}}{{end}}{{end}}
+     runs the pole sees the address. With Fiche (the coordination's base of
+     the volunteers' pages), the name leads to the person's page. Expects
+     Lang, Person, Manage and Fiche. */}}
+{{define "person_name"}}{{if .Fiche}}<a class="link" href="{{.Fiche}}{{.Person.UID}}">{{.Person.Label}}</a>{{else if or .Person.Name .Manage}}{{.Person.Label}}{{else}}{{t .Lang "vol.unnamed"}}{{end}}{{end}}
 
 {{define "person_avatar"}}{{if .AvatarFile}}<img src="/avatars/{{.AvatarFile}}" alt="" loading="lazy" class="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-gray-200">{{else}}<span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden="true">{{.Initials}}</span>{{end}}{{end}}
 
@@ -107,12 +109,12 @@
      members table out of band. */}}
 {{define "member_added"}}
 {{template "member_search" .}}
-{{template "members_table" (dict "Lang" .Lang "Pole" .Pole "Members" .Members "Slots" .Slots "OOB" true)}}
+{{template "members_table" (dict "Lang" .Lang "Pole" .Pole "Members" .Members "Slots" .Slots "Fiche" .Fiche "OOB" true)}}
 {{end}}
 
 {{/* members_table lists the members of a pole. Expects Lang, Pole,
-     Members, Slots (those still to come, to put a member on) and OOB
-     (out-of-band swap). */}}
+     Members, Slots (those still to come, to put a member on), Fiche and
+     OOB (out-of-band swap). */}}
 {{define "members_table"}}
 {{$l := .Lang}}
 <div id="members-table" {{if .OOB}}hx-swap-oob="true"{{end}} class="overflow-x-auto rounded-lg bg-surface shadow-sm ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{t $l "vol.manage.tab_members"}}">
@@ -121,7 +123,7 @@
   <tbody>
   {{range .Members}}
   <tr>
-    <td><span class="inline-flex items-center gap-2">{{template "person_avatar" .Person}}{{.Person.Label}}</span>{{if .IsManager}} <span class="badge bg-brand-50 text-brand-800">{{t $l "vol.manage.lead"}}</span>{{end}}</td>
+    <td><span class="inline-flex items-center gap-2">{{template "person_avatar" .Person}}{{template "person_name" (dict "Lang" $l "Person" .Person "Manage" true "Fiche" $.Fiche)}}</span>{{if .IsManager}} <span class="badge bg-brand-50 text-brand-800">{{t $l "vol.manage.lead"}}</span>{{end}}</td>
     <td><a class="link" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
     <td>{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
     <td>{{if eq .SlotCount 0}}<span class="badge bg-amber-100 text-amber-800" title="{{t $l "vol.manage.no_slot"}}">0<span class="sr-only"> · {{t $l "vol.manage.no_slot"}}</span></span>{{else}}{{.SlotCount}}{{end}}</td>
@@ -257,7 +259,7 @@
   <div class="mt-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
     {{if .People}}
     <ul class="flex flex-wrap gap-x-4 gap-y-1.5 text-sm" aria-label="{{t $l "vol.planning.people"}}">
-      {{range .People}}<li class="flex items-center gap-1.5">{{template "person_avatar" .}}<span class="text-gray-800">{{template "person_name" (dict "Lang" $l "Person" . "Manage" $.Manage)}}{{if and $.Manage .Phone}} <a class="text-gray-500 tabular-nums hover:underline" href="tel:{{telHref .Phone}}">· {{phone .Phone}}</a>{{end}}</span></li>{{end}}
+      {{range .People}}<li class="flex items-center gap-1.5">{{template "person_avatar" .}}<span class="text-gray-800">{{template "person_name" (dict "Lang" $l "Person" . "Manage" $.Manage "Fiche" $.Fiche)}}{{if and $.Manage .Phone}} <a class="text-gray-500 tabular-nums hover:underline" href="tel:{{telHref .Phone}}">· {{phone .Phone}}</a>{{end}}</span></li>{{end}}
     </ul>
     {{else}}<p class="text-sm text-gray-500">{{t $l "vol.planning.nobody"}}</p>{{end}}
     {{if .Manage}}<a class="link text-xs" href="{{.Slot.ManageURL}}">{{t $l "vol.planning.edit_slot"}}</a>{{end}}

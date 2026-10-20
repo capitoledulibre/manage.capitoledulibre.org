@@ -64,7 +64,7 @@
     <ul class="mb-4 space-y-2">
       {{range $d.Volunteers}}
       <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_avatar" .}}
-        <span class="flex-1">{{.Label}} <span class="text-gray-500">{{.Email}}{{with .Phone}} · {{phone .}}{{end}}</span></span>
+        <span class="flex-1">{{template "person_name" (dict "Lang" $l "Person" . "Manage" true "Fiche" $f.V.Fiche)}} <span class="text-gray-500">{{.Email}}{{with .Phone}} · {{phone .}}{{end}}</span></span>
         <form method="post" action="{{$s.ManageURL}}/volunteers/{{.UID}}/delete" data-confirm="{{t $l "vol.slot_form.remove_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button></form>
       </li>
       {{else}}<li class="text-sm text-gray-500">{{t $l "vol.slot.nobody"}}</li>{{end}}

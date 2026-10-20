@@ -268,6 +268,30 @@ func TestVolunteerPageAndBulk(t *testing.T) {
 	_, body = e.get(admin, base+"/volunteers/"+nina.UID)
 	mustContain(t, body, "Nina", "06 00 00 00 00", "Buvette", "2 h", f.morning.URL())
 
+	// The staff edits the person from there, on their staff page.
+	mustContain(t, body, `href="/admin/people/`+nina.UID+`"`)
+
+	// A coordinator, not staff, corrects her name and phone from her page.
+	e.post(admin, base+"/coordinators", url.Values{"email": {"coco@example.org"}})
+	coco := e.loginAs("coco@example.org")
+
+	_, body = e.get(coco, base+"/volunteers/"+nina.UID)
+	mustContain(t, body, `name="phone" value="0600000000"`, "se change auprès du staff")
+
+	e.post(coco, base+"/volunteers/"+nina.UID, url.Values{"name": {"Nina Dupont"}, "phone": {"0611111111"}, "email": {"x@example.org"}})
+
+	if got, _ := e.st.GetPerson(ctx, nina.ID); got.Name != "Nina Dupont" || got.Phone != "0611111111" || got.Email != "nina@example.org" {
+		t.Errorf("after the edit: %+v", got)
+	}
+
+	if code, _ := e.post(coco, base+"/volunteers/"+nina.UID, url.Values{"name": {""}}); code != http.StatusBadRequest {
+		t.Errorf("no name: %d", code)
+	}
+
+	if code, _ := e.post(coco, base+"/volunteers/"+e.mustPersonUID("other@example.org"), url.Values{"name": {"X"}}); code != http.StatusNotFound {
+		t.Errorf("someone not in the edition: %d", code)
+	}
+
 	if code, _ := e.get(admin, base+"/volunteers/"+e.mustPersonUID("nobody@example.org")); code != http.StatusNotFound {
 		t.Errorf("someone not in the edition: %d", code)
 	}
@@ -367,5 +391,37 @@ func TestCopyEditionWithSlots(t *testing.T) {
 
 	if again, _ := e.st.ListPoles(ctx, f.draft.ID); len(again) != 4 {
 		t.Errorf("poles after a second copy: %d", len(again))
+	}
+}
+
+func TestNamesLeadToVolunteerPage(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	admin := e.adminClient()
+	fiche := "/volunteers/" + f.event.Slug + "/edition/volunteers/"
+
+	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, nina.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.morning.ID, nina.ID))
+
+	link := `href="` + fiche + nina.UID + `">Nina</a>`
+
+	// For the coordination, each place naming her leads to her page: the
+	// members of a pole, a slot's people, the planning's cards.
+	for _, path := range []string{
+		f.buvette.URL() + "?tab=members", f.morning.ManageURL(), f.morning.URL(),
+		f.buvette.URL(), "/volunteers/" + f.event.Slug + "/planning?view=all&day=all",
+	} {
+		if _, body := e.get(admin, path); !strings.Contains(body, link) {
+			t.Errorf("%s: no link to her page", path)
+		}
+	}
+
+	// A lead who is not in the coordination sees her name only: the page
+	// tells about the whole edition.
+	if _, body := e.get(e.loginAs(f.leadEmail), f.buvette.URL()+"?tab=members"); strings.Contains(body, fiche) {
+		t.Error("a lead gets links to the coordination's pages")
 	}
 }

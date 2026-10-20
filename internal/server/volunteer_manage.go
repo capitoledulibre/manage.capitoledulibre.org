@@ -270,7 +270,7 @@ func (s *Server) memberSearch(r *http.Request, v *poleView, q string) (map[strin
 		}
 	}
 
-	return map[string]any{"Lang": rc(r).Lang, "Pole": v.Pole, "People": people, "Q": q}, nil
+	return map[string]any{"Lang": rc(r).Lang, "Pole": v.Pole, "People": people, "Q": q, "Fiche": v.Fiche}, nil
 }
 
 // manageMemberAdd adds people to a pole, by address: one per line, bare or

@@ -63,7 +63,7 @@ func TestLogisticsAndReminders(t *testing.T) {
 
 	// The coordination counts, for the volunteers on a slot and the lead.
 	_, body = e.get(admin, edition+"?tab=logistics")
-	mustContain(t, body, "Logistique", "végétarienne", "Pas encore répondu (2)", "Lou Lead, Omar", "2 bénévoles ne sont sur aucun créneau")
+	mustContain(t, body, "Logistique", "végétarienne", "Pas encore répondu (2)", ">Lou Lead</a>, <a class=\"link\"", ">Omar</a>", "2 bénévoles ne sont sur aucun créneau")
 
 	_, body = e.get(admin, edition+"/logistics.csv")
 	mustContain(t, body, "name,email,slots,minutes,tshirt,Samedi midi,Dimanche midi,dietary", "Nina,nina@example.org,1,120,M,1,,végétarienne", "Omar,omar@example.org,1,120,,,,")

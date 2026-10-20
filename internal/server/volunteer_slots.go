@@ -194,7 +194,7 @@ func (s *Server) poleSlots(r *http.Request, v *poleView, locations []*store.Loca
 		days[len(days)-1].Cards = append(days[len(days)-1].Cards, &slotCardData{
 			Lang: lang, Slot: sl, Pole: v.Pole, Member: v.Member, Locked: v.Locked, Waiting: waiting[sl.ID], Back: back,
 			ShowPeople: showPeople, People: people[sl.ID], Manage: v.Manage, WaitCount: counts[sl.ID],
-			Tasks: tasks[sl.ID], CanTick: sl.Mine || v.Manage,
+			Tasks: tasks[sl.ID], CanTick: sl.Mine || v.Manage, Fiche: v.Fiche,
 		})
 	}
 
@@ -446,6 +446,9 @@ type slotCardData struct {
 	CanTick bool
 	// OpenTasks unfolds the checklist, where it is what the card is for.
 	OpenTasks bool
+	// Fiche leads the names to the volunteers' pages, for the
+	// coordination.
+	Fiche string
 }
 
 func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting bool) *slotCardData {
@@ -453,7 +456,7 @@ func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting 
 
 	card := &slotCardData{
 		Lang: rc(r).Lang, Slot: sl, Pole: v.Pole, Member: v.Member, Locked: v.Locked, Waiting: waiting, Back: back,
-		Compact: back == sl.URL(),
+		Compact: back == sl.URL(), Fiche: v.Fiche,
 	}
 
 	// A card of the planning or of the pole's page shows who is on the
