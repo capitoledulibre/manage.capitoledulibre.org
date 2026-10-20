@@ -371,7 +371,11 @@ func (s *Server) oauthAuthorize(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if u, err := url.Parse(req.RedirectURI); err == nil {
+		// Where the code goes: a site, or an app by its address.
 		d["Host"] = u.Host
+		if u.Host == "" {
+			d["Host"] = req.RedirectURI
+		}
 
 		// Agreeing sends the browser on to the assistant: its address is a
 		// destination the consent form may lead to. Registration only takes

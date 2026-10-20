@@ -748,7 +748,7 @@ func TestMedalsBadgesAndContact(t *testing.T) {
 	}
 
 	check(alice, "private, max-age=3600")
-	check(e.loginAs("bob@prospect.test"), "")
+	check(e.loginAs("bob@prospect.test"), "private, no-store")
 }
 
 func TestMedalColors(t *testing.T) {

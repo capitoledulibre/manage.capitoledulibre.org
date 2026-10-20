@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -228,12 +229,29 @@ type placed struct {
 	Also   string
 }
 
+// maxAtOnce is how many people an operation takes at once: enough for a
+// team, too few to flood anyone with e-mails.
+const maxAtOnce = 100
+
 // signUpOthers puts people on a slot of a pole the actor runs, even a full
 // one: whoever runs the pole may overbook it. Someone not in the pole joins
-// it, if the actor may bring people in. Each is told by e-mail.
+// it, if the actor may bring people in. Each is told by e-mail, once:
+// someone named twice, or already on the slot, is left as is.
 func (s *Server) signUpOthers(ctx context.Context, a *access.Actor, v *poleView, sl *store.Slot, people []*store.Person) ([]placed, error) {
 	if !a.ManagesPole(v.Pole) || sl.PoleID != v.Pole.ID {
 		return nil, errForbidden
+	}
+
+	seen := map[int64]bool{}
+	people = slices.DeleteFunc(slices.Clone(people), func(p *store.Person) bool {
+		dup := seen[p.ID]
+		seen[p.ID] = true
+
+		return dup
+	})
+
+	if len(people) > maxAtOnce {
+		return nil, errBadInput
 	}
 
 	// Every right first: a refusal halfway would leave half of them on.
@@ -263,6 +281,15 @@ func (s *Server) signUpOthers(ctx context.Context, a *access.Actor, v *poleView,
 	out := make([]placed, 0, len(people))
 
 	for _, who := range people {
+		on, err := s.store.IsSignedUp(ctx, sl.ID, who.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		if on {
+			continue
+		}
+
 		overlaps, err := s.store.OverlappingSlots(ctx, who.ID, v.Pole.ID, sl.ID, sl.StartsAt, sl.EndsAt)
 		if err != nil {
 			return nil, err

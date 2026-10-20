@@ -523,7 +523,7 @@ func (s *Server) signupsCSV(w http.ResponseWriter, r *http.Request, e *store.Eve
 				}
 
 				for _, p := range ps.People {
-					_ = cw.Write(append(slices.Clip(line), csvSafe(p.Name), p.Email, csvSafe(p.Phone)))
+					_ = cw.Write(append(slices.Clip(line), csvSafe(p.Name), csvSafe(p.Email), csvSafe(p.Phone)))
 				}
 			}
 		}

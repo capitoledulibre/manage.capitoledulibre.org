@@ -102,6 +102,12 @@ func (s *Server) withSession(next http.Handler) http.Handler {
 			s.setCookie(w, personCookie, c.personToken, personSessionTTL)
 		}
 
+		// What a session shows is that person's: not for the cache of a
+		// shared computer nor of a proxy. A public file sets its own.
+		if c.Person != nil || c.Admin != nil {
+			w.Header().Set("Cache-Control", "private, no-store")
+		}
+
 		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, ctxKey{}, c)))
 	})
 }

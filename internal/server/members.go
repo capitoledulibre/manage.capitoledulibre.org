@@ -106,9 +106,22 @@ func (s *Server) addMembers(ctx context.Context, a *access.Actor, v *poleView, p
 		return nil, errForbidden
 	}
 
+	if len(people) > maxAtOnce {
+		return nil, errBadInput
+	}
+
 	var added []*store.Person
 
+	seen := map[string]bool{}
+
 	for _, m := range people {
+		key := store.NormalizeEmail(m.Email)
+		if seen[key] {
+			continue
+		}
+
+		seen[key] = true
+
 		p, err := s.store.EnsureVolunteer(ctx, m.Email, m.Name, "", lang)
 		if err != nil {
 			return nil, err
