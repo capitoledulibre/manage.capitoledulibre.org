@@ -82,9 +82,9 @@ func (s *Server) requireAPIToken(h http.Handler) http.Handler {
 			return
 		}
 
-		// A staff token works while its owner may still log in as staff,
-		// as far as the configuration tells.
-		if t.Staff && !s.staffEmailAllowed(person.Email) {
+		// A staff token works while its owner may still log in as staff:
+		// on the list of addresses, and logging in as staff now and then.
+		if t.Staff && !s.staffStillAllowed(ctx, person) {
 			s.unauthorized(w)
 
 			return

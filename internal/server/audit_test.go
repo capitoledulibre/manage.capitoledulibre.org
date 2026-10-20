@@ -65,13 +65,25 @@ func TestSecretsOutOfLogs(t *testing.T) {
 func TestDevAdminLoginFromTheMachineOnly(t *testing.T) {
 	e := newEnv(t)
 
+	base, err := url.Parse(e.app.cfg.BaseURL)
+	mustOK(t, err)
+
 	for addr, want := range map[string]bool{"127.0.0.1:5000": true, "[::1]:5000": true, "203.0.113.5:5000": false, "192.168.1.20:5000": false} {
 		r := httptest.NewRequest(http.MethodPost, "/admin/login", nil)
-		r.RemoteAddr = addr
+		r.RemoteAddr, r.Host = addr, base.Host
 
 		if got := e.app.devAdminLogin(r); got != want {
 			t.Errorf("dev login from %s: %v", addr, got)
 		}
+	}
+
+	// From the machine itself, but under another name: a page elsewhere
+	// whose name was pointed at this machine (DNS rebinding).
+	r := httptest.NewRequest(http.MethodPost, "/admin/login", nil)
+	r.RemoteAddr, r.Host = "127.0.0.1:5000", "attacker.example"
+
+	if e.app.devAdminLogin(r) {
+		t.Error("dev login under another name")
 	}
 }
 

@@ -63,6 +63,10 @@ type Config struct {
 	// AdminGroup.
 	AdminEmails []string
 	AdminGroup  string
+	// OIDCUnverifiedEmail accepts a login whose identity provider does not
+	// say the address is verified (no email_verified claim): for those
+	// that never send it. A claim set to false is refused regardless.
+	OIDCUnverifiedEmail bool
 
 	// ExportToken protects the JSON export endpoint.
 	ExportToken string
@@ -105,6 +109,7 @@ func Load() (*Config, error) {
 		OIDCClientSecret:      env("MANAGE_OIDC_CLIENT_SECRET", ""),
 		AdminEmails:           envList("MANAGE_ADMIN_EMAILS"),
 		AdminGroup:            env("MANAGE_ADMIN_GROUP", ""),
+		OIDCUnverifiedEmail:   envBool("MANAGE_OIDC_UNVERIFIED_EMAIL"),
 		ExportToken:           env("MANAGE_EXPORT_TOKEN", ""),
 		Gravatar:              env("MANAGE_GRAVATAR", "1") == "1",
 	}

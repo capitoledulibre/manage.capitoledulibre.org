@@ -117,6 +117,12 @@ func (s *Server) loadSessions(ctx context.Context, r *http.Request, c *reqCtx) e
 				return err
 			}
 
+			// Taken off the staff addresses, a staff session ends at once.
+			if admin != nil && !s.staffEmailAllowed(admin.Email) {
+				_ = s.store.DeleteSession(ctx, ck.Value)
+				admin = nil
+			}
+
 			if admin != nil {
 				c.Admin, c.adminToken = admin, ck.Value
 

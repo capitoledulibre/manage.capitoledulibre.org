@@ -204,7 +204,8 @@ Everything is configured with environment variables; see
 | `MANAGE_SMTP_*`, `MANAGE_MAIL_FROM` | Outgoing email; `MANAGE_SMTP_HOST` is required outside dev mode |
 | `MANAGE_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
 | `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |
-| `MANAGE_ADMIN_EMAILS`, `MANAGE_ADMIN_GROUP` | Who may log in as staff |
+| `MANAGE_ADMIN_EMAILS`, `MANAGE_ADMIN_GROUP` | Who may log in as staff; someone taken off the list loses their open staff sessions at once |
+| `MANAGE_OIDC_UNVERIFIED_EMAIL` | `1` accepts a staff login whose identity provider does not say the address is verified (no `email_verified` claim); by default only a verified address logs in |
 | `MANAGE_EXPORT_TOKEN` | Token for the JSON export, at least 32 characters (`openssl rand -hex 32`), sent as `Authorization: Bearer` (never in the URL); empty disables token access |
 | `MANAGE_TRUSTED_PROXIES` | Peers whose `X-Forwarded-For` is believed, to rate-limit login requests per client: addresses or CIDR ranges, `private` (default: loopback and private ranges) or `none`; use `none` when the container is exposed without a reverse proxy, or a client could forge its address |
 | `MANAGE_VOLUNTEER_REMINDER_HOUR` | Hour (event time, 0–23) at which volunteers get the recap of their slots of the next day (default: 18) |
@@ -275,8 +276,9 @@ renewed with it; a grant lasts 90 days in all, refreshed or not, and a
 code used twice revokes it. The grant shows with the personal tokens, on
 the profile it was made from, and is revoked there. A staff token, made
 by hand or granted, stops working as soon as its owner is no longer in
-`MANAGE_ADMIN_EMAILS` (when staff access is not given by a group, which
-only the identity provider knows at login).
+`MANAGE_ADMIN_EMAILS`, when they are refused at a staff login, or after 30
+days without a staff login (staff access given by a group is only known
+at login).
 
 Otherwise, a person makes a personal token by hand. The staff
 make theirs on their staff profile (`/admin/profile`), and these carry the

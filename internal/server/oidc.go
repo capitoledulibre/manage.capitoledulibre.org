@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -145,15 +146,50 @@ func (s *Server) adminCallback(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	// The address is the staff member's identity: it must be verified,
+	// unless the identity provider never says (and the configuration
+	// accepts it).
 	email := store.NormalizeEmail(claims.Email)
-	if email == "" || (claims.EmailVerified != nil && !*claims.EmailVerified) || !s.adminAllowed(email, claims.Groups) {
+
+	if email == "" || !s.emailVerified(claims.EmailVerified) {
+		slog.Warn("admin login refused: unverified address (see MANAGE_OIDC_UNVERIFIED_EMAIL)", "email", email)
+
+		return errForbidden
+	}
+
+	if !s.adminAllowed(email, claims.Groups) {
 		slog.Warn("admin login refused", "email", email)
+		s.revokeStaffTokens(ctx, email)
 
 		return errForbidden
 	}
 
 	return s.startAdminSession(w, r, email, claims.Name)
 }
+
+// emailVerified tells whether an identity provider's email_verified claim
+// lets its address be trusted: true, or missing where the configuration
+// accepts it (MANAGE_OIDC_UNVERIFIED_EMAIL).
+func (s *Server) emailVerified(claim *bool) bool {
+	if claim == nil {
+		return s.cfg.OIDCUnverifiedEmail
+	}
+
+	return *claim
+}
+
+// revokeStaffTokens revokes what an address carried as staff, once it is
+// refused as staff: someone taken off the staff keeps no staff token.
+func (s *Server) revokeStaffTokens(ctx context.Context, email string) {
+	if err := s.store.RevokeStaffTokens(ctx, email); err != nil {
+		slog.Error("revoke staff tokens", "err", err)
+	}
+}
+
+// staffTokenMaxIdle is how long a staff token works without its owner
+// logging in as staff: the identity provider only tells at login whether
+// they still are. A variable for the tests.
+var staffTokenMaxIdle = 30 * 24 * time.Hour
 
 // staffEmailAllowed tells whether someone may still be staff, when the
 // configuration alone tells: a list of addresses, and no group (a group
@@ -165,6 +201,19 @@ func (s *Server) staffEmailAllowed(email string) bool {
 	}
 
 	return slices.Contains(s.cfg.AdminEmails, store.NormalizeEmail(email))
+}
+
+// staffStillAllowed tells whether a staff token's owner still is staff,
+// as far as the server can tell: on the list of addresses (when the list
+// decides), and logged in as staff within staffTokenMaxIdle.
+func (s *Server) staffStillAllowed(ctx context.Context, p *store.Person) bool {
+	if !s.staffEmailAllowed(p.Email) {
+		return false
+	}
+
+	at, err := s.store.StaffLoginAt(ctx, p.ID)
+
+	return err == nil && time.Since(at) < staffTokenMaxIdle
 }
 
 func (s *Server) adminAllowed(email string, groups []string) bool {
@@ -185,6 +234,12 @@ func (s *Server) devAdminLogin(r *http.Request) bool {
 		return false
 	}
 
+	// The site's own name, too: a page elsewhere whose name now points at
+	// this machine (DNS rebinding) reaches it from the machine itself.
+	if u, err := url.Parse(s.cfg.BaseURL); err != nil || !strings.EqualFold(r.Host, u.Host) {
+		return false
+	}
+
 	ap, err := netip.ParseAddrPort(r.RemoteAddr)
 
 	return err == nil && ap.Addr().Unmap().IsLoopback()
@@ -200,6 +255,8 @@ func (s *Server) adminDevLogin(w http.ResponseWriter, r *http.Request) error {
 
 	email := store.NormalizeEmail(r.FormValue("email"))
 	if !validEmail(email) || (len(s.cfg.AdminEmails) > 0 && !slices.Contains(s.cfg.AdminEmails, email)) {
+		s.revokeStaffTokens(r.Context(), email)
+
 		return errForbidden
 	}
 

@@ -400,14 +400,21 @@ func (s *Server) magicConsume(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// logout ends every session of the browser, the staff's too: on a shared
+// computer, "log out" leaves nobody logged in.
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) error {
-	if c := rc(r); c.personToken != "" {
-		if err := s.store.DeleteSession(r.Context(), c.personToken); err != nil {
-			return err
+	c := rc(r)
+
+	for _, token := range []string{c.personToken, c.adminToken} {
+		if token != "" {
+			if err := s.store.DeleteSession(r.Context(), token); err != nil {
+				return err
+			}
 		}
 	}
 
 	s.clearCookie(w, personCookie)
+	s.clearCookie(w, adminCookie)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	return nil

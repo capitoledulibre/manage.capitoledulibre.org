@@ -247,9 +247,9 @@ func (s *Store) UpsertAdmin(ctx context.Context, email, name string) (*Admin, er
 			return err
 		}
 
-		return tx.QueryRowContext(ctx, `INSERT INTO admins (uid, person_id, created_at) VALUES (?, ?, ?)
-			ON CONFLICT (person_id) DO UPDATE SET person_id = excluded.person_id
-			RETURNING id`, NewUUID(), personID, now()).Scan(&id)
+		return tx.QueryRowContext(ctx, `INSERT INTO admins (uid, person_id, created_at, staff_login_at) VALUES (?, ?, ?, ?)
+			ON CONFLICT (person_id) DO UPDATE SET staff_login_at = excluded.staff_login_at
+			RETURNING id`, NewUUID(), personID, now(), now()).Scan(&id)
 	})
 	if err != nil {
 		return nil, err
@@ -325,4 +325,30 @@ func NewUUID() string {
 	h := hex.EncodeToString(b[:])
 
 	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:32]
+}
+
+// StaffLoginAt is when a person last logged in as staff; ErrNotFound for
+// someone who never did.
+func (s *Store) StaffLoginAt(ctx context.Context, personID int64) (time.Time, error) {
+	var at sql.NullTime
+
+	err := s.db.QueryRowContext(ctx, `SELECT staff_login_at FROM admins WHERE person_id = ?`, personID).Scan(&at)
+	if err != nil {
+		return time.Time{}, notFound(err)
+	}
+
+	if !at.Valid {
+		return time.Time{}, ErrNotFound
+	}
+
+	return at.Time, nil
+}
+
+// RevokeStaffTokens revokes the staff API tokens and grants of an address:
+// someone refused as staff at login keeps none.
+func (s *Store) RevokeStaffTokens(ctx context.Context, email string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE admin_id IN
+		(SELECT a.id FROM admins a JOIN people p ON p.id = a.person_id WHERE p.email = ?)`, NormalizeEmail(email))
+
+	return err
 }
