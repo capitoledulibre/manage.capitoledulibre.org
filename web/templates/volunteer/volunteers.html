@@ -1,19 +1,19 @@
 {{define "content"}}
-{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/volunteers/%s/edition" $e.Slug}}
+{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/%s/volunteers" $e.Slug}}
 <nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="{{$base}}">← {{$e.Name}}</a></nav>
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
   <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.coord.volunteers"}} <span class="font-normal text-gray-500">({{$d.Total}})</span></h1>
-  <a href="{{$base}}/volunteers.csv" class="btn-secondary">{{t $l "vol.coord.csv"}}</a>
+  <a href="{{$base}}/list.csv" class="btn-secondary">{{t $l "vol.coord.csv"}}</a>
 </div>
 
 {{/* The ones to write to before the event: on no slot yet. */}}
 <div class="mb-6 flex flex-wrap items-center gap-3">
   {{$pq := ""}}{{with $d.InPole}}{{$pq = printf "pole=%s" .Slug}}{{end}}
   <nav class="flex gap-2 text-sm" aria-label="{{t $l "vol.coord.filter"}}">
-    <a href="{{$base}}/volunteers{{with $pq}}?{{.}}{{end}}" class="filter {{if not $d.OnlyIdle}}filter-on{{end}}" {{if not $d.OnlyIdle}}aria-current="true"{{end}}>{{t $l "vol.coord.all_volunteers"}}</a>
-    <a href="{{$base}}/volunteers?filter=idle{{with $pq}}&amp;{{.}}{{end}}" class="filter {{if $d.OnlyIdle}}filter-on{{end}}" {{if $d.OnlyIdle}}aria-current="true"{{end}}>{{tn $l "vol.coord.idle" $d.Idle}}</a>
+    <a href="{{$base}}/list{{with $pq}}?{{.}}{{end}}" class="filter {{if not $d.OnlyIdle}}filter-on{{end}}" {{if not $d.OnlyIdle}}aria-current="true"{{end}}>{{t $l "vol.coord.all_volunteers"}}</a>
+    <a href="{{$base}}/list?filter=idle{{with $pq}}&amp;{{.}}{{end}}" class="filter {{if $d.OnlyIdle}}filter-on{{end}}" {{if $d.OnlyIdle}}aria-current="true"{{end}}>{{tn $l "vol.coord.idle" $d.Idle}}</a>
   </nav>
-  <form method="get" action="{{$base}}/volunteers" class="flex items-center gap-2 text-sm">
+  <form method="get" action="{{$base}}/list" class="flex items-center gap-2 text-sm">
     {{if $d.OnlyIdle}}<input type="hidden" name="filter" value="idle">{{end}}
     <label for="vf-pole" class="sr-only">{{t $l "vol.coord.col_pole"}}</label>
     <select id="vf-pole" class="input w-auto" name="pole" data-autosubmit>
@@ -32,7 +32,7 @@
 
 <details class="card mb-6">
   <summary class="cursor-pointer font-semibold">{{t $l "vol.coord.register"}} <span class="font-normal text-gray-500">— {{t $l "vol.coord.register_sub"}}</span></summary>
-  <form method="post" action="{{$base}}/volunteers" class="mt-4 space-y-3">
+  <form method="post" action="{{$base}}/list" class="mt-4 space-y-3">
     <div class="grid gap-3 sm:grid-cols-2">
       <div><label class="label" for="nv-name">{{t $l "vol.profile.name"}}</label><input id="nv-name" class="input" name="name" required autocomplete="off"></div>
       <div><label class="label" for="nv-email">{{t $l "login.email"}}</label><input id="nv-email" class="input" type="email" name="email" required autocomplete="off"></div>
@@ -48,7 +48,7 @@
 {{if $d.Volunteers}}
 {{/* The boxes of the rows belong to this form (form="bulk"): each row
      keeps its own menu, and forms cannot nest. */}}
-<form id="bulk" method="post" action="{{$base}}/volunteers/join" class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-surface p-3 text-sm ring-1 ring-gray-200">
+<form id="bulk" method="post" action="{{$base}}/list/join" class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-surface p-3 text-sm ring-1 ring-gray-200">
   <span class="text-gray-700">{{t $l "vol.coord.bulk"}}</span>
   <label for="bulk-pole" class="sr-only">{{t $l "vol.coord.add_to_pole"}}</label>
   <select id="bulk-pole" class="input w-auto" name="pole" required><option value="" disabled selected>{{t $l "vol.coord.pick_pole"}}</option>{{range $d.Poles}}{{if not .IsDefault}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}{{end}}</select>
@@ -69,7 +69,7 @@
   {{range $d.Volunteers}}
   <tr>
     <td class="max-sm:absolute max-sm:top-3 max-sm:right-4"><input type="checkbox" form="bulk" name="person" value="{{.Person.UID}}" class="h-4 w-4 accent-brand-600" aria-label="{{t $l "vol.coord.bulk_pick"}} {{.Person.Label}}"></td>
-    <td class="max-sm:justify-start max-sm:pr-8 max-sm:font-medium"><a class="link inline-flex items-center gap-2" href="{{$base}}/volunteers/{{.Person.UID}}">{{template "person_avatar" .Person}}{{.Person.Label}}</a></td>
+    <td class="max-sm:justify-start max-sm:pr-8 max-sm:font-medium"><a class="link inline-flex items-center gap-2" href="{{$base}}/{{.Person.UID}}">{{template "person_avatar" .Person}}{{.Person.Label}}</a></td>
     <td data-label="{{t $l "login.email"}}"><a class="link break-all" href="mailto:{{.Person.Email}}">{{.Person.Email}}</a></td>
     <td data-label="{{t $l "vol.profile.phone"}}">{{with .Person.Phone}}<a class="link" href="tel:{{telHref .}}">{{phone .}}</a>{{end}}</td>
     <td class="text-xs" data-label="{{t $l "vol.coord.stat_poles"}}">{{range $i, $p := .Poles}}{{if $i}}, {{end}}{{$p}}{{end}}</td>
@@ -80,7 +80,7 @@
     <td class="text-right max-sm:justify-end">
       <details class="relative inline-block text-left" data-menu>
         <summary class="btn-secondary btn-sm list-none">{{t $l "vol.coord.add_to_pole"}}</summary>
-        <form method="post" action="{{$base}}/volunteers/{{.Person.UID}}/join" class="mt-2 ml-auto w-64 space-y-2 rounded-lg bg-surface p-3 shadow-lg ring-1 ring-gray-200">
+        <form method="post" action="{{$base}}/{{.Person.UID}}/join" class="mt-2 ml-auto w-64 space-y-2 rounded-lg bg-surface p-3 shadow-lg ring-1 ring-gray-200">
           <label for="vp-{{.Person.UID}}" class="sr-only">{{t $l "vol.coord.add_to_pole"}}</label>
           <select id="vp-{{.Person.UID}}" class="input" name="pole" required><option value="" disabled selected>{{t $l "vol.coord.pick_pole"}}</option>{{range $d.Poles}}{{if not .IsDefault}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}{{end}}</select>
           <button class="btn btn-sm">{{t $l "vol.manage.add"}}</button>

@@ -16,8 +16,8 @@ func TestLogisticsAndReminders(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 	admin := e.adminClient()
-	edition := "/volunteers/" + f.event.Slug + "/edition"
-	home := "/volunteers/" + f.event.Slug
+	edition := "/" + f.event.Slug + "/volunteers"
+	home := "/" + f.event.Slug
 
 	// The coordination says what the edition provides, one per line.
 	e.post(admin, edition+"/settings", url.Values{"status": {store.VolunteersOpen},
@@ -75,7 +75,7 @@ func TestLogisticsAndReminders(t *testing.T) {
 	e.mailed(f.leadEmail, "T-shirt et repas")
 
 	// Who is on no slot, waits for none and does not run the edition.
-	_, body = e.get(admin, edition+"/volunteers?filter=idle")
+	_, body = e.get(admin, edition+"/list?filter=idle")
 	mustContain(t, body, "Sans créneau (1)", "Paul", "Écrire à la personne sans créneau")
 
 	for _, addr := range []string{"nina@example.org", "quentin@example.org", f.leadEmail} {
@@ -94,7 +94,7 @@ func TestLogisticsAndReminders(t *testing.T) {
 	}
 
 	// The time signed up for.
-	_, body = e.get(admin, edition+"/volunteers")
+	_, body = e.get(admin, edition+"/list")
 	mustContain(t, body, "2 h")
 
 	// The next edition offers her size again; meals are asked anew.
@@ -125,8 +125,8 @@ func TestLogisticsClosed(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 	admin := e.adminClient()
-	edition := "/volunteers/" + f.event.Slug + "/edition"
-	home := "/volunteers/" + f.event.Slug
+	edition := "/" + f.event.Slug + "/volunteers"
+	home := "/" + f.event.Slug
 
 	p, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
 	mustOK(t, err)
@@ -171,8 +171,8 @@ func TestLogisticsChoicesChanged(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 	admin := e.adminClient()
-	edition := "/volunteers/" + f.event.Slug + "/edition"
-	home := "/volunteers/" + f.event.Slug
+	edition := "/" + f.event.Slug + "/volunteers"
+	home := "/" + f.event.Slug
 
 	p, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
 	mustOK(t, err)
@@ -239,7 +239,7 @@ func TestIdleReminderPastFreeze(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 	admin := e.adminClient()
-	edition := "/volunteers/" + f.event.Slug + "/edition"
+	edition := "/" + f.event.Slug + "/volunteers"
 
 	p, err := e.st.EnsureVolunteer(ctx, "paul@example.org", "Paul", "", "fr")
 	mustOK(t, err)
@@ -253,7 +253,7 @@ func TestIdleReminderPastFreeze(t *testing.T) {
 	_, body := e.get(admin, edition)
 	mustContain(t, body, "Inscriptions closes (date de clôture passée)")
 
-	_, body = e.get(admin, edition+"/volunteers?filter=idle")
+	_, body = e.get(admin, edition+"/list?filter=idle")
 	mustContain(t, body, "Les relances sont possibles tant que les inscriptions sont ouvertes.")
 
 	if code, _ := e.post(admin, edition+"/remind", url.Values{"audience": {"idle"}}); code != http.StatusBadRequest {

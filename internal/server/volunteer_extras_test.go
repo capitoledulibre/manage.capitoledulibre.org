@@ -44,7 +44,7 @@ func TestVolunteerReminders(t *testing.T) {
 	mails := e.mailer.mailTo("nina@example.org")
 	body := mails[len(mails)-1]
 	mustContain(t, body, "Vos créneaux de", "Voici vos créneaux de bénévolat", "Buvette", f.tomorrow.URL(),
-		"Contact : Lou Lead, lead@conf.test, 06 11 22 33 44", "/volunteers/"+f.event.Slug+"/planning?view=mine")
+		"Contact : Lou Lead, lead@conf.test, 06 11 22 33 44", "/"+f.event.Slug+"/planning?view=mine")
 
 	if e.mailer.count("omar@example.org") != 0 {
 		t.Fatal("a draft edition's slot was recalled")
@@ -89,7 +89,7 @@ func TestProfilePhotoAndGravatar(t *testing.T) {
 	}
 
 	// Asked from the profile, the picture comes.
-	_, body := e.post(nina, "/volunteers/profile/gravatar", nil)
+	_, body := e.post(nina, "/me/gravatar", nil)
 	mustContain(t, body, "Avatar Gravatar récupéré.")
 
 	p, _ := e.st.PersonByEmail(ctx, "nina@example.org")
@@ -121,7 +121,7 @@ func TestProfilePhotoAndGravatar(t *testing.T) {
 	// An uploaded photo wins, and the Gravatar file goes.
 	old := p.AvatarFile
 
-	_, body = e.upload(nina, "/volunteers/profile/photo", nil, "photo", "me.png", pngBytes())
+	_, body = e.upload(nina, "/me/photo", nil, "photo", "me.png", pngBytes())
 	mustContain(t, body, "Photo de profil enregistrée.", "Retirer ma photo")
 
 	if strings.Contains(body, "Chercher mon avatar Gravatar") {
@@ -138,7 +138,7 @@ func TestProfilePhotoAndGravatar(t *testing.T) {
 	}
 
 	// Removing it is an opt-out: no Gravatar comes back.
-	_, body = e.post(nina, "/volunteers/profile/photo/delete", nil)
+	_, body = e.post(nina, "/me/photo/delete", nil)
 	mustContain(t, body, "vos initiales sont affichées")
 	e.app.gravatar.Wait()
 
@@ -148,15 +148,15 @@ func TestProfilePhotoAndGravatar(t *testing.T) {
 	}
 
 	// Until asked for.
-	_, body = e.post(nina, "/volunteers/profile/gravatar", nil)
+	_, body = e.post(nina, "/me/gravatar", nil)
 	mustContain(t, body, "Avatar Gravatar récupéré.")
 
-	_, body = e.post(omar, "/volunteers/profile/gravatar", nil)
+	_, body = e.post(omar, "/me/gravatar", nil)
 	mustContain(t, body, "Aucun avatar n&#39;est associé à omar@example.org")
 
 	// The picture shows in the lists and the menu.
 	p, _ = e.st.PersonByEmail(ctx, "nina@example.org")
-	_, body = e.get(nina, "/volunteers/profile")
+	_, body = e.get(nina, "/me")
 	mustContain(t, body, `src="/avatars/`+p.AvatarFile+`"`)
 
 	e.post(nina, f.morning.URL()+"/signup", url.Values{})
@@ -198,7 +198,7 @@ func TestVolunteerContact(t *testing.T) {
 	nina := e.volunteer("nina@example.org", "Nina", "/volunteers/")
 
 	// Volunteers see their own contact; partners keep theirs.
-	_, body := e.get(nina, "/volunteers/"+f.event.Slug)
+	_, body := e.get(nina, "/"+f.event.Slug)
 	mustContain(t, body, "mailto:benevoles@conf.test")
 
 	if strings.Contains(body, "partenaires@conf.test") {

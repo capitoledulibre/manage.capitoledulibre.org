@@ -126,14 +126,23 @@ when they first use their link, while an edition takes volunteers):
 A partnership is only visible to the partner once its status is
 *negotiating* or *confirmed*.
 
+Every page of an edition sits below its slug: its volunteer home
+(`/example-conf-2026/`), planning (`/example-conf-2026/planning`), poles
+(`/example-conf-2026/poles/buvette`), coordination
+(`/example-conf-2026/volunteers`), the staff's partners
+(`/example-conf-2026/partners/`, a partnership at
+`/example-conf-2026/partners/acme`) and a partner's space
+(`/example-conf-2026/partner/`). What spans editions stays outside: the
+administration (`/admin/…`, an edition's settings at
+`/admin/editions/example-conf-2026`), the profile (`/me`), the logins and
+the ways in (`/volunteers/`, `/partners/`), which lead to the right
+edition. An edition cannot take a slug that is a word of the site's own.
+
 URLs and forms never expose integer ids, so identifiers cannot be guessed by
-counting: editions and organizations are addressed by slug
-(`/admin/events/example-conf-2026`), a partnership by organization and
-edition (`/admin/organizations/acme/editions/example-conf-2026`), and
-other rows (levels, perks, managers, attendees, job offers, posts, staff,
-shifts, tasks, places, messages, people) by a random UUID; poles are addressed
-by edition and slug (`/volunteers/example-conf-2026/buvette`). Tests
-crawl the pages to enforce it.
+counting: editions, organizations and poles are addressed by slug, other
+rows (levels, perks, managers, attendees, job offers, posts, staff, shifts,
+tasks, places, messages, people) by a random UUID. Tests crawl the pages to
+enforce it.
 
 ## Development
 
@@ -205,12 +214,12 @@ Everything is configured with environment variables; see
 
 ```sh
 curl -H "Authorization: Bearer $MANAGE_EXPORT_TOKEN" \
-  "https://manage.example.org/api/partners.json?event=example-conf-2026"
+  "https://manage.example.org/example-conf-2026/api/partners.json"
 # or, on the server:
 manage export -event example-conf-2026 -o partners.json
 ```
 
-Without `event`, the current edition is exported. Only confirmed partners
+The command exports the current edition without `-event`. Only confirmed partners
 are included, grouped by level (highest first):
 
 ```json

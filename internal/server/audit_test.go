@@ -26,7 +26,7 @@ func TestSafeRedirect(t *testing.T) {
 		}
 	}
 
-	for _, next := range []string{"/volunteers/", "/partners/?event=ec-2026", "/a/b#c", "/./x"} {
+	for _, next := range []string{"/volunteers/", "/ec-2026/partner/", "/a/b#c", "/./x"} {
 		if got := safeRedirect(next, "/home"); got != next {
 			t.Errorf("%q refused", next)
 		}
@@ -52,9 +52,9 @@ func TestSafeRedirect(t *testing.T) {
 
 func TestSecretsOutOfLogs(t *testing.T) {
 	for path, want := range map[string]string{
-		"/auth/s3cr3t":           "/auth/…",
-		"/calendar/s3cr3t.ics":   "/calendar/…",
-		"/volunteers/ec-2026/me": "/volunteers/ec-2026/me",
+		"/auth/s3cr3t":         "/auth/…",
+		"/calendar/s3cr3t.ics": "/calendar/…",
+		"/ec-2026/me":          "/ec-2026/me",
 	} {
 		if got := logPath(httptest.NewRequest(http.MethodGet, path, nil)); got != want {
 			t.Errorf("%s logged as %s", path, got)
@@ -119,7 +119,7 @@ func TestAttendeesCSVIsSafe(t *testing.T) {
 
 	mustOK(t, e.st.AddAttendee(ctx, &store.Attendee{PartnershipID: f.acmeP.ID, FirstName: "=HYPERLINK(\"https://evil\")", LastName: "+1", Dietary: "@SUM(A1)"}))
 
-	_, body := e.get(e.adminClient(), "/admin/events/"+f.event.Slug+"/attendees.csv")
+	_, body := e.get(e.adminClient(), "/"+f.event.Slug+"/partners/attendees.csv")
 	mustContain(t, body, `'=HYPERLINK`, "'+1", "'@SUM")
 }
 
@@ -166,7 +166,7 @@ func TestUnnamedVolunteerKeepsTheirAddress(t *testing.T) {
 	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, quiet.ID))
 	mustOK(t, e.st.ForceSignup(ctx, f.overlap.ID, quiet.ID))
 
-	planning := "/volunteers/" + f.event.Slug + "/planning?day=all"
+	planning := "/" + f.event.Slug + "/planning?day=all"
 
 	nina := e.volunteer("nina@example.org", "Nina", "/volunteers/")
 	for _, path := range []string{planning, f.overlap.URL(), f.buvette.URL()} {

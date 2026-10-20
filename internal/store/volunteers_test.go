@@ -184,7 +184,7 @@ func TestPoleSlugs(t *testing.T) {
 	}
 
 	got, err := s.GetPoleBySlug(ctx, e.ID, "buvette-crepes-2")
-	if err != nil || got.ID != p2.ID || got.URL() != "/volunteers/ec-2026/buvette-crepes-2" {
+	if err != nil || got.ID != p2.ID || got.URL() != "/ec-2026/poles/buvette-crepes-2" {
 		t.Fatalf("GetPoleBySlug: %+v %v", got, err)
 	}
 

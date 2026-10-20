@@ -37,9 +37,9 @@ type Page struct {
 	// RequestURI is the path with its query string, used to come back to
 	// the same page after switching language.
 	RequestURI string
-	// EventQuery keeps the selected edition ("?event=slug") in partner
-	// navigation links.
-	EventQuery string
+	// PartnerSpace is where the partner's space of the edition starts, for
+	// the partner navigation's links.
+	PartnerSpace string
 	// Theme is "system", "light" or "dark".
 	Theme string
 	// Nav is the active admin section: "pipeline", "partners", "people",
@@ -74,15 +74,14 @@ type Page struct {
 func (s *Server) page(r *http.Request, title string) *Page {
 	c := rc(r)
 
-	area := "public"
+	area := c.area
 
 	switch {
-	case strings.HasPrefix(r.URL.Path, "/admin"):
+	case area == "" && strings.HasPrefix(r.URL.Path, "/admin"):
+		// The staff's login pages.
 		area = "admin"
-	case strings.HasPrefix(r.URL.Path, "/partners/") && c.Org != nil:
-		area = "partner"
-	case strings.HasPrefix(r.URL.Path, "/volunteers/") && c.Person != nil:
-		area = "volunteer"
+	case area == "partner" && c.Org == nil, area == "volunteer" && c.Person == nil, area == "":
+		area = "public"
 	}
 
 	lang := c.Lang
@@ -91,9 +90,9 @@ func (s *Server) page(r *http.Request, title string) *Page {
 		lang = "fr"
 	}
 
-	eventQuery := ""
-	if slug := r.URL.Query().Get("event"); area == "partner" && slug != "" {
-		eventQuery = "?event=" + url.QueryEscape(slug)
+	partnerSpace := ""
+	if slug := r.PathValue("event"); area == "partner" && slug != "" {
+		partnerSpace = "/" + slug + "/partner"
 	}
 
 	p := &Page{
@@ -102,7 +101,7 @@ func (s *Server) page(r *http.Request, title string) *Page {
 		Area:          area,
 		Path:          r.URL.Path,
 		RequestURI:    r.URL.RequestURI(),
-		EventQuery:    eventQuery,
+		PartnerSpace:  partnerSpace,
 		Theme:         detectTheme(r),
 		Site:          s.site,
 		Nav:           adminNav(r.URL.Path),
@@ -128,16 +127,19 @@ func (s *Server) page(r *http.Request, title string) *Page {
 	return p
 }
 
-var pipelinePath = regexp.MustCompile(`^/admin/events/[^/]+$`)
+var (
+	pipelinePath    = regexp.MustCompile(`^/[^/]+/partners/$`)
+	partnershipPath = regexp.MustCompile(`^/[^/]+/partners/[^/]+`)
+)
 
-// adminNav maps an admin path to its menu section.
+// adminNav maps a staff path to its menu section.
 func adminNav(path string) string {
 	switch {
-	case path == "/admin/" || pipelinePath.MatchString(path) && path != "/admin/events/new":
+	case path == "/admin/" || pipelinePath.MatchString(path):
 		return "pipeline"
-	case strings.HasPrefix(path, "/admin/organizations"):
+	case strings.HasPrefix(path, "/admin/organizations") || partnershipPath.MatchString(path):
 		return "partners"
-	case strings.HasPrefix(path, "/admin/events"):
+	case strings.HasPrefix(path, "/admin/editions"):
 		return "editions"
 	case strings.HasPrefix(path, "/admin/profile"):
 		return "profile"

@@ -107,11 +107,11 @@ func TestAccessControl(t *testing.T) {
 	admin := e.adminClient()
 
 	t.Run("attendees locked after the deadline for partners only", func(t *testing.T) {
-		if code, _ := e.post(alice, "/partners/attendees", url.Values{"first_name": {"A"}, "last_name": {"B"}}); code != 403 {
+		if code, _ := e.post(alice, "/"+f.event.Slug+"/partner/attendees", url.Values{"first_name": {"A"}, "last_name": {"B"}}); code != 403 {
 			t.Errorf("partner add after deadline: %d", code)
 		}
 
-		_, body := e.get(alice, "/partners/attendees")
+		_, body := e.get(alice, "/"+f.event.Slug+"/partner/attendees")
 		mustContain(t, body, "La date limite est passée")
 
 		e.post(admin, partnershipURL(f.acme, f.event)+"/attendees", url.Values{"first_name": {"A"}, "last_name": {"B"}})
@@ -128,13 +128,13 @@ func TestAccessControl(t *testing.T) {
 		_, body := e.get(bob, "/partners/")
 		mustContain(t, body, "Aucun partenariat en cours")
 
-		if code, _ := e.get(bob, "/partners/documents/"+f.event.Slug+"/quote"); code != 404 {
+		if code, _ := e.get(bob, "/"+f.event.Slug+"/partner/documents/quote"); code != 404 {
 			t.Errorf("prospect quote: %d", code)
 		}
 	})
 
 	t.Run("cannot switch to another person's account", func(t *testing.T) {
-		if code, _ := e.post(bob, "/partners/choose", url.Values{"manager": {f.alice.UID}}); code != 403 {
+		if code, _ := e.post(bob, "/choose", url.Values{"manager": {f.alice.UID}}); code != 403 {
 			t.Errorf("choose foreign manager: %d", code)
 		}
 	})
@@ -155,7 +155,7 @@ func TestAccessControl(t *testing.T) {
 			}
 		}
 
-		if code, _ := e.get(anon, "/api/partners.json?token=wrong"); code != 401 {
+		if code, _ := e.get(anon, "/"+f.event.Slug+"/api/partners.json?token=wrong"); code != 401 {
 			t.Errorf("export with wrong token: %d", code)
 		}
 	})
@@ -166,7 +166,7 @@ func TestAccessControl(t *testing.T) {
 		mustOK(t, err)
 
 		carolClient := e.loginAs("carol@acme.test")
-		e.post(alice, "/partners/managers/"+carol.UID+"/delete", nil)
+		e.post(alice, "/"+f.event.Slug+"/partner/managers/"+carol.UID+"/delete", nil)
 
 		// Carol stays logged in (she may come for something else), but
 		// the organization is gone from her session.
@@ -175,7 +175,7 @@ func TestAccessControl(t *testing.T) {
 	})
 
 	t.Run("the last manager cannot be removed", func(t *testing.T) {
-		_, body := e.post(bob, "/partners/managers/"+f.bob.UID+"/delete", nil)
+		_, body := e.post(bob, "/"+f.event.Slug+"/partner/managers/"+f.bob.UID+"/delete", nil)
 		mustContain(t, body, "dernier contact")
 	})
 
@@ -242,8 +242,9 @@ func TestEditionIsKeptInLinks(t *testing.T) {
 
 	alice := e.loginAs("alice@acme.test")
 
-	_, body := e.get(alice, "/partners/?event=ec-2025")
-	mustContain(t, body, "Avancement · EC 2025", `href="/partners/attendees?event=ec-2025"`, "event%3dec-2025")
+	// The edition is in every address of the partner's space.
+	_, body := e.get(alice, "/ec-2025/partner/")
+	mustContain(t, body, "Avancement · EC 2025", `href="/ec-2025/partner/attendees"`, "%2fec-2025%2fpartner%2f")
 
 	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, "Avancement · EC 2026")
@@ -278,21 +279,21 @@ func TestSocialPosts(t *testing.T) {
 	// The e-mail links to the partner's own page for that edition, which a
 	// logged-out partner reaches through the login.
 	mails := e.mailer.mailTo("alice@acme.test")
-	mustContain(t, mails[len(mails)-1], "/partners/?event="+f.event.Slug)
+	mustContain(t, mails[len(mails)-1], "/"+f.event.Slug+"/partner/")
 
 	c := e.client()
 	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 
-	resp, err := c.Get(e.srv.URL + "/partners/?event=" + f.event.Slug)
+	resp, err := c.Get(e.srv.URL + "/" + f.event.Slug + "/partner/")
 	mustOK(t, err)
 	resp.Body.Close()
 
-	if loc := resp.Header.Get("Location"); loc != "/partners/login?next="+url.QueryEscape("/partners/?event="+f.event.Slug) {
+	if loc := resp.Header.Get("Location"); loc != "/partners/login?next="+url.QueryEscape("/"+f.event.Slug+"/partner/") {
 		t.Errorf("logged out: %q", loc)
 	}
 
-	_, body = e.get(e.client(), "/partners/login?next="+url.QueryEscape("/partners/attendees"))
-	mustContain(t, body, `name="next" value="/partners/attendees"`)
+	_, body = e.get(e.client(), "/partners/login?next="+url.QueryEscape("/"+f.event.Slug+"/partner/attendees"))
+	mustContain(t, body, `name="next" value="/ec-2026/partner/attendees"`)
 
 	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, `href="https://www.linkedin.com/posts/ec-123"`, "Voir le post")
@@ -377,7 +378,7 @@ func TestPricingAndTax(t *testing.T) {
 	mustContain(t, body, "2 000 € HT")
 
 	// The level switches to "VAT not applicable".
-	e.post(admin, "/admin/events/"+f.event.Slug+"/levels", url.Values{
+	e.post(admin, "/admin/editions/"+f.event.Slug+"/levels", url.Values{
 		"level": {f.level.UID}, "name": {"Or"}, "position": {"2"}, "price": {"2000"}, "tax_mode": {"none"},
 	})
 
@@ -396,7 +397,7 @@ func TestPricingAndTax(t *testing.T) {
 	_, body = e.get(alice, "/partners/")
 	mustContain(t, body, "1 500 € TVA non applicable")
 
-	_, body = e.get(admin, "/admin/events/"+f.event.Slug)
+	_, body = e.get(admin, "/"+f.event.Slug+"/partners/")
 	mustContain(t, body, "Montant confirmé", "1 500 €", "négocié")
 
 	// Clearing the field goes back to the level price; bad input is refused.
@@ -501,7 +502,7 @@ func TestRenewOwnerAndPayment(t *testing.T) {
 	e.post(admin, pid, url.Values{"status": {"confirmed"}, "level": {f.level.UID}, "owner": {me.UID}})
 	e.post(admin, partnershipURL(f.prospect, f.event), url.Values{"status": {"prospect"}, "owner": {colleague.UID}})
 
-	_, body := e.get(admin, "/admin/events/"+f.event.Slug+"?mine=1")
+	_, body := e.get(admin, "/"+f.event.Slug+"/partners/?mine=1")
 	mustContain(t, body, "Acme", "staff@conf.test", "Tous les partenaires")
 
 	if strings.Contains(body, "Prospect Inc") {
@@ -547,7 +548,7 @@ func TestRenewOwnerAndPayment(t *testing.T) {
 	f.acmeP.PONumber = "PO-42"
 	mustOK(t, e.st.UpdatePartnership(ctx, f.acmeP))
 
-	_, body = e.get(e.loginAs("alice@acme.test"), "/partners/?event=ec-2026")
+	_, body = e.get(e.loginAs("alice@acme.test"), "/ec-2026/partner/")
 	mustContain(t, body, "Règlement", "IBAN : FR76 1234", "art. 293 B", "Bon de commande : PO-42")
 }
 
@@ -558,21 +559,21 @@ func TestProfileAndTheme(t *testing.T) {
 	f := e.fixture(nil)
 	alice := e.loginAs("alice@acme.test")
 
-	e.post(alice, "/partners/profile", url.Values{"name": {"Alice M."}, "lang": {"en"}})
+	e.post(alice, "/"+f.event.Slug+"/partner/profile", url.Values{"name": {"Alice M."}, "lang": {"en"}})
 
 	m, _ := e.st.GetManager(ctx, f.alice.ID)
 	if m.Name != "Alice M." || m.Lang != "en" {
 		t.Errorf("profile not saved: %+v", m)
 	}
 
-	_, body := e.get(alice, "/partners/managers")
+	_, body := e.get(alice, "/"+f.event.Slug+"/partner/managers")
 	mustContain(t, body, "My profile", "Alice M.")
 
 	// Staff impersonating a partner cannot edit a manager's profile.
 	admin := e.adminClient()
 	e.post(admin, "/admin/organizations/"+f.acme.Slug+"/view-as", nil)
 
-	if code, _ := e.post(admin, "/partners/profile", url.Values{"name": {"Hacked"}}); code != 403 {
+	if code, _ := e.post(admin, "/"+f.event.Slug+"/partner/profile", url.Values{"name": {"Hacked"}}); code != 403 {
 		t.Errorf("impersonated profile edit: %d", code)
 	}
 
@@ -687,7 +688,7 @@ func TestMedalsBadgesAndContact(t *testing.T) {
 	admin := e.adminClient()
 
 	// The level color is saved; an invalid value falls back to the default.
-	e.post(admin, "/admin/events/"+f.event.Slug+"/levels", url.Values{
+	e.post(admin, "/admin/editions/"+f.event.Slug+"/levels", url.Values{
 		"level": {f.level.UID}, "name": {"Or"}, "position": {"2"}, "price": {"2000"}, "color": {"#123ABC"},
 	})
 
@@ -696,7 +697,7 @@ func TestMedalsBadgesAndContact(t *testing.T) {
 		t.Errorf("color: %q", l.Color)
 	}
 
-	e.post(admin, "/admin/events/"+f.event.Slug+"/levels", url.Values{
+	e.post(admin, "/admin/editions/"+f.event.Slug+"/levels", url.Values{
 		"level": {f.level.UID}, "name": {"Or"}, "position": {"2"}, "price": {"2000"}, "color": {"red; background:url(x)"},
 	})
 
@@ -799,11 +800,11 @@ func TestPartnerFileNavigation(t *testing.T) {
 
 	// The active menu section follows the page.
 	for path, want := range map[string]string{
-		"/admin/events/" + f.event.Slug:             "pipeline",
-		"/admin/events/" + f.event.Slug + "/levels": "editions",
-		partnershipURL(f.acme, f.event):             "partners",
-		"/admin/organizations":                      "partners",
-		"/admin/profile":                            "profile",
+		"/" + f.event.Slug + "/partners/":             "pipeline",
+		"/admin/editions/" + f.event.Slug + "/levels": "editions",
+		partnershipURL(f.acme, f.event):               "partners",
+		"/admin/organizations":                        "partners",
+		"/admin/profile":                              "profile",
 	} {
 		if got := adminNav(path); got != want {
 			t.Errorf("adminNav(%s) = %q, want %q", path, got, want)
@@ -852,22 +853,22 @@ func TestCloneLevelsFromAdmin(t *testing.T) {
 	mustOK(t, e.st.SavePerk(ctx, &store.Perk{EventID: f.event.ID, NameFR: "Logo sur le site"}))
 
 	// A new edition can start from the levels of the previous one.
-	_, body := e.post(admin, "/admin/events/new", url.Values{"name": {"EC 2027"}, "year": {"2027"}, "copy_from": {f.event.Slug}})
+	_, body := e.post(admin, "/admin/editions/new", url.Values{"name": {"EC 2027"}, "year": {"2027"}, "copy_from": {f.event.Slug}})
 	mustContain(t, body, "Niveaux et contreparties copiés", `value="Or"`, "Logo sur le site")
 
 	next, err := e.st.GetEventBySlug(ctx, "ec-2027")
 	mustOK(t, err)
 
 	// Copying again from the levels page adds nothing.
-	_, body = e.post(admin, "/admin/events/"+next.Slug+"/clone", url.Values{"source": {f.event.Slug}})
+	_, body = e.post(admin, "/admin/editions/"+next.Slug+"/clone", url.Values{"source": {f.event.Slug}})
 	mustContain(t, body, "Rien à copier")
 
-	if code, _ := e.post(admin, "/admin/events/"+next.Slug+"/clone", url.Values{"source": {next.Slug}}); code != 400 {
+	if code, _ := e.post(admin, "/admin/editions/"+next.Slug+"/clone", url.Values{"source": {next.Slug}}); code != 400 {
 		t.Errorf("clone into itself: %d", code)
 	}
 
 	// Without copy_from, a new edition starts empty.
-	e.post(admin, "/admin/events/new", url.Values{"name": {"EC 2028"}, "year": {"2028"}})
+	e.post(admin, "/admin/editions/new", url.Values{"name": {"EC 2028"}, "year": {"2028"}})
 
 	empty, _ := e.st.GetEventBySlug(ctx, "ec-2028")
 	if levels, _ := e.st.ListLevels(ctx, empty.ID); len(levels) != 0 {
@@ -922,7 +923,7 @@ func TestNoNumericIDsInPages(t *testing.T) {
 	}
 
 	for _, path := range []string{
-		"/admin/events", "/admin/events/new", eventURL(f.event), eventURL(f.event) + "/edit", eventURL(f.event) + "/levels",
+		"/admin/editions", "/admin/editions/new", eventURL(f.event), editionAdminURL(f.event), editionAdminURL(f.event) + "/levels",
 		"/admin/organizations", orgURL(f.acme), partnershipURL(f.acme, f.event), partnershipURL(f.prospect, f.event), "/admin/profile", "/admin/people",
 	} {
 		check(admin, path)
@@ -930,12 +931,12 @@ func TestNoNumericIDsInPages(t *testing.T) {
 
 	alice := e.loginAs("alice@acme.test")
 
-	for _, path := range []string{"/partners/", "/partners/organization", "/partners/logo", "/partners/attendees", "/partners/jobs", "/partners/managers", "/jobs"} {
+	for _, path := range []string{"/partners/", "/" + f.event.Slug + "/partner/organization", "/" + f.event.Slug + "/partner/logo", "/" + f.event.Slug + "/partner/attendees", "/" + f.event.Slug + "/partner/jobs", "/" + f.event.Slug + "/partner/managers", "/jobs"} {
 		check(alice, path)
 	}
 
 	jobs, _ := e.st.ListJobOffers(ctx, f.acme.ID)
-	check(alice, "/partners/jobs/"+jobs[0].UID)
+	check(alice, "/"+f.event.Slug+"/partner/jobs/"+jobs[0].UID)
 }
 
 // TestPartnerNotesKept checks that the staff form, saved after the partner
@@ -953,7 +954,7 @@ func TestPartnerNotesKept(t *testing.T) {
 	_, body := e.get(admin, pid)
 	mustContain(t, body, `name="partner_notes_was" value=""`)
 
-	e.post(alice, "/partners/notes", url.Values{"event": {f.event.Slug}, "po_number": {"PO-123"}, "partner_notes": {"Il nous faut un bon de commande."},
+	e.post(alice, "/"+f.event.Slug+"/partner/notes", url.Values{"event": {f.event.Slug}, "po_number": {"PO-123"}, "partner_notes": {"Il nous faut un bon de commande."},
 		"po_number_was": {""}, "partner_notes_was": {""}})
 	e.post(admin, pid, url.Values{"status": {"confirmed"}, "level": {f.level.UID},
 		"po_number": {""}, "po_number_was": {""}, "partner_notes": {""}, "partner_notes_was": {""}})

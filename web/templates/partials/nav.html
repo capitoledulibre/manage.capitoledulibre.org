@@ -1,19 +1,17 @@
 {{define "partner_nav"}}
-  {{$p := .Path}}
-  <a class="nav-link {{if eq $p "/partners/"}}nav-link-active{{end}}" {{if eq $p "/partners/"}}aria-current="page"{{end}} href="/partners/{{.EventQuery}}">{{t .Lang "nav.dashboard"}}</a>
-  <a class="nav-link {{if eq $p "/partners/organization"}}nav-link-active{{end}}" {{if eq $p "/partners/organization"}}aria-current="page"{{end}} href="/partners/organization">{{t .Lang "nav.organization"}}</a>
-  <a class="nav-link {{if eq $p "/partners/logo"}}nav-link-active{{end}}" {{if eq $p "/partners/logo"}}aria-current="page"{{end}} href="/partners/logo">{{t .Lang "nav.logo"}}</a>
-  <a class="nav-link {{if eq $p "/partners/attendees"}}nav-link-active{{end}}" {{if eq $p "/partners/attendees"}}aria-current="page"{{end}} href="/partners/attendees{{.EventQuery}}">{{t .Lang "nav.attendees"}}</a>
-  <a class="nav-link {{if eq $p "/partners/jobs"}}nav-link-active{{end}}" {{if eq $p "/partners/jobs"}}aria-current="page"{{end}} href="/partners/jobs">{{t .Lang "nav.jobs"}}</a>
-  <a class="nav-link {{if eq $p "/partners/managers"}}nav-link-active{{end}}" {{if eq $p "/partners/managers"}}aria-current="page"{{end}} href="/partners/managers">{{t .Lang "nav.managers"}}</a>
+  {{$p := .Path}}{{$s := .PartnerSpace}}
+  {{range (list "" "organization" "logo" "attendees" "jobs" "managers")}}
+  {{$href := printf "%s/%s" $s .}}{{$key := or (and (eq . "") "dashboard") .}}
+  <a class="nav-link {{if eq $p $href}}nav-link-active{{end}}" {{if eq $p $href}}aria-current="page"{{end}} href="{{$href}}">{{t $.Lang (printf "nav.%s" $key)}}</a>
+  {{end}}
 {{end}}
 
 {{define "volunteer_nav"}}
   {{with .Vol.Event}}
-  {{$p := $.Path}}{{$base := printf "/volunteers/%s" .Slug}}
-  <a class="nav-link {{if eq $p $base}}nav-link-active{{end}}" {{if eq $p $base}}aria-current="page"{{end}} href="{{$base}}">{{t $.Lang "vol.nav.poles"}}</a>
+  {{$p := $.Path}}{{$base := printf "/%s" .Slug}}{{$home := printf "%s/" $base}}
+  <a class="nav-link {{if eq $p $home}}nav-link-active{{end}}" {{if eq $p $home}}aria-current="page"{{end}} href="{{$home}}">{{t $.Lang "vol.nav.poles"}}</a>
   <a class="nav-link {{if eq $p (printf "%s/planning" $base)}}nav-link-active{{end}}" {{if eq $p (printf "%s/planning" $base)}}aria-current="page"{{end}} href="{{$base}}/planning">{{t $.Lang "vol.nav.planning"}}</a>
-  {{if $.Vol.Coordinator}}<a class="nav-link {{if hasPrefix $p (printf "%s/edition" $base)}}nav-link-active{{end}}" href="{{$base}}/edition">{{t $.Lang "vol.nav.coordination"}}</a>{{end}}
+  {{if $.Vol.Coordinator}}<a class="nav-link {{if hasPrefix $p (printf "%s/volunteers" $base)}}nav-link-active{{end}}" href="{{$base}}/volunteers">{{t $.Lang "vol.nav.coordination"}}</a>{{end}}
   {{end}}
 {{end}}
 
@@ -22,13 +20,13 @@
      spent. The header carries the same links on larger screens. */}}
 {{define "volunteer_tabs"}}
 {{with .Vol.Event}}
-{{$p := $.Path}}{{$base := printf "/volunteers/%s" .Slug}}
+{{$p := $.Path}}{{$base := printf "/%s" .Slug}}{{$home := printf "%s/" $base}}
 <nav class="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-200 bg-surface sm:hidden print:hidden" aria-label="{{t $.Lang "vol.tabs.label"}}">
   {{/* Home first: on the day, it says where to be now. */}}
-  {{template "volunteer_tab" (dict "Href" $base "On" (eq $p $base) "Label" (t $.Lang "vol.tabs.poles") "Icon" "M3 4h6v6H3zm8 0h6v6h-6zM3 12h6v6H3zm8 0h6v6h-6z")}}
+  {{template "volunteer_tab" (dict "Href" $home "On" (eq $p $home) "Label" (t $.Lang "vol.tabs.poles") "Icon" "M3 4h6v6H3zm8 0h6v6h-6zM3 12h6v6H3zm8 0h6v6h-6z")}}
   {{template "volunteer_tab" (dict "Href" (printf "%s/planning" $base) "On" (eq $p (printf "%s/planning" $base)) "Label" (t $.Lang "vol.tabs.planning") "Icon" "M5 2h2v2h6V2h2v2h2v14H3V4h2zm-0 6v8h10V8z")}}
-  {{if $.Vol.Coordinator}}{{template "volunteer_tab" (dict "Href" (printf "%s/edition" $base) "On" (hasPrefix $p (printf "%s/edition" $base)) "Label" (t $.Lang "vol.tabs.coordination") "Icon" "M3 17V9h3v8zm5 0V3h3v14zm5 0v-6h3v6z")}}{{end}}
-  {{template "volunteer_tab" (dict "Href" "/volunteers/profile" "On" (eq $p "/volunteers/profile") "Label" (t $.Lang "vol.tabs.me") "Icon" "M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0z")}}
+  {{if $.Vol.Coordinator}}{{template "volunteer_tab" (dict "Href" (printf "%s/volunteers" $base) "On" (hasPrefix $p (printf "%s/volunteers" $base)) "Label" (t $.Lang "vol.tabs.coordination") "Icon" "M3 17V9h3v8zm5 0V3h3v14zm5 0v-6h3v6z")}}{{end}}
+  {{template "volunteer_tab" (dict "Href" "/me" "On" (eq $p "/me") "Label" (t $.Lang "vol.tabs.me") "Icon" "M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0z")}}
 </nav>
 {{end}}
 {{end}}
@@ -45,7 +43,7 @@
   <a class="nav-link" href="/admin/volunteers">Bénévoles</a>
   <a class="nav-link {{if eq .Nav "partners"}}nav-link-active{{end}}" {{if eq .Nav "partners"}}aria-current="page"{{end}} href="/admin/organizations">Partenaires</a>
   <a class="nav-link {{if eq .Nav "people"}}nav-link-active{{end}}" {{if eq .Nav "people"}}aria-current="page"{{end}} href="/admin/people">Personnes</a>
-  <a class="nav-link {{if eq .Nav "editions"}}nav-link-active{{end}}" {{if eq .Nav "editions"}}aria-current="page"{{end}} href="/admin/events">Éditions</a>
+  <a class="nav-link {{if eq .Nav "editions"}}nav-link-active{{end}}" {{if eq .Nav "editions"}}aria-current="page"{{end}} href="/admin/editions">Éditions</a>
   <a class="nav-link" href="/jobs">Jobs publics</a>
 {{end}}
 
@@ -55,8 +53,8 @@
      Active ("partners" or "volunteers"). */}}
 {{define "edition_tabs"}}
 <nav class="mb-4 flex gap-1 border-b border-gray-200" aria-label="{{.Event.Name}}">
-  <a href="/admin/events/{{.Event.Slug}}" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq .Active "partners"}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq .Active "partners"}}aria-current="page"{{end}}>Partenaires</a>
-  <a href="/volunteers/{{.Event.Slug}}/edition" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq .Active "volunteers"}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq .Active "volunteers"}}aria-current="page"{{end}}>Bénévoles</a>
+  <a href="/{{.Event.Slug}}/partners/" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq .Active "partners"}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq .Active "partners"}}aria-current="page"{{end}}>Partenaires</a>
+  <a href="/{{.Event.Slug}}/volunteers" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq .Active "volunteers"}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq .Active "volunteers"}}aria-current="page"{{end}}>Bénévoles</a>
 </nav>
 {{end}}
 
@@ -70,7 +68,7 @@
 {{$h := .}}
 <nav class="mb-3 flex flex-wrap items-center gap-1.5 text-sm text-gray-500" aria-label="Fil d'Ariane">
   {{with $h.Event}}
-    <a class="link" href="/admin/events/{{.Slug}}">Pipeline {{.Name}}</a>
+    <a class="link" href="/{{.Slug}}/partners/">Pipeline {{.Name}}</a>
   {{else}}
     <a class="link" href="/admin/organizations">Partenaires</a>
   {{end}}

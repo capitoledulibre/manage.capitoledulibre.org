@@ -69,10 +69,10 @@
       <button type="button" class="btn-secondary btn-sm shrink-0" data-copy="#calendar-url" data-copied="{{t $l "vol.copied"}}">{{t $l "vol.copy"}}</button>
     </div>
     <p class="help mt-2">{{t $l "vol.me.calendar_private"}}</p>
-    <form method="post" action="/volunteers/{{$e.Slug}}/me/calendar/reset" class="mt-2" data-confirm="{{t $l "vol.me.calendar_reset_confirm"}}">
+    <form method="post" action="/{{$e.Slug}}/me/calendar/reset" class="mt-2" data-confirm="{{t $l "vol.me.calendar_reset_confirm"}}">
       <button class="link text-sm">{{t $l "vol.me.calendar_reset"}}</button>
     </form>
-    <p class="help mt-2">{{t $l "vol.me.calendar_download"}} <a class="link" href="/volunteers/{{$e.Slug}}/me.ics">{{t $l "vol.me.calendar_file"}}</a></p>
+    <p class="help mt-2">{{t $l "vol.me.calendar_download"}} <a class="link" href="/{{$e.Slug}}/me.ics">{{t $l "vol.me.calendar_file"}}</a></p>
   </details>
   {{end}}
 </div>

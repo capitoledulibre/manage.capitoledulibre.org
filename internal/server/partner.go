@@ -22,37 +22,43 @@ const (
 	maxLogoVersions = 10
 )
 
-func (s *Server) partnerRoutes(mux *http.ServeMux) {
+func (s *Server) partnerRoutes(mux *router) {
 	h := func(pattern string, fn handlerFunc) { mux.Handle(pattern, s.wrap(s.requireOrg(fn))) }
 
-	h("GET /partners/{$}", s.partnerDashboard)
-	h("POST /partners/notes", s.partnerNotes)
+	// The way in, from e-mails and logins: the space of the default
+	// edition. Every page of the space sits below /{event}/partner.
+	h("GET /partners/{$}", s.partnerEntry)
 	// Choosing an organization needs a logged-in person, not an organization
 	// already chosen: one whose organization was taken away comes here too.
-	mux.Handle("GET /partners/choose", s.wrap(s.requirePerson(s.partnerChoose)))
-	mux.Handle("POST /partners/choose", s.wrap(s.requirePerson(s.partnerChooseSubmit)))
-	h("GET /partners/documents/{event}/{kind}", s.partnerDocument)
-	h("POST /partners/documents/{event}/signed-quote", s.partnerSignedQuote)
-	h("GET /partners/event-documents/{event}/{kind}", s.partnerEventDocument)
-	h("GET /partners/organization", s.partnerOrganization)
-	h("POST /partners/organization", s.partnerOrganizationSubmit)
-	h("GET /partners/logo", s.partnerLogo)
-	h("POST /partners/logo", s.partnerLogoSubmit)
-	h("GET /partners/attendees", s.partnerAttendees)
-	h("POST /partners/attendees", s.partnerAttendeeAdd)
-	h("POST /partners/attendees/{attendee}", s.partnerAttendeeUpdate)
-	h("POST /partners/attendees/{attendee}/delete", s.partnerAttendeeDelete)
-	h("GET /partners/jobs", s.partnerJobs)
-	h("GET /partners/jobs/new", s.partnerJobForm)
-	h("POST /partners/jobs/new", s.partnerJobSubmit)
-	h("GET /partners/jobs/{job}", s.partnerJobForm)
-	h("POST /partners/jobs/{job}", s.partnerJobSubmit)
-	h("POST /partners/jobs/{job}/delete", s.partnerJobDelete)
-	h("GET /partners/managers", s.partnerManagers)
-	h("POST /partners/managers", s.partnerManagerInvite)
-	h("POST /partners/managers/{manager}/delete", s.partnerManagerDelete)
-	h("POST /partners/managers/{manager}/send-link", s.partnerManagerSendLink)
-	h("POST /partners/profile", s.partnerProfile)
+	mux.Handle("GET /choose", s.wrap(s.requirePerson(s.partnerChoose)))
+	mux.Handle("POST /choose", s.wrap(s.requirePerson(s.partnerChooseSubmit)))
+
+	const base = "/{event}/partner"
+
+	h("GET "+base+"/{$}", s.partnerDashboard)
+	h("POST "+base+"/notes", s.partnerNotes)
+	h("GET "+base+"/documents/{kind}", s.partnerDocument)
+	h("POST "+base+"/documents/signed-quote", s.partnerSignedQuote)
+	h("GET "+base+"/event-documents/{kind}", s.partnerEventDocument)
+	h("GET "+base+"/organization", s.partnerOrganization)
+	h("POST "+base+"/organization", s.partnerOrganizationSubmit)
+	h("GET "+base+"/logo", s.partnerLogo)
+	h("POST "+base+"/logo", s.partnerLogoSubmit)
+	h("GET "+base+"/attendees", s.partnerAttendees)
+	h("POST "+base+"/attendees", s.partnerAttendeeAdd)
+	h("POST "+base+"/attendees/{attendee}", s.partnerAttendeeUpdate)
+	h("POST "+base+"/attendees/{attendee}/delete", s.partnerAttendeeDelete)
+	h("GET "+base+"/jobs", s.partnerJobs)
+	h("GET "+base+"/jobs/new", s.partnerJobForm)
+	h("POST "+base+"/jobs/new", s.partnerJobSubmit)
+	h("GET "+base+"/jobs/{job}", s.partnerJobForm)
+	h("POST "+base+"/jobs/{job}", s.partnerJobSubmit)
+	h("POST "+base+"/jobs/{job}/delete", s.partnerJobDelete)
+	h("GET "+base+"/managers", s.partnerManagers)
+	h("POST "+base+"/managers", s.partnerManagerInvite)
+	h("POST "+base+"/managers/{manager}/delete", s.partnerManagerDelete)
+	h("POST "+base+"/managers/{manager}/send-link", s.partnerManagerSendLink)
+	h("POST "+base+"/profile", s.partnerProfile)
 }
 
 func (s *Server) requirePerson(next handlerFunc) handlerFunc {
@@ -69,6 +75,8 @@ func (s *Server) requirePerson(next handlerFunc) handlerFunc {
 
 func (s *Server) requireOrg(next handlerFunc) handlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
+		rc(r).area = "partner"
+
 		if rc(r).Org == nil {
 			// Someone signed in is sent where their roles lead; anyone else
 			// to the partners' login, which comes back here (an e-mail's
@@ -101,9 +109,10 @@ type partnerContext struct {
 	Editions []*store.Event
 }
 
-// currentPartnership resolves the edition selected with the "event"
-// parameter, defaulting to the most recent visible partnership. It returns a
-// nil Partnership when the organization has none visible.
+// currentPartnership resolves the edition of the path, or the most recent
+// visible partnership outside one (the way in). Its Partnership is nil when
+// the organization has none visible in that edition; its Event is then the
+// edition of the path, for the links.
 func (s *Server) currentPartnership(r *http.Request) (*partnerContext, error) {
 	ctx := r.Context()
 	org := rc(r).Org
@@ -114,7 +123,7 @@ func (s *Server) currentPartnership(r *http.Request) (*partnerContext, error) {
 	}
 
 	pc := &partnerContext{}
-	want := r.FormValue("event")
+	want := r.PathValue("event")
 
 	for _, p := range all {
 		if !p.VisibleToPartner() && !rc(r).Impersonating {
@@ -133,6 +142,12 @@ func (s *Server) currentPartnership(r *http.Request) (*partnerContext, error) {
 		}
 	}
 
+	if pc.Event == nil && want != "" {
+		if pc.Event, err = s.store.GetEventBySlug(ctx, want); err != nil {
+			return nil, err
+		}
+	}
+
 	if pc.Partnership != nil && pc.Partnership.LevelID != nil {
 		pc.Level, err = s.store.GetLevel(ctx, *pc.Partnership.LevelID)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
@@ -143,13 +158,42 @@ func (s *Server) currentPartnership(r *http.Request) (*partnerContext, error) {
 	return pc, nil
 }
 
-// eventQuery returns the query string preserving the selected edition.
-func eventQuery(pc *partnerContext) string {
-	if pc == nil || pc.Event == nil || len(pc.Editions) < 2 {
-		return ""
+// partnerBase is where a partner's space starts for an edition.
+func partnerBase(e *store.Event) string { return "/" + e.Slug + "/partner" }
+
+// partnerSpace is the partner's space of the request's edition.
+func partnerSpace(r *http.Request) string { return "/" + r.PathValue("event") + "/partner" }
+
+// partnerEntry leads into the partner's space: the edition asked for, else
+// that of their latest visible partnership, else the current one.
+func (s *Server) partnerEntry(w http.ResponseWriter, r *http.Request) error {
+	// The edition switch of the dashboard names its choice.
+	if slug := r.FormValue("event"); slug != "" {
+		e, err := s.store.GetEventBySlug(r.Context(), slug)
+		if err != nil {
+			return err
+		}
+
+		http.Redirect(w, r, partnerBase(e)+"/", http.StatusSeeOther)
+
+		return nil
 	}
 
-	return "?event=" + pc.Event.Slug
+	pc, err := s.currentPartnership(r)
+	if err != nil {
+		return err
+	}
+
+	e := pc.Event
+	if e == nil {
+		if e, err = s.store.CurrentEvent(r.Context()); err != nil {
+			return err
+		}
+	}
+
+	http.Redirect(w, r, partnerBase(e)+"/", http.StatusSeeOther)
+
+	return nil
 }
 
 func (s *Server) partnerDashboard(w http.ResponseWriter, r *http.Request) error {
@@ -201,7 +245,7 @@ func (s *Server) partnerDashboard(w http.ResponseWriter, r *http.Request) error 
 
 			data["Contact"] = contact
 		}
-		data["Progress"] = computeProgress(p, c.Org, pc.Event, attendees, eventQuery(pc))
+		data["Progress"] = computeProgress(p, c.Org, pc.Event, attendees)
 		data["Attendees"] = attendees
 		data["EventDocs"] = eventDocs(pc.Event, c.Lang)
 
@@ -245,7 +289,7 @@ func eventDocs(e *store.Event, lang string) []eventDoc {
 
 	for _, kind := range []string{"brochure", "guide"} {
 		if eventDocFile(e, kind, lang) != "" {
-			out = append(out, eventDoc{Kind: kind, Link: "/partners/event-documents/" + e.Slug + "/" + kind})
+			out = append(out, eventDoc{Kind: kind, Link: partnerBase(e) + "/event-documents/" + kind})
 		}
 	}
 
@@ -291,7 +335,7 @@ func (s *Server) partnerNotes(w http.ResponseWriter, r *http.Request) error {
 
 	s.record(r, rc(r).Org, &p.ID, "partnership.notes", fmt.Sprintf("PO: %s\n%s", p.PONumber, p.PartnerNotes))
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/partners/"+eventQuery(pc), http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/", http.StatusSeeOther)
 
 	return nil
 }
@@ -400,7 +444,7 @@ func (s *Server) partnerSignedQuote(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	back := "/partners/?event=" + url.QueryEscape(e.Slug)
+	back := partnerBase(e) + "/"
 
 	if !p.VisibleToPartner() && !rc(r).Impersonating || p.QuoteFile == "" && p.QuoteSentAt == nil {
 		return errNotFound
@@ -491,7 +535,7 @@ func (s *Server) partnerOrganizationSubmit(w http.ResponseWriter, r *http.Reques
 
 	s.record(r, &org, nil, "organization.updated", "")
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/partners/organization", http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/organization", http.StatusSeeOther)
 
 	return nil
 }
@@ -554,7 +598,7 @@ func (s *Server) partnerLogoSubmit(w http.ResponseWriter, r *http.Request) error
 		var ue uploadError
 		if errors.As(err, &ue) {
 			s.flash(w, string(ue))
-			http.Redirect(w, r, "/partners/logo", http.StatusSeeOther)
+			http.Redirect(w, r, partnerSpace(r)+"/logo", http.StatusSeeOther)
 
 			return nil
 		}
@@ -563,7 +607,7 @@ func (s *Server) partnerLogoSubmit(w http.ResponseWriter, r *http.Request) error
 	}
 
 	s.flash(w, "flash.logo_saved")
-	http.Redirect(w, r, "/partners/logo", http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/logo", http.StatusSeeOther)
 
 	return nil
 }
@@ -648,7 +692,7 @@ func (s *Server) renderAttendees(w http.ResponseWriter, r *http.Request, form ma
 		return err
 	}
 
-	data := map[string]any{"PC": pc, "Form": form, "Query": eventQuery(pc)}
+	data := map[string]any{"PC": pc, "Form": form}
 
 	if pc.Partnership != nil {
 		attendees, err := s.store.ListAttendees(r.Context(), pc.Partnership.ID)
@@ -717,7 +761,7 @@ func (s *Server) partnerAttendeeAdd(w http.ResponseWriter, r *http.Request) erro
 
 	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.added", a.FirstName+" "+a.LastName)
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/partners/attendees"+eventQuery(pc), http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/attendees", http.StatusSeeOther)
 
 	return nil
 }
@@ -771,7 +815,7 @@ func (s *Server) partnerAttendeeUpdate(w http.ResponseWriter, r *http.Request) e
 
 		s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.updated", "")
 		s.flash(w, "flash.saved")
-		http.Redirect(w, r, "/partners/attendees"+eventQuery(pc), http.StatusSeeOther)
+		http.Redirect(w, r, partnerSpace(r)+"/attendees", http.StatusSeeOther)
 
 		return nil
 	}
@@ -791,7 +835,7 @@ func (s *Server) partnerAttendeeUpdate(w http.ResponseWriter, r *http.Request) e
 
 	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.updated", a.FirstName+" "+a.LastName)
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/partners/attendees"+eventQuery(pc), http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/attendees", http.StatusSeeOther)
 
 	return nil
 }
@@ -816,7 +860,7 @@ func (s *Server) partnerAttendeeDelete(w http.ResponseWriter, r *http.Request) e
 
 	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.deleted", "")
 	s.flash(w, "flash.deleted")
-	http.Redirect(w, r, "/partners/attendees"+eventQuery(pc), http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/attendees", http.StatusSeeOther)
 
 	return nil
 }
@@ -890,7 +934,7 @@ func (s *Server) partnerJobSubmit(w http.ResponseWriter, r *http.Request) error 
 
 	s.record(r, org, nil, "job.saved", j.Title)
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/partners/jobs", http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/jobs", http.StatusSeeOther)
 
 	return nil
 }
@@ -902,7 +946,7 @@ func (s *Server) partnerJobDelete(w http.ResponseWriter, r *http.Request) error 
 
 	s.record(r, rc(r).Org, nil, "job.deleted", "")
 	s.flash(w, "flash.deleted")
-	http.Redirect(w, r, "/partners/jobs", http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/jobs", http.StatusSeeOther)
 
 	return nil
 }
@@ -957,7 +1001,7 @@ func (s *Server) partnerManagerInvite(w http.ResponseWriter, r *http.Request) er
 
 	s.record(r, c.Org, nil, "manager.invited", m.Email)
 	s.flash(w, "flash.invited")
-	http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
 
 	return nil
 }
@@ -993,7 +1037,7 @@ func (s *Server) partnerManagerSendLink(w http.ResponseWriter, r *http.Request) 
 
 		s.record(r, c.Org, nil, "manager.invited", m.Email)
 		s.flash(w, "flash.invited")
-		http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
+		http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
 
 		return nil
 	}
@@ -1027,7 +1071,7 @@ func (s *Server) partnerManagerDelete(w http.ResponseWriter, r *http.Request) er
 	// Keep at least one manager, otherwise nobody could log in any more.
 	if len(managers) <= 1 {
 		s.flash(w, "flash.last_manager")
-		http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
+		http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
 
 		return nil
 	}
@@ -1052,7 +1096,7 @@ func (s *Server) partnerManagerDelete(w http.ResponseWriter, r *http.Request) er
 	}
 
 	s.flash(w, "flash.deleted")
-	http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
 
 	return nil
 }
@@ -1078,7 +1122,7 @@ func (s *Server) partnerProfile(w http.ResponseWriter, r *http.Request) error {
 
 	s.record(r, c.Org, nil, "profile.updated", m.Email)
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, "/partners/managers", http.StatusSeeOther)
+	http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
 
 	return nil
 }

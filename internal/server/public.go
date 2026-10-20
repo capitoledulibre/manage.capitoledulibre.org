@@ -8,6 +8,7 @@ import (
 	"net/mail"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -29,7 +30,7 @@ const (
 	loginsPerIP = 30
 )
 
-func (s *Server) publicRoutes(mux *http.ServeMux) {
+func (s *Server) publicRoutes(mux *router) {
 	mux.Handle("GET /{$}", s.wrap(s.loginPage))
 	mux.Handle("GET /partners/login", s.wrap(s.partnerLogin))
 	mux.Handle("POST /login", s.wrap(s.loginSubmit))
@@ -42,7 +43,7 @@ func (s *Server) publicRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /privacy", s.wrap(s.privacy))
 	mux.Handle("GET /logos/{file}", s.wrap(s.publicLogo))
 	mux.Handle("GET /avatars/{file}", s.wrap(s.avatar))
-	mux.Handle("GET /api/partners.json", s.wrap(s.exportJSON))
+	mux.Handle("GET /{event}/api/partners.json", s.wrap(s.exportJSON))
 }
 
 // privacy is the personal data notice, linked from every page.
@@ -72,7 +73,7 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		if len(managers) > 0 {
-			http.Redirect(w, r, "/partners/choose", http.StatusSeeOther)
+			http.Redirect(w, r, "/choose", http.StatusSeeOther)
 
 			return nil
 		}
@@ -121,7 +122,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
 	p := s.page(r, "login.title")
 
 	refuse := func(key string) error {
-		if strings.HasPrefix(next, "/volunteers/") {
+		if volunteerPath(next) {
 			p.Title = "vol.login.title"
 			d := s.loginContext(r, next)
 			d["Error"], d["Email"] = key, email
@@ -159,7 +160,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
 		}
 	})
 
-	p.D = map[string]any{"Email": email, "Volunteer": strings.HasPrefix(next, "/volunteers/"), "Next": next}
+	p.D = map[string]any{"Email": email, "Volunteer": volunteerPath(next), "Next": next}
 
 	return s.render(w, r, "public/login_sent", p)
 }
@@ -379,8 +380,8 @@ func (s *Server) magicConsume(w http.ResponseWriter, r *http.Request) error {
 
 	// A volunteer without a name is asked for it first: it is what the pole
 	// managers see.
-	if person.Name == "" && (strings.HasPrefix(next, "/volunteers/") || (next == "" && len(managers) == 0)) {
-		http.Redirect(w, r, "/volunteers/welcome?next="+url.QueryEscape(safeRedirect(next, "/volunteers/")), http.StatusSeeOther)
+	if person.Name == "" && (volunteerPath(next) || (next == "" && len(managers) == 0)) {
+		http.Redirect(w, r, "/welcome?next="+url.QueryEscape(safeRedirect(next, "/volunteers/")), http.StatusSeeOther)
 
 		return nil
 	}
@@ -389,7 +390,7 @@ func (s *Server) magicConsume(w http.ResponseWriter, r *http.Request) error {
 	case next != "":
 		http.Redirect(w, r, next, http.StatusSeeOther)
 	case len(managers) > 1:
-		http.Redirect(w, r, "/partners/choose", http.StatusSeeOther)
+		http.Redirect(w, r, "/choose", http.StatusSeeOther)
 	case len(managers) == 1:
 		http.Redirect(w, r, "/partners/", http.StatusSeeOther)
 	default:
@@ -582,6 +583,25 @@ func validEmail(email string) bool {
 	at := strings.LastIndex(email, "@")
 
 	return at > 0 && at < len(email)-3 && strings.Contains(email[at:], ".")
+}
+
+// partnerPagePath matches the pages of a partner's space and of the staff's
+// partners, below an edition's slug.
+var partnerPagePath = regexp.MustCompile(`^/[^/]+/partners?(/|$)`)
+
+// volunteerPath tells whether a path is in the volunteer space: the way in,
+// the profile, or an edition's pages but its partners'. The login says
+// so and comes back there.
+func volunteerPath(path string) bool {
+	switch {
+	case strings.HasPrefix(path, "/volunteers/"), path == "/me", path == "/welcome":
+		return true
+	case path == "", path == "/", strings.HasPrefix(path, "/admin"), strings.HasPrefix(path, "/partners/"),
+		strings.HasPrefix(path, "/choose"), partnerPagePath.MatchString(path):
+		return false
+	}
+
+	return strings.Count(strings.SplitN(path, "?", 2)[0], "/") >= 2
 }
 
 // safeRedirect keeps next when it is a path of this site, else returns

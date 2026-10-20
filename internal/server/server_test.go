@@ -260,7 +260,7 @@ func TestFullFlow(t *testing.T) {
 		t.Fatalf("admin login: %d", code)
 	}
 
-	code, body := e.post(admin, "/admin/events/new", url.Values{
+	code, body := e.post(admin, "/admin/editions/new", url.Values{
 		"name": {"Example Conf 2026"}, "year": {"2026"}, "is_current": {"on"}, "logo_deadline": {"2026-11-01"},
 	})
 	if code != 200 {
@@ -272,16 +272,16 @@ func TestFullFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e.post(admin, "/admin/events/"+ev.Slug+"/levels", url.Values{"name": {"Or"}, "position": {"2"}, "price": {"1000"}, "max_attendees": {"1"}})
+	e.post(admin, "/admin/editions/"+ev.Slug+"/levels", url.Values{"name": {"Or"}, "position": {"2"}, "price": {"1000"}, "max_attendees": {"1"}})
 
 	levels, _ := e.st.ListLevels(ctx, ev.ID)
 	if len(levels) != 1 {
 		t.Fatalf("levels: %d", len(levels))
 	}
 
-	e.post(admin, "/admin/events/"+ev.Slug+"/perks", url.Values{"name_fr": {"Logo sur le site"}, "name_en": {"Logo on the website"}})
+	e.post(admin, "/admin/editions/"+ev.Slug+"/perks", url.Values{"name_fr": {"Logo sur le site"}, "name_en": {"Logo on the website"}})
 	perks, _ := e.st.ListPerks(ctx, ev.ID)
-	e.post(admin, "/admin/events/"+ev.Slug+"/matrix", url.Values{"lp": {levels[0].UID + ":" + perks[0].UID}})
+	e.post(admin, "/admin/editions/"+ev.Slug+"/matrix", url.Values{"lp": {levels[0].UID + ":" + perks[0].UID}})
 
 	code, body = e.post(admin, "/admin/organizations", url.Values{
 		"name": {"Acme Corp"}, "event": {ev.Slug}, "status": {"confirmed"},
@@ -313,7 +313,7 @@ func TestFullFlow(t *testing.T) {
 	mustContain(t, body, "Acme Corp", "Or", "Logo sur le site", "Devis reçu", "Envoyer votre logo")
 
 	// Organization details.
-	code, _ = e.post(alice, "/partners/organization", url.Values{
+	code, _ = e.post(alice, "/"+ev.Slug+"/partner/organization", url.Values{
 		"name": {"Acme"}, "legal_name": {"Acme SAS"}, "address_line1": {"1 rue du Libre"}, "zip_code": {"31000"},
 		"city": {"Toulouse"}, "website": {"acme.test"}, "description_fr": {"Nous aimons le libre."},
 	})
@@ -327,10 +327,10 @@ func TestFullFlow(t *testing.T) {
 	}
 
 	// Logo upload: a text file is refused, a PNG accepted.
-	_, body = e.upload(alice, "/partners/logo", map[string]string{"variant": "default"}, "logo", "logo.png", []byte("not an image"))
+	_, body = e.upload(alice, "/"+ev.Slug+"/partner/logo", map[string]string{"variant": "default"}, "logo", "logo.png", []byte("not an image"))
 	mustContain(t, body, "Format non accepté")
 
-	_, body = e.upload(alice, "/partners/logo", map[string]string{"variant": "default"}, "logo", "logo.png", pngBytes())
+	_, body = e.upload(alice, "/"+ev.Slug+"/partner/logo", map[string]string{"variant": "default"}, "logo", "logo.png", pngBytes())
 	mustContain(t, body, "Logo enregistré")
 
 	org, _ = e.st.GetOrganization(ctx, p.OrgID)
@@ -343,8 +343,8 @@ func TestFullFlow(t *testing.T) {
 	}
 
 	// Attendees, with the level limit of one.
-	e.post(alice, "/partners/attendees", url.Values{"first_name": {"Bob"}, "last_name": {"Martin"}, "role": {"booth"}})
-	_, body = e.post(alice, "/partners/attendees", url.Values{"first_name": {"Carol"}, "last_name": {"Durand"}})
+	e.post(alice, "/"+ev.Slug+"/partner/attendees", url.Values{"first_name": {"Bob"}, "last_name": {"Martin"}, "role": {"booth"}})
+	_, body = e.post(alice, "/"+ev.Slug+"/partner/attendees", url.Values{"first_name": {"Carol"}, "last_name": {"Durand"}})
 	mustContain(t, body, "Bob", "nombre de participants")
 
 	if n, _ := e.st.CountAttendees(ctx, p.ID); n != 1 {
@@ -352,12 +352,12 @@ func TestFullFlow(t *testing.T) {
 	}
 
 	// Job offers appear on the public page.
-	e.post(alice, "/partners/jobs/new", url.Values{"title": {"Développeuse Go"}, "url": {"https://acme.test/jobs/go"}, "contract": {"CDI"}})
+	e.post(alice, "/"+ev.Slug+"/partner/jobs/new", url.Values{"title": {"Développeuse Go"}, "url": {"https://acme.test/jobs/go"}, "contract": {"CDI"}})
 	_, body = e.get(e.client(), "/jobs")
 	mustContain(t, body, "Développeuse Go", "Acme")
 
 	// Invite a colleague, who can then request a login link.
-	e.post(alice, "/partners/managers", url.Values{"email": {"dave@acme.test"}, "lang": {"en"}})
+	e.post(alice, "/"+ev.Slug+"/partner/managers", url.Values{"email": {"dave@acme.test"}, "lang": {"en"}})
 	dave := e.client()
 	e.post(dave, "/login", url.Values{"email": {"dave@acme.test"}})
 	link := e.mailer.lastLink(t, "dave@acme.test")
@@ -379,7 +379,7 @@ func TestFullFlow(t *testing.T) {
 	pdf := []byte("%PDF-1.4\n%fake\n")
 	e.upload(admin, pURL+"/documents", map[string]string{"kind": "quote", "notify": "on"}, "file", "devis.pdf", pdf)
 
-	if code, _ := e.get(alice, "/partners/documents/"+ev.Slug+"/quote"); code != 200 {
+	if code, _ := e.get(alice, "/"+ev.Slug+"/partner/documents/quote"); code != 200 {
 		t.Errorf("partner quote: %d", code)
 	}
 
@@ -388,7 +388,7 @@ func TestFullFlow(t *testing.T) {
 	eve := e.client()
 	e.loginManager(eve, "eve@other.test")
 
-	if code, _ := e.get(eve, "/partners/documents/"+ev.Slug+"/quote"); code != 404 {
+	if code, _ := e.get(eve, "/"+ev.Slug+"/partner/documents/quote"); code != 404 {
 		t.Errorf("other org must not access the quote: %d", code)
 	}
 
@@ -402,16 +402,16 @@ func TestFullFlow(t *testing.T) {
 	mustContain(t, body, "Recevoir un lien")
 
 	// Export.
-	if code, _ := e.get(e.client(), "/api/partners.json"); code != 401 {
+	if code, _ := e.get(e.client(), "/"+ev.Slug+"/api/partners.json"); code != 401 {
 		t.Errorf("export without token: %d", code)
 	}
 
 	// The token goes in the header, not in the query string.
-	if code, _ := e.get(e.client(), "/api/partners.json?token=secret"); code != 401 {
+	if code, _ := e.get(e.client(), "/"+ev.Slug+"/api/partners.json?token=secret"); code != 401 {
 		t.Errorf("export with the token in the query: %d", code)
 	}
 
-	req, _ := http.NewRequest(http.MethodGet, e.srv.URL+"/api/partners.json", nil)
+	req, _ := http.NewRequest(http.MethodGet, e.srv.URL+"/"+ev.Slug+"/api/partners.json", nil)
 	req.Header.Set("Authorization", "Bearer secret")
 
 	resp, err := e.client().Do(req)
@@ -441,7 +441,7 @@ func TestFullFlow(t *testing.T) {
 	}
 
 	// Pipeline renders.
-	_, body = e.get(admin, "/admin/events/"+ev.Slug)
+	_, body = e.get(admin, "/"+ev.Slug+"/partners/")
 	mustContain(t, body, "Acme", "Other Inc", "1\u202f000")
 
 	// Impersonation.

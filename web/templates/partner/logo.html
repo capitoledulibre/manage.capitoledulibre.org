@@ -10,7 +10,7 @@
     {{$file := $.Org.LogoFile}}{{if eq $variant "dark"}}{{$file = $.Org.LogoDarkFile}}{{end}}
     {{template "upload_target" (dict "Lang" $l "ID" (printf "up-logo-%s" $variant) "Label" (t $l (printf "logo.variant_%s" $variant))
       "Src" (and $file (logoURL $file)) "Class" (printf "%s h-40 w-full rounded-md p-4" (or (and (eq $variant "dark") "bg-ink") "checker")))}}
-    {{template "upload" (dict "Lang" $l "ID" (printf "up-logo-%s" $variant) "Action" "/partners/logo" "Field" "logo"
+    {{template "upload" (dict "Lang" $l "ID" (printf "up-logo-%s" $variant) "Action" (printf "%s/logo" $.PartnerSpace) "Field" "logo"
       "Accept" ".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp" "Formats" "SVG, PNG, JPEG, WebP" "MaxBytes" (uploadLimit "logo")
       "Title" (t $l (printf "logo.variant_%s" $variant)) "Image" true "NoButton" true "Hidden" (dict "variant" $variant))}}
   </section>

@@ -147,7 +147,7 @@ func (e *env) volunteer(email, name, next string) *http.Client {
 		e.t.Fatalf("a newcomer is asked their name: %d\n%s", code, body)
 	}
 
-	if code, _ = e.post(c, "/volunteers/profile", url.Values{"welcome": {"1"}, "name": {name}, "next": {next}}); code != 200 {
+	if code, _ = e.post(c, "/me", url.Values{"welcome": {"1"}, "name": {name}, "next": {next}}); code != 200 {
 		e.t.Fatalf("welcome form: %d", code)
 	}
 
@@ -287,7 +287,7 @@ func TestVolunteerSignupFlow(t *testing.T) {
 	// Omar takes the place and ticks the task; Nina, no longer on it, may not.
 	e.hx(omar, f.morning.URL()+"/signup", nil)
 
-	toggle := "/volunteers/" + f.event.Slug + "/" + f.buvette.Slug + "/tasks/" + f.taskUID + "/toggle"
+	toggle := f.buvette.URL() + "/tasks/" + f.taskUID + "/toggle"
 
 	_, body = e.hx(omar, toggle, nil)
 	mustContain(t, body, "fait par Omar", "Tâches : 1 sur 1 faites.")
@@ -300,10 +300,10 @@ func TestVolunteerSignupFlow(t *testing.T) {
 	_, body = e.get(omar, f.morning.URL())
 	mustContain(t, body, "Allumer la machine", "Lou Lead", "Une question, un empêchement")
 
-	_, body = e.get(omar, "/volunteers/"+f.event.Slug+"/planning?view=mine&day=all")
+	_, body = e.get(omar, "/"+f.event.Slug+"/planning?view=mine&day=all")
 	mustContain(t, body, `aria-current="page">Mes créneaux`, "Buvette", "Café", "/calendar/")
 
-	_, body = e.get(nina, "/volunteers/"+f.event.Slug+"/planning?view=open&day=all")
+	_, body = e.get(nina, "/"+f.event.Slug+"/planning?view=open&day=all")
 	mustContain(t, body, `aria-current="page">À pourvoir`, "Buvette")
 
 	omarP, _ := e.st.PersonByEmail(ctx, "omar@example.org")
@@ -317,7 +317,7 @@ func TestVolunteerSignupFlow(t *testing.T) {
 	}
 
 	// The home page shows the next slots and the poles.
-	_, body = e.get(omar, "/volunteers/"+f.event.Slug)
+	_, body = e.get(omar, "/"+f.event.Slug)
 	mustContain(t, body, "Bonjour Omar", "Mes prochains créneaux", "Buvette", "Accueil", "sur invitation")
 }
 
@@ -329,7 +329,7 @@ func TestVolunteerPoleAccess(t *testing.T) {
 	nina := e.volunteer("nina@example.org", "Nina", "/volunteers/")
 
 	// A restricted pole stays hidden from the others.
-	_, body := e.get(nina, "/volunteers/"+f.event.Slug)
+	_, body := e.get(nina, "/"+f.event.Slug)
 	if strings.Contains(body, "Trésorerie") {
 		t.Error("a restricted pole is listed to a non-member")
 	}
@@ -349,12 +349,12 @@ func TestVolunteerPoleAccess(t *testing.T) {
 	mustContain(t, body, "Vous avez rejoint le pôle « Accueil »")
 
 	// A draft edition is only for the people preparing it.
-	if code, _ := e.get(nina, "/volunteers/"+f.draft.Slug); code != http.StatusNotFound {
+	if code, _ := e.get(nina, "/"+f.draft.Slug); code != http.StatusNotFound {
 		t.Errorf("draft edition: %d", code)
 	}
 
 	admin := e.adminClient()
-	if code, body := e.get(admin, "/volunteers/"+f.draft.Slug); code != 200 || !strings.Contains(body, "Brouillon") {
+	if code, body := e.get(admin, "/"+f.draft.Slug); code != 200 || !strings.Contains(body, "Brouillon") {
 		t.Errorf("the staff see a draft edition: %d", code)
 	}
 
@@ -420,7 +420,7 @@ func TestVolunteerLoginRules(t *testing.T) {
 	mustOK(t, err)
 	resp.Body.Close()
 
-	if loc := resp.Header.Get("Location"); loc != "/volunteers/welcome?next=%2Fvolunteers%2F" {
+	if loc := resp.Header.Get("Location"); loc != "/welcome?next=%2Fvolunteers%2F" {
 		t.Fatalf("redirect after login: %q", loc)
 	}
 
@@ -445,7 +445,7 @@ func TestVolunteerPagesInEnglish(t *testing.T) {
 	nina := e.volunteer("nina@example.org", "Nina", "/volunteers/")
 	e.get(nina, "/lang/en")
 
-	_, body := e.get(nina, "/volunteers/"+f.event.Slug)
+	_, body := e.get(nina, "/"+f.event.Slug)
 	mustContain(t, body, "Hello Nina", "Teams", "by invitation", "Schedule")
 
 	_, body = e.post(nina, f.morning.URL()+"/signup", url.Values{"back": {f.buvette.URL()}})
@@ -466,8 +466,8 @@ func TestNoNumericIDsInVolunteerPages(t *testing.T) {
 		`|type="(?:hidden|checkbox|radio)" name="[^"]*" value="[0-9]+"`)
 
 	for _, path := range []string{
-		"/volunteers/" + f.event.Slug, "/volunteers/" + f.event.Slug + "/planning", "/volunteers/" + f.event.Slug + "/planning?view=mine",
-		f.buvette.URL(), f.accueil.URL(), f.morning.URL(), f.defaultURL, "/volunteers/profile",
+		"/" + f.event.Slug, "/" + f.event.Slug + "/planning", "/" + f.event.Slug + "/planning?view=mine",
+		f.buvette.URL(), f.accueil.URL(), f.morning.URL(), f.defaultURL, "/me",
 	} {
 		code, body := e.get(nina, path)
 		if code != 200 {

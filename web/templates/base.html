@@ -47,10 +47,10 @@
             "ProfileURL" "/admin/profile" "LogoutAction" "/admin/logout")}}
         {{else if and (eq .Area "partner") .Manager (not .Impersonating)}}
           {{template "user_menu" (dict "Page" . "Name" .Manager.Label "Email" .Manager.Email "Initials" .Manager.Initials
-            "ProfileURL" "/partners/managers#profile" "LogoutAction" "/logout" "Spaces" .Spaces)}}
+            "ProfileURL" (printf "%s/managers#profile" .PartnerSpace) "LogoutAction" "/logout" "Spaces" .Spaces)}}
         {{else if and (eq .Area "volunteer") .Person}}
           {{template "user_menu" (dict "Page" . "Name" .Person.Label "Email" .Person.Email "Initials" .Person.Initials
-            "ProfileURL" "/volunteers/profile" "LogoutAction" (or (and .StaffPerson "/admin/logout") "/logout") "Spaces" .Spaces "Poles" .Vol.Poles "Avatar" .Person.AvatarFile)}}
+            "ProfileURL" "/me" "LogoutAction" (or (and .StaffPerson "/admin/logout") "/logout") "Spaces" .Spaces "Poles" .Vol.Poles "Avatar" .Person.AvatarFile)}}
         {{else}}
           {{template "theme_switch" .}}
         {{end}}

@@ -15,22 +15,22 @@ func TestVolunteerUX(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	f := e.volFixture()
-	home := "/volunteers/" + f.event.Slug
+	home := "/" + f.event.Slug
 
 	nina := e.volunteer("nina@example.org", "Nina", "/volunteers/")
 	ninaP, _ := e.st.PersonByEmail(ctx, "nina@example.org")
 
 	// The language of the e-mails is chosen on the profile.
-	_, body := e.get(nina, "/volunteers/profile")
+	_, body := e.get(nina, "/me")
 	mustContain(t, body, "Langue des e-mails", `name="lang" value="en"`)
 
-	e.post(nina, "/volunteers/profile", url.Values{"name": {"Nina"}, "lang": {"en"}})
+	e.post(nina, "/me", url.Values{"name": {"Nina"}, "lang": {"en"}})
 
 	if p, _ := e.st.GetPerson(ctx, ninaP.ID); p.Lang != "en" {
 		t.Fatalf("e-mail language: %q", p.Lang)
 	}
 
-	e.post(nina, "/volunteers/profile", url.Values{"name": {"Nina"}, "lang": {"fr"}})
+	e.post(nina, "/me", url.Values{"name": {"Nina"}, "lang": {"fr"}})
 
 	// The default pole stays out of sight while it holds nothing.
 	def, _ := e.st.DefaultPole(ctx, f.event.ID)
@@ -146,7 +146,7 @@ func TestDayOfEventNavigation(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	f := e.volFixture()
-	planning := "/volunteers/" + f.event.Slug + "/planning"
+	planning := "/" + f.event.Slug + "/planning"
 
 	p, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
 	mustOK(t, err)
@@ -177,7 +177,7 @@ func TestDayOfEventNavigation(t *testing.T) {
 		"layout=grid&amp;view=open")
 
 	// Her calendar: one tap from the home page.
-	_, body = e.get(nina, "/volunteers/"+f.event.Slug)
+	_, body = e.get(nina, "/"+f.event.Slug)
 	mustContain(t, body, "Ajouter mes créneaux à mon agenda")
 
 	_, body = e.get(nina, planning+"?view=mine&calendar=1")

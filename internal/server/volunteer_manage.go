@@ -15,16 +15,16 @@ import (
 
 // Pole management, for the people who run a pole: its managers, the
 // coordinators of its edition and the staff. Everything sits below
-// /volunteers/{event}/{pole}/manage.
+// /{event}/poles/{pole}/manage.
 
 const maxPoleImageSize = 2 << 20
 
-func (s *Server) poleManageRoutes(mux *http.ServeMux) {
+func (s *Server) poleManageRoutes(mux *router) {
 	m := func(pattern string, h handlerFunc) {
 		mux.Handle(pattern, s.wrap(s.requireVolunteer(h)))
 	}
 
-	const base = "/volunteers/{event}/{pole}/manage"
+	const base = "/{event}/poles/{pole}/manage"
 
 	m("POST "+base, s.managePoleSave)
 	m("POST "+base+"/key", s.managePoleKey)

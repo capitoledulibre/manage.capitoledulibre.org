@@ -143,7 +143,7 @@ func appendMsg(list []genMsg, m genMsg) []genMsg {
 var genLengths = []int{30, 60, 90, 120, 150, 180, 240, 360}
 
 func (s *Server) generateRoutes(m func(string, handlerFunc)) {
-	const base = "/volunteers/{event}/{pole}/manage/generate"
+	const base = "/{event}/poles/{pole}/manage/generate"
 
 	m("GET "+base, s.generateForm)
 	m("POST "+base, s.generateSubmit)

@@ -14,13 +14,13 @@
           <td class="text-gray-500">{{with .LastLoginAt}}{{datetime $l .}}{{else}}{{t $l "managers.never"}}{{end}}</td>
           <td class="whitespace-nowrap text-right">
             {{if not .LastLoginAt}}
-            <form method="post" action="/partners/managers/{{.UID}}/send-link" class="inline-block">
+            <form method="post" action="{{$.PartnerSpace}}/managers/{{.UID}}/send-link" class="inline-block">
               <button class="btn-secondary btn-sm">{{t $l "managers.send_link"}}</button>
             </form>
             {{end}}
             {{/* The last one stays: nobody could log in any more. */}}
             {{if gt (len $.D.Managers) 1}}
-            <form method="post" action="/partners/managers/{{.UID}}/delete" class="inline-block" data-confirm="{{if $self}}{{t $l "managers.remove_self_confirm" $.Org.Name}}{{else}}{{t $l "managers.remove_confirm" (or .Name .Email)}}{{end}}">
+            <form method="post" action="{{$.PartnerSpace}}/managers/{{.UID}}/delete" class="inline-block" data-confirm="{{if $self}}{{t $l "managers.remove_self_confirm" $.Org.Name}}{{else}}{{t $l "managers.remove_confirm" (or .Name .Email)}}{{end}}">
               <button class="btn-danger btn-sm">{{t $l "managers.remove"}}</button>
             </form>
             {{end}}
@@ -34,7 +34,7 @@
   {{if and .Manager (not .Impersonating)}}
   <section class="card scroll-mt-24" id="profile">
     <h2 class="card-title">{{t $l "profile.title"}}</h2>
-    <form method="post" action="/partners/profile" class="space-y-3">
+    <form method="post" action="{{$.PartnerSpace}}/profile" class="space-y-3">
       <p class="text-sm text-gray-600">{{.Manager.Email}}</p>
       <div>
         <label class="label" for="profile_name">{{t $l "managers.name"}}</label>
@@ -48,7 +48,7 @@
   <section class="card">
     <h2 class="card-title">{{t $l "managers.invite"}}</h2>
     {{with .D.Form}}{{with .Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $l .}}</div>{{end}}{{end}}
-    <form method="post" action="/partners/managers" class="space-y-3">
+    <form method="post" action="{{$.PartnerSpace}}/managers" class="space-y-3">
       <div>
         <label class="label" for="email">{{t $l "login.email"}} *</label>
         <input class="input" id="email" name="email" type="email" required>

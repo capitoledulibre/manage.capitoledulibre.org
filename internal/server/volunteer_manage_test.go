@@ -384,7 +384,7 @@ func TestSignUpFromSlotCard(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 	lead := e.loginAs(f.leadEmail)
-	planning := "/volunteers/" + f.event.Slug + "/planning?view=all&day=all"
+	planning := "/" + f.event.Slug + "/planning?view=all&day=all"
 
 	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
 	mustOK(t, err)
@@ -397,7 +397,7 @@ func TestSignUpFromSlotCard(t *testing.T) {
 
 	// The lead's cards offer to sign someone up, and to take someone off.
 	_, body := e.get(lead, planning)
-	mustContain(t, body, "Inscrire quelqu&#39;un", f.overlap.ManageURL()+"/picker?back="+url.QueryEscape("/volunteers/"+f.event.Slug+"/planning?view=all")+`"`, f.overlap.ManageURL()+"/volunteers/"+omar.UID+"/delete")
+	mustContain(t, body, "Inscrire quelqu&#39;un", f.overlap.ManageURL()+"/picker?back="+url.QueryEscape("/"+f.event.Slug+"/planning?view=all")+`"`, f.overlap.ManageURL()+"/volunteers/"+omar.UID+"/delete")
 
 	// The form, fetched when opened: the members not on the slot.
 	_, body = e.get(lead, f.overlap.ManageURL()+"/picker?back="+url.QueryEscape(planning))

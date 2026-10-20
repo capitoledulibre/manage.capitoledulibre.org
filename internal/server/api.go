@@ -27,13 +27,7 @@ func (s *Server) exportJSON(w http.ResponseWriter, r *http.Request) error {
 		err error
 	)
 
-	if slug := r.URL.Query().Get("event"); slug != "" {
-		e, err = s.store.GetEventBySlug(ctx, slug)
-	} else {
-		e, err = s.store.CurrentEvent(ctx)
-	}
-
-	if err != nil {
+	if e, err = s.store.GetEventBySlug(ctx, r.PathValue("event")); err != nil {
 		return err
 	}
 

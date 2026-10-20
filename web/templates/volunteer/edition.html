@@ -1,5 +1,5 @@
 {{define "content"}}
-{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/volunteers/%s/edition" $e.Slug}}
+{{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/%s/volunteers" $e.Slug}}
 {{if $d.Staff}}{{template "edition_tabs" (dict "Event" $e "Active" "volunteers")}}{{end}}
 <div class="mb-6 flex flex-wrap items-center gap-4">
   {{with $e.LogoFile}}<img src="/volunteer-images/{{.}}" alt="" class="h-14 w-14 rounded-lg object-contain">{{end}}
@@ -10,7 +10,7 @@
       {{else}}<span class="badge {{if eq $e.VolunteerStatus "open"}}bg-green-100 text-green-800{{else if eq $e.VolunteerStatus "frozen"}}bg-amber-100 text-amber-800{{else}}bg-gray-100 text-gray-700{{end}}">{{t $l (printf "vol.status.%s" $e.VolunteerStatus)}}</span>{{end}}</p>
   </div>
   <div class="flex flex-wrap gap-2">
-    <a href="{{$base}}/volunteers" class="btn-secondary">{{t $l "vol.coord.volunteers"}}</a>
+    <a href="{{$base}}/list" class="btn-secondary">{{t $l "vol.coord.volunteers"}}</a>
   </div>
 </div>
 
@@ -43,7 +43,7 @@
          read as "all done". */}}
     {{if .Slots}}
     <td class="pole-c{{.Pole.Color}} whitespace-nowrap"><span class="inline-flex items-center gap-2"><span class="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200" aria-hidden="true"><i class="slot-bar block h-1.5" style="width: {{.Percent}}%"></i></span>{{.Filled}}/{{.Capacity}}</span></td>
-    <td>{{if .Short}}<a class="badge bg-amber-100 text-amber-800 hover:underline" href="/volunteers/{{$e.Slug}}/planning?view=open&amp;pole={{.Pole.Slug}}&amp;day=all" title="{{t $l "vol.coord.short_link"}}">{{.Short}}<span class="sr-only"> · {{t $l "vol.coord.short_link"}}</span></a>{{else}}<span class="badge bg-green-100 text-green-800">0</span>{{end}}</td>
+    <td>{{if .Short}}<a class="badge bg-amber-100 text-amber-800 hover:underline" href="/{{$e.Slug}}/planning?view=open&amp;pole={{.Pole.Slug}}&amp;day=all" title="{{t $l "vol.coord.short_link"}}">{{.Short}}<span class="sr-only"> · {{t $l "vol.coord.short_link"}}</span></a>{{else}}<span class="badge bg-green-100 text-green-800">0</span>{{end}}</td>
     {{else}}
     <td class="text-xs text-gray-400">{{t $l "vol.coord.no_slot"}}</td><td class="text-gray-400">—</td>
     {{end}}
@@ -133,23 +133,23 @@
 {{with .Dietary}}
 <section class="mb-8">
   <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.logi.dietary"}}</h2>
-  <ul class="space-y-1 text-sm">{{range .}}<li><strong>{{template "person_name" (dict "Lang" $l "Person" .Volunteer.Person "Manage" true "Fiche" (printf "%s/volunteers/" $base))}}</strong>{{with .Details.Meals}} <span class="text-gray-500">({{range $i, $m := .}}{{if $i}}, {{end}}{{$m}}{{end}})</span>{{end}}&nbsp;: {{.Details.Dietary}}</li>{{end}}</ul>
+  <ul class="space-y-1 text-sm">{{range .}}<li><strong>{{template "person_name" (dict "Lang" $l "Person" .Volunteer.Person "Manage" true "Fiche" (printf "%s/" $base))}}</strong>{{with .Details.Meals}} <span class="text-gray-500">({{range $i, $m := .}}{{if $i}}, {{end}}{{$m}}{{end}})</span>{{end}}&nbsp;: {{.Details.Dietary}}</li>{{end}}</ul>
 </section>
 {{end}}
 {{with .Unanswered}}
 <section class="mb-8">
   <h2 class="mb-3 text-lg font-semibold">{{tn $l "vol.logi.unanswered" (len .)}}</h2>
-  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{template "person_name" (dict "Lang" $l "Person" $x.Volunteer.Person "Manage" true "Fiche" (printf "%s/volunteers/" $base))}}{{end}}</p>
+  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{template "person_name" (dict "Lang" $l "Person" $x.Volunteer.Person "Manage" true "Fiche" (printf "%s/" $base))}}{{end}}</p>
 </section>
 {{end}}
 {{with .Outdated}}
 <section class="mb-8">
   <h2 class="mb-3 text-lg font-semibold">{{tn $l "vol.logi.outdated" (len .)}}</h2>
   <p class="help mb-2">{{t $l "vol.logi.outdated_help"}}</p>
-  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{template "person_name" (dict "Lang" $l "Person" $x.Volunteer.Person "Manage" true "Fiche" (printf "%s/volunteers/" $base))}}{{end}}</p>
+  <p class="text-sm text-gray-700">{{range $i, $x := .}}{{if $i}}, {{end}}{{template "person_name" (dict "Lang" $l "Person" $x.Volunteer.Person "Manage" true "Fiche" (printf "%s/" $base))}}{{end}}</p>
 </section>
 {{end}}
-{{if .Idle}}<p class="help">{{tn $l "vol.logi.idle" .Idle}} <a class="link" href="{{$base}}/volunteers?filter=idle">{{t $l "vol.logi.idle_link"}}</a></p>{{end}}
+{{if .Idle}}<p class="help">{{tn $l "vol.logi.idle" .Idle}} <a class="link" href="{{$base}}/list?filter=idle">{{t $l "vol.logi.idle_link"}}</a></p>{{end}}
 {{end}}
 {{end}}
 {{else if eq $d.Tab "history"}}
@@ -208,7 +208,7 @@
       <p class="help mb-3">{{t $l "vol.coord.coordinators_help"}}</p>
       <ul class="mb-3 space-y-2">
         {{range $d.Coordinators}}
-        <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_avatar" .}}<span class="flex-1">{{template "person_name" (dict "Lang" $l "Person" . "Manage" true "Fiche" (printf "%s/volunteers/" $base))}} <span class="text-gray-500">{{.Email}}</span></span>
+        <li class="flex flex-wrap items-center gap-2 text-sm">{{template "person_avatar" .}}<span class="flex-1">{{template "person_name" (dict "Lang" $l "Person" . "Manage" true "Fiche" (printf "%s/" $base))}} <span class="text-gray-500">{{.Email}}</span></span>
           {{if $d.Staff}}<form method="post" action="{{$base}}/coordinators/{{.UID}}/delete" data-confirm="{{t $l "vol.coord.coordinator_remove_confirm" .Label}}"><button class="btn-danger btn-sm">{{t $l "vol.manage.remove"}}</button></form>{{end}}</li>
         {{else}}<li class="text-sm text-gray-500">{{t $l "vol.coord.no_coordinators"}}</li>{{end}}
       </ul>

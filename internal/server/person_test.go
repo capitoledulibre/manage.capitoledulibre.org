@@ -38,7 +38,7 @@ func TestPersonLogin(t *testing.T) {
 		_, body = e.post(c, e.mailer.lastLink(t, "sam@conf.test"), nil)
 		mustContain(t, body, "Bonjour Sam Staff", "aucun espace ne vous est ouvert")
 
-		if code, _ := e.get(c, "/partners/organization"); code != 200 {
+		if code, _ := e.get(c, "/"+f.event.Slug+"/partner/organization"); code != 200 {
 			t.Fatalf("partner pages should send back home, got %d", code)
 		}
 	})
@@ -56,10 +56,10 @@ func TestPersonLogin(t *testing.T) {
 		}
 
 		c := e.loginAs(f.alice.Email)
-		_, body := e.get(c, "/partners/choose")
+		_, body := e.get(c, "/choose")
 		mustContain(t, body, "Acme", "Globex")
 
-		_, body = e.post(c, "/partners/choose", url.Values{"manager": {g.UID}})
+		_, body = e.post(c, "/choose", url.Values{"manager": {g.UID}})
 		mustContain(t, body, "Globex")
 
 		// Removed from Globex, Alice keeps her login and picks again.
@@ -70,7 +70,7 @@ func TestPersonLogin(t *testing.T) {
 		mustContain(t, body, "Acme")
 
 		// Someone else's organization cannot be picked.
-		if code, _ := e.post(c, "/partners/choose", url.Values{"manager": {f.bob.UID}}); code != 403 {
+		if code, _ := e.post(c, "/choose", url.Values{"manager": {f.bob.UID}}); code != 403 {
 			t.Fatalf("picking another person's organization: %d", code)
 		}
 	})

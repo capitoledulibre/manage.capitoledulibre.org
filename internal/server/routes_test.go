@@ -63,7 +63,7 @@ func TestTemplateLinksRoute(t *testing.T) {
 						continue
 					}
 
-					if _, pattern := mux.Handler(httptest.NewRequest(method, u, nil)); pattern == "" {
+					if mux.pattern(httptest.NewRequest(method, u, nil)) == "" {
 						t.Errorf("%s: %s %s reaches no route (%s)", path, method, u, m[2])
 					}
 				}

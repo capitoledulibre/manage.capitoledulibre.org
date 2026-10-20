@@ -26,18 +26,18 @@ func TestAdminWelcomeAndTabs(t *testing.T) {
 	mustOK(t, e.st.SaveEvent(context.Background(), &store.Event{ID: f.event.ID, Slug: f.event.Slug, Name: f.event.Name, Year: f.event.Year, IsCurrent: true}))
 
 	// The edition has its two sides, linked both ways.
-	_, body = e.get(admin, "/admin/events/"+f.event.Slug)
-	mustContain(t, body, `href="/volunteers/`+f.event.Slug+`/edition"`, ">Bénévoles</a>", `href="/admin/volunteers"`, `href="/admin/people"`)
+	_, body = e.get(admin, "/"+f.event.Slug+"/partners/")
+	mustContain(t, body, `href="/`+f.event.Slug+`/volunteers"`, ">Bénévoles</a>", `href="/admin/volunteers"`, `href="/admin/people"`)
 
-	_, body = e.get(admin, "/volunteers/"+f.event.Slug+"/edition")
-	mustContain(t, body, `href="/admin/events/`+f.event.Slug+`"`, `href="/admin/" class="menu-item"`)
+	_, body = e.get(admin, "/"+f.event.Slug+"/volunteers")
+	mustContain(t, body, `href="/`+f.event.Slug+`/partners/"`, `href="/admin/" class="menu-item"`)
 
 	// The menu entry opens the volunteer side of the current edition.
 	_, body = e.get(admin, "/admin/volunteers")
 	mustContain(t, body, "Édition · "+f.event.Name)
 
 	// The editions list gives the volunteer status.
-	_, body = e.get(admin, "/admin/events")
+	_, body = e.get(admin, "/admin/editions")
 	mustContain(t, body, "Inscriptions ouvertes", "Brouillon")
 }
 
@@ -114,7 +114,7 @@ func TestStaffSetsPersonPhoto(t *testing.T) {
 	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, nina.ID))
 
 	// From her volunteer page, which it comes back to.
-	fiche := "/volunteers/" + f.event.Slug + "/edition/volunteers/" + nina.UID
+	fiche := "/" + f.event.Slug + "/volunteers/" + nina.UID
 
 	_, body := e.get(admin, fiche)
 	mustContain(t, body, `action="/admin/people/`+nina.UID+`/photo"`, `name="back" value="`+fiche+`"`)
@@ -139,7 +139,7 @@ func TestStaffSetsPersonPhoto(t *testing.T) {
 	}
 
 	// A coordinator who is not staff cannot.
-	e.post(admin, "/volunteers/"+f.event.Slug+"/edition/coordinators", url.Values{"email": {"coco@example.org"}})
+	e.post(admin, "/"+f.event.Slug+"/volunteers/coordinators", url.Values{"email": {"coco@example.org"}})
 
 	e.upload(e.loginAs("coco@example.org"), "/admin/people/"+nina.UID+"/photo", nil, "photo", "x.png", pngBytes())
 

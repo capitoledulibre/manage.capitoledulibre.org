@@ -39,7 +39,7 @@ func TestVolunteerLog(t *testing.T) {
 		"Lou Lead a supprimé un créneau du pôle Buvette")
 
 	// The coordination sees the edition's, including its own actions.
-	base := "/volunteers/" + f.event.Slug + "/edition"
+	base := "/" + f.event.Slug + "/volunteers"
 	e.post(admin, base+"/poles", url.Values{"name": {"Régie"}})
 	e.post(admin, base+"/settings", url.Values{"status": {store.VolunteersFrozen}})
 
@@ -57,7 +57,7 @@ func TestVolunteerLog(t *testing.T) {
 	}
 
 	// Someone who deletes their account leaves no name behind.
-	e.post(nina, "/volunteers/profile/delete", url.Values{"confirm": {"yes"}})
+	e.post(nina, "/me/delete", url.Values{"confirm": {"yes"}})
 
 	e.get(lead, "/lang/fr")
 	_, body = e.get(lead, f.buvette.URL()+"?tab=history")
@@ -104,7 +104,7 @@ func TestAdminPersonPage(t *testing.T) {
 	}
 
 	// The old session is gone: back to the login form.
-	if _, body := e.get(nina, "/volunteers/"+f.event.Slug); !strings.Contains(body, `action="/login"`) {
+	if _, body := e.get(nina, "/"+f.event.Slug); !strings.Contains(body, `action="/login"`) {
 		t.Error("the old session still works after the address changed")
 	}
 
@@ -133,7 +133,7 @@ func TestLogFiltersAndPages(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 	admin := e.adminClient()
-	history := "/volunteers/" + f.event.Slug + "/edition?tab=history"
+	history := "/" + f.event.Slug + "/volunteers?tab=history"
 
 	// More sign-ups than a page holds, and one e-mail.
 	for range store.LogPageSize + 5 {

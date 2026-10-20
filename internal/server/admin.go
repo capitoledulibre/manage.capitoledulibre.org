@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,7 +16,7 @@ import (
 	"manage/internal/store"
 )
 
-func (s *Server) adminRoutes(mux *http.ServeMux) {
+func (s *Server) adminRoutes(mux *router) {
 	mux.Handle("GET /admin/login", s.wrap(s.adminLogin))
 	mux.Handle("POST /admin/login", s.wrap(s.adminDevLogin))
 	mux.Handle("GET /admin/callback", s.wrap(s.adminCallback))
@@ -36,22 +36,26 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 	h("POST /admin/people/{person}/delete", s.adminPersonDelete)
 	h("POST /admin/people/{person}/photo", s.adminPersonPhoto)
 	h("POST /admin/people/{person}/photo/delete", s.adminPersonPhotoDelete)
-	h("GET /admin/events", s.adminEvents)
-	h("GET /admin/events/new", s.adminEventForm)
-	h("POST /admin/events/new", s.adminEventSubmit)
-	h("GET /admin/events/{event}", s.adminPipeline)
-	h("GET /admin/events/{event}/edit", s.adminEventForm)
-	h("POST /admin/events/{event}/edit", s.adminEventSubmit)
-	h("POST /admin/events/{event}/documents", s.adminEventDocument)
-	h("GET /admin/events/{event}/levels", s.adminLevels)
-	h("POST /admin/events/{event}/levels", s.adminLevelSave)
-	h("POST /admin/events/{event}/levels/{level}/delete", s.adminLevelDelete)
-	h("POST /admin/events/{event}/perks", s.adminPerkSave)
-	h("POST /admin/events/{event}/perks/{perk}/delete", s.adminPerkDelete)
-	h("POST /admin/events/{event}/matrix", s.adminMatrixSave)
-	h("POST /admin/events/{event}/clone", s.adminLevelsClone)
-	h("GET /admin/events/{event}/attendees.csv", s.adminAttendeesCSV)
-	h("POST /admin/events/{event}/purge", s.adminEventPurge)
+	// The editions themselves: the global administration.
+	h("GET /admin/editions", s.adminEvents)
+	h("GET /admin/editions/new", s.adminEventForm)
+	h("POST /admin/editions/new", s.adminEventSubmit)
+	h("GET /admin/editions/{event}", s.adminEventForm)
+	h("POST /admin/editions/{event}", s.adminEventSubmit)
+	h("POST /admin/editions/{event}/documents", s.adminEventDocument)
+	h("GET /admin/editions/{event}/levels", s.adminLevels)
+	h("POST /admin/editions/{event}/levels", s.adminLevelSave)
+	h("POST /admin/editions/{event}/levels/{level}/delete", s.adminLevelDelete)
+	h("POST /admin/editions/{event}/perks", s.adminPerkSave)
+	h("POST /admin/editions/{event}/perks/{perk}/delete", s.adminPerkDelete)
+	h("POST /admin/editions/{event}/matrix", s.adminMatrixSave)
+	h("POST /admin/editions/{event}/clone", s.adminLevelsClone)
+	h("POST /admin/editions/{event}/purge", s.adminEventPurge)
+
+	// An edition's partners, for the staff: the pipeline and each
+	// partnership, below the edition's slug.
+	h("GET /{event}/partners/{$}", s.adminPipeline)
+	h("GET /{event}/partners/attendees.csv", s.adminAttendeesCSV)
 
 	h("GET /admin/organizations", s.adminOrganizations)
 	h("POST /admin/organizations", s.adminOrganizationCreate)
@@ -67,16 +71,16 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 	h("POST /admin/organizations/{org}/jobs/{job}/toggle", s.adminJobToggle)
 	h("POST /admin/organizations/{org}/view-as", s.adminViewAs)
 
-	h("GET /admin/organizations/{org}/editions/{event}", s.adminPartnership)
-	h("POST /admin/organizations/{org}/editions/{event}", s.adminPartnershipUpdate)
-	h("POST /admin/organizations/{org}/editions/{event}/documents", s.adminPartnershipDocument)
-	h("POST /admin/organizations/{org}/editions/{event}/mark", s.adminPartnershipMark)
-	h("POST /admin/organizations/{org}/editions/{event}/perks", s.adminPartnershipPerks)
-	h("POST /admin/organizations/{org}/editions/{event}/attendees", s.adminAttendeeAdd)
-	h("POST /admin/organizations/{org}/editions/{event}/attendees/{attendee}/delete", s.adminAttendeeDelete)
-	h("POST /admin/organizations/{org}/editions/{event}/posts", s.adminSocialPostSave)
-	h("POST /admin/organizations/{org}/editions/{event}/posts/{post}/delete", s.adminSocialPostDelete)
-	h("POST /admin/organizations/{org}/editions/{event}/delete", s.adminPartnershipDelete)
+	h("GET /{event}/partners/{org}", s.adminPartnership)
+	h("POST /{event}/partners/{org}", s.adminPartnershipUpdate)
+	h("POST /{event}/partners/{org}/documents", s.adminPartnershipDocument)
+	h("POST /{event}/partners/{org}/mark", s.adminPartnershipMark)
+	h("POST /{event}/partners/{org}/perks", s.adminPartnershipPerks)
+	h("POST /{event}/partners/{org}/attendees", s.adminAttendeeAdd)
+	h("POST /{event}/partners/{org}/attendees/{attendee}/delete", s.adminAttendeeDelete)
+	h("POST /{event}/partners/{org}/posts", s.adminSocialPostSave)
+	h("POST /{event}/partners/{org}/posts/{post}/delete", s.adminSocialPostDelete)
+	h("POST /{event}/partners/{org}/delete", s.adminPartnershipDelete)
 
 	h("GET /admin/profile", s.adminProfile)
 	h("POST /admin/profile", s.adminProfileSave)
@@ -88,6 +92,8 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 
 func (s *Server) requireAdmin(next handlerFunc) handlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
+		rc(r).area = "admin"
+
 		if rc(r).Admin == nil {
 			http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 
@@ -142,7 +148,7 @@ func (s *Server) adminVolunteers(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	http.Redirect(w, r, "/volunteers/"+e.Slug+"/edition", http.StatusSeeOther)
+	http.Redirect(w, r, editionURL(e), http.StatusSeeOther)
 
 	return nil
 }
@@ -197,7 +203,7 @@ func (s *Server) adminEventPurge(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	to := "/admin/events/" + e.Slug + "/edit"
+	to := editionAdminURL(e)
 
 	if !eventEnded(e) {
 		s.flash(w, "flash.event_not_over")
@@ -246,8 +252,9 @@ func (s *Server) adminEventSubmit(w http.ResponseWriter, r *http.Request) error 
 	e.PaymentInfo = strings.TrimSpace(r.FormValue("payment_info"))
 	e.PaymentMention = strings.TrimSpace(r.FormValue("payment_mention"))
 
-	if e.Slug == "new" {
-		e.Slug = "new-" + strconv.Itoa(e.Year)
+	// An edition's pages sit below its slug: not a word of the site's own.
+	if store.ReservedSlug(e.Slug) {
+		e.Slug += "-" + strconv.Itoa(e.Year)
 	}
 
 	if e.Name == "" || e.Year == 0 {
@@ -282,13 +289,13 @@ func (s *Server) adminEventSubmit(w http.ResponseWriter, r *http.Request) error 
 		}
 
 		s.flash(w, "flash.cloned")
-		http.Redirect(w, r, eventURL(e)+"/levels", http.StatusSeeOther)
+		http.Redirect(w, r, editionAdminURL(e)+"/levels", http.StatusSeeOther)
 
 		return nil
 	}
 
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, eventURL(e)+"/edit", http.StatusSeeOther)
+	http.Redirect(w, r, editionAdminURL(e), http.StatusSeeOther)
 
 	return nil
 }
@@ -340,7 +347,7 @@ func (s *Server) adminLevelsClone(w http.ResponseWriter, r *http.Request) error 
 		s.flash(w, "flash.cloned")
 	}
 
-	http.Redirect(w, r, eventURL(e)+"/levels", http.StatusSeeOther)
+	http.Redirect(w, r, editionAdminURL(e)+"/levels", http.StatusSeeOther)
 
 	return nil
 }
@@ -351,7 +358,7 @@ func (s *Server) adminEventDocument(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	back := eventURL(e) + "/edit"
+	back := editionAdminURL(e)
 
 	name, err := s.upload(w, r, "file", files.KindPDF, maxPDFSize)
 	if err != nil {
@@ -472,7 +479,7 @@ func (s *Server) adminPipeline(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		row := &pipelineRow{P: p, Org: org, Attendees: n, Progress: computeProgress(p, org, e, n, "")}
+		row := &pipelineRow{P: p, Org: org, Attendees: n, Progress: computeProgress(p, org, e, n)}
 		row.Due = p.FollowupAt != nil && p.Status != store.StatusDeclined && !p.FollowupAt.After(today)
 
 		if row.Due {
@@ -616,7 +623,7 @@ func (s *Server) adminLevelSave(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, eventURL(e)+"/levels", http.StatusSeeOther)
+	http.Redirect(w, r, editionAdminURL(e)+"/levels", http.StatusSeeOther)
 
 	return nil
 }
@@ -637,7 +644,7 @@ func (s *Server) adminLevelDelete(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	s.flash(w, "flash.deleted")
-	http.Redirect(w, r, eventURL(e)+"/levels", http.StatusSeeOther)
+	http.Redirect(w, r, editionAdminURL(e)+"/levels", http.StatusSeeOther)
 
 	return nil
 }
@@ -673,7 +680,7 @@ func (s *Server) adminPerkSave(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, eventURL(e)+"/levels", http.StatusSeeOther)
+	http.Redirect(w, r, editionAdminURL(e)+"/levels", http.StatusSeeOther)
 
 	return nil
 }
@@ -694,7 +701,7 @@ func (s *Server) adminPerkDelete(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	s.flash(w, "flash.deleted")
-	http.Redirect(w, r, eventURL(e)+"/levels", http.StatusSeeOther)
+	http.Redirect(w, r, editionAdminURL(e)+"/levels", http.StatusSeeOther)
 
 	return nil
 }
@@ -745,7 +752,7 @@ func (s *Server) adminMatrixSave(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, eventURL(e)+"/levels", http.StatusSeeOther)
+	http.Redirect(w, r, editionAdminURL(e)+"/levels", http.StatusSeeOther)
 
 	return nil
 }
@@ -1307,7 +1314,7 @@ func (s *Server) adminViewAs(w http.ResponseWriter, r *http.Request) error {
 
 	target := "/partners/"
 	if slug := r.FormValue("event"); slug != "" {
-		target += "?event=" + url.QueryEscape(slug)
+		target = "/" + slug + "/partner/"
 	}
 
 	http.Redirect(w, r, target, http.StatusSeeOther)
@@ -1317,6 +1324,9 @@ func (s *Server) adminViewAs(w http.ResponseWriter, r *http.Request) error {
 
 // adminStopImpersonate leaves the partner area and goes back to the admin
 // page the staff member came from.
+// staffPartnersPath matches the staff's pages of an edition's partners.
+var staffPartnersPath = regexp.MustCompile(`^/[^/]+/partners/`)
+
 func (s *Server) adminStopImpersonate(w http.ResponseWriter, r *http.Request) error {
 	c := rc(r)
 
@@ -1329,7 +1339,9 @@ func (s *Server) adminStopImpersonate(w http.ResponseWriter, r *http.Request) er
 		back = orgURL(c.Org)
 	}
 
-	if ck, err := r.Cookie(returnCookie); err == nil && strings.HasPrefix(ck.Value, "/admin/") {
+	// Back to a staff page only: the administration, or an edition's
+	// partners.
+	if ck, err := r.Cookie(returnCookie); err == nil && (strings.HasPrefix(ck.Value, "/admin/") || staffPartnersPath.MatchString(ck.Value)) {
 		back = safeRedirect(ck.Value, back)
 	}
 
@@ -1389,7 +1401,7 @@ func (s *Server) adminPartnership(w http.ResponseWriter, r *http.Request) error 
 
 	data := map[string]any{
 		"P": p, "O": org, "E": e, "URL": partnershipURL(org, e), "Levels": levels, "Attendees": attendees, "Posts": posts,
-		"Progress": computeProgress(p, org, e, len(attendees), ""),
+		"Progress": computeProgress(p, org, e, len(attendees)),
 	}
 
 	if p.LevelID != nil {
@@ -1599,7 +1611,7 @@ func (s *Server) adminPartnershipDocument(w http.ResponseWriter, r *http.Request
 	s.record(r, org, &p.ID, "document.uploaded", kind)
 
 	if r.FormValue("notify") == "on" && p.VisibleToPartner() {
-		if err := s.notifyManagers(r, org, p, "/partners/documents/"+r.PathValue("event")+"/"+kind, "mail."+kind+".subject", "mail."+kind+".body"); err != nil {
+		if err := s.notifyManagers(r, org, p, "/"+r.PathValue("event")+"/partner/documents/"+kind, "mail."+kind+".subject", "mail."+kind+".body"); err != nil {
 			return err
 		}
 	}
@@ -1749,7 +1761,7 @@ func (s *Server) adminSocialPostSave(w http.ResponseWriter, r *http.Request) err
 	s.record(r, org, &p.ID, "social.saved", networkName(post.Network)+" "+post.URL)
 
 	if post.Published() && !wasPublished && r.FormValue("notify") == "on" && p.VisibleToPartner() {
-		if err := s.notifyManagers(r, org, p, "/partners/?event="+url.QueryEscape(r.PathValue("event")), "mail.post.subject", "mail.post.body",
+		if err := s.notifyManagers(r, org, p, "/"+r.PathValue("event")+"/partner/", "mail.post.subject", "mail.post.body",
 			networkName(post.Network), post.URL); err != nil {
 			return err
 		}

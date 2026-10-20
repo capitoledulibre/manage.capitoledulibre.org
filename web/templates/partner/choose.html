@@ -5,7 +5,7 @@
   <ul class="space-y-2">
     {{range .D}}
     <li>
-      <form method="post" action="/partners/choose">
+      <form method="post" action="/choose">
         <input type="hidden" name="manager" value="{{.ManagerUID}}">
         <button class="btn-secondary w-full justify-start">{{.Org.Name}}</button>
       </form>

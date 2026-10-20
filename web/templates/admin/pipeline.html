@@ -6,15 +6,15 @@
   <div>
     <h1 class="text-2xl font-bold tracking-tight">{{$e.Name}}</h1>
     <div class="mt-1 flex flex-wrap gap-3 text-sm">
-      {{range .D.Events}}{{if ne .ID $e.ID}}<a class="link" href="/admin/events/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}
+      {{range .D.Events}}{{if ne .ID $e.ID}}<a class="link" href="/{{.Slug}}/partners/">{{.Name}}</a>{{end}}{{end}}
     </div>
   </div>
   <div class="flex flex-wrap gap-2">
-    {{if .D.Mine}}<a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}">Tous les partenaires</a>{{else}}<a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}?mine=1">Mes partenaires</a>{{end}}
-    <a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}/levels">Niveaux et contreparties</a>
-    <a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}/edit">Paramètres</a>
-    <a class="btn-secondary btn-sm" href="/admin/events/{{$e.Slug}}/attendees.csv">Participants (CSV)</a>
-    <a class="btn-secondary btn-sm" href="/api/partners.json?event={{$e.Slug}}">Export JSON</a>
+    {{if .D.Mine}}<a class="btn-secondary btn-sm" href="/{{$e.Slug}}/partners/">Tous les partenaires</a>{{else}}<a class="btn-secondary btn-sm" href="/{{$e.Slug}}/partners/?mine=1">Mes partenaires</a>{{end}}
+    <a class="btn-secondary btn-sm" href="/admin/editions/{{$e.Slug}}/levels">Niveaux et contreparties</a>
+    <a class="btn-secondary btn-sm" href="/admin/editions/{{$e.Slug}}">Paramètres</a>
+    <a class="btn-secondary btn-sm" href="/{{$e.Slug}}/partners/attendees.csv">Participants (CSV)</a>
+    <a class="btn-secondary btn-sm" href="/{{$e.Slug}}/api/partners.json">Export JSON</a>
   </div>
 </div>
 
@@ -42,7 +42,7 @@
 <section class="card mb-6 p-4 ring-amber-300" aria-labelledby="due-title">
   <h2 id="due-title" class="mb-2 text-sm font-semibold text-amber-900">À relancer ({{len .}})</h2>
   <ul class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-    {{range .}}<li><a class="link" href="/admin/organizations/{{.Org.Slug}}/editions/{{$e.Slug}}">{{.Org.Name}}</a> <span class="text-xs text-red-700 tabular-nums">{{date "fr" .P.FollowupAt}}</span></li>{{end}}
+    {{range .}}<li><a class="link" href="/{{$e.Slug}}/partners/{{.Org.Slug}}">{{.Org.Name}}</a> <span class="text-xs text-red-700 tabular-nums">{{date "fr" .P.FollowupAt}}</span></li>{{end}}
   </ul>
 </section>
 {{end}}
@@ -72,7 +72,7 @@
       <tbody>
         {{range .Rows}}{{$due := .Due}}
         <tr>
-          <td class="truncate"><a class="link" href="/admin/organizations/{{.Org.Slug}}/editions/{{$e.Slug}}" title="{{.Org.Name}}">{{.Org.Name}}</a></td>
+          <td class="truncate"><a class="link" href="/{{$e.Slug}}/partners/{{.Org.Slug}}" title="{{.Org.Name}}">{{.Org.Name}}</a></td>
           <td class="whitespace-nowrap">{{with .Level}}<span class="inline-flex items-center gap-1.5 align-middle">{{template "medal" (levelMedal . 20)}}{{.Name}}</span>{{else}}<span class="text-gray-400">—</span>{{end}}</td>
           <td class="whitespace-nowrap">
             {{if .Pricing.Set}}

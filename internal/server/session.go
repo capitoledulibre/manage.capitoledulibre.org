@@ -50,6 +50,11 @@ type reqCtx struct {
 	// manager's, or the one a staff member impersonates.
 	Org           *store.Organization
 	Impersonating bool
+
+	// area is the space of the page, set by the access check of its route
+	// ("admin", "partner", "volunteer"): the URLs alone no longer tell, an
+	// edition's pages of every kind sitting below its slug.
+	area string
 }
 
 type ctxKey struct{}

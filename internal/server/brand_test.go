@@ -101,11 +101,11 @@ func TestLanguageFlags(t *testing.T) {
 	f := e.fixture(nil)
 
 	alice := e.loginAs("alice@acme.test")
-	e.post(alice, "/partners/profile", url.Values{"name": {"Alice"}, "lang": {"en"}})
+	e.post(alice, "/"+f.event.Slug+"/partner/profile", url.Values{"name": {"Alice"}, "lang": {"en"}})
 
 	// The profile picker has the manager's language checked, and the header
 	// offers the other language with its flag.
-	_, body := e.get(alice, "/partners/managers")
+	_, body := e.get(alice, "/"+f.event.Slug+"/partner/managers")
 	mustContain(t, body, `name="lang" value="en" class="sr-only" checked`, `aria-label="English"`, `aria-label="Français"`, `hreflang="fr"`)
 
 	// The staff sees each manager's email language as a flag.
@@ -165,7 +165,7 @@ func TestUserMenu(t *testing.T) {
 	// Partner manager: initials, profile on the managers page.
 	alice := e.loginAs("alice@acme.test")
 	_, body = e.get(alice, "/partners/")
-	mustContain(t, body, "data-menu", `href="/partners/managers#profile"`, `action="/logout"`, "alice@acme.test")
+	mustContain(t, body, "data-menu", `href="/ec-2026/partner/managers#profile"`, `action="/logout"`, "alice@acme.test")
 
 	// Public pages and the staff view of a partner: no user menu.
 	_, body = e.get(e.client(), "/")
@@ -193,7 +193,7 @@ func TestDoor(t *testing.T) {
 	mustContain(t, body, `action="/login"`, `href="/"`)
 
 	// An anonymous visit of the partner space lands on its login.
-	_, body = e.get(c, "/partners/attendees")
+	_, body = e.get(c, "/ec-2026/partner/attendees")
 	mustContain(t, body, "Espace partenaires", `action="/login"`)
 
 	e.get(c, "/lang/en")

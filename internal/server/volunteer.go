@@ -14,43 +14,48 @@ import (
 )
 
 // The volunteer space: editions, poles, slots and a volunteer's own
-// planning, under /volunteers/. Every edition-level page sits below
-// /volunteers/{event}/ so that its routes never overlap the few site-wide
-// ones (/volunteers/login, /volunteers/profile…).
+// planning. Every page of an edition sits below /{event}/, the edition's
+// slug; the few site-wide ones (/volunteers/login, /me…) never take a
+// reserved word an edition could be named.
 
-func (s *Server) volunteerRoutes(mux *http.ServeMux) {
+func (s *Server) volunteerRoutes(mux *router) {
 	mux.Handle("GET /volunteers/login", s.wrap(s.volunteerLogin))
 	mux.Handle("GET /calendar/{token}", s.wrap(s.calendarFeed))
 	mux.Handle("GET /volunteer-images/{file}", s.wrap(s.volunteerImage))
 
 	vol := func(pattern string, h handlerFunc) { mux.Handle(pattern, s.wrap(s.requireVolunteer(h))) }
 
+	// The way in: the edition taking volunteers.
 	vol("GET /volunteers/{$}", s.volunteerHome)
-	vol("GET /volunteers/welcome", s.volunteerWelcome)
-	vol("GET /volunteers/profile", s.volunteerProfile)
-	vol("POST /volunteers/profile", s.volunteerProfileSave)
-	vol("POST /volunteers/profile/delete", s.volunteerLeave)
-	vol("POST /volunteers/profile/photo", s.profilePhoto)
-	vol("POST /volunteers/profile/photo/delete", s.profilePhotoDelete)
-	vol("POST /volunteers/profile/gravatar", s.profileGravatar)
+	vol("GET /welcome", s.volunteerWelcome)
+	vol("GET /me", s.volunteerProfile)
+	vol("POST /me", s.volunteerProfileSave)
+	vol("POST /me/delete", s.volunteerLeave)
+	vol("POST /me/photo", s.profilePhoto)
+	vol("POST /me/photo/delete", s.profilePhotoDelete)
+	vol("POST /me/gravatar", s.profileGravatar)
 
-	vol("GET /volunteers/{event}", s.eventHome)
-	vol("GET /volunteers/{event}/planning", s.planningPage)
-	vol("POST /volunteers/{event}/details", s.volunteerDetailsSave)
-	vol("GET /volunteers/{event}/me.ics", s.myPlanningICS)
-	vol("POST /volunteers/{event}/me/calendar/reset", s.calendarReset)
+	vol("GET /{event}/{$}", s.eventHome)
+	// An edition's address typed without its slash.
+	mux.HandleFunc("GET /{event}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/"+url.PathEscape(r.PathValue("event"))+"/", http.StatusMovedPermanently)
+	})
+	vol("GET /{event}/planning", s.planningPage)
+	vol("POST /{event}/details", s.volunteerDetailsSave)
+	vol("GET /{event}/me.ics", s.myPlanningICS)
+	vol("POST /{event}/me/calendar/reset", s.calendarReset)
 
-	vol("GET /volunteers/{event}/{pole}", s.polePage)
-	vol("GET /volunteers/{event}/{pole}/join", s.poleInvite)
-	vol("POST /volunteers/{event}/{pole}/join", s.poleJoin)
-	vol("POST /volunteers/{event}/{pole}/leave", s.poleLeave)
+	vol("GET /{event}/poles/{pole}", s.polePage)
+	vol("GET /{event}/poles/{pole}/join", s.poleInvite)
+	vol("POST /{event}/poles/{pole}/join", s.poleJoin)
+	vol("POST /{event}/poles/{pole}/leave", s.poleLeave)
 
-	vol("GET /volunteers/{event}/{pole}/slots/{slot}", s.slotPage)
-	vol("POST /volunteers/{event}/{pole}/slots/{slot}/signup", s.slotSignup)
-	vol("POST /volunteers/{event}/{pole}/slots/{slot}/unsignup", s.slotUnsignup)
-	vol("POST /volunteers/{event}/{pole}/slots/{slot}/waitlist", s.slotWaitlistJoin)
-	vol("POST /volunteers/{event}/{pole}/slots/{slot}/waitlist/delete", s.slotWaitlistLeave)
-	vol("POST /volunteers/{event}/{pole}/tasks/{task}/toggle", s.taskToggle)
+	vol("GET /{event}/poles/{pole}/slots/{slot}", s.slotPage)
+	vol("POST /{event}/poles/{pole}/slots/{slot}/signup", s.slotSignup)
+	vol("POST /{event}/poles/{pole}/slots/{slot}/unsignup", s.slotUnsignup)
+	vol("POST /{event}/poles/{pole}/slots/{slot}/waitlist", s.slotWaitlistJoin)
+	vol("POST /{event}/poles/{pole}/slots/{slot}/waitlist/delete", s.slotWaitlistLeave)
+	vol("POST /{event}/poles/{pole}/tasks/{task}/toggle", s.taskToggle)
 
 	s.poleManageRoutes(mux)
 	s.coordinationRoutes(mux)
@@ -62,6 +67,7 @@ func (s *Server) volunteerRoutes(mux *http.ServeMux) {
 func (s *Server) requireVolunteer(h handlerFunc) handlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		c := rc(r)
+		c.area = "volunteer"
 
 		if c.Person == nil && c.Admin != nil {
 			p, err := s.store.GetPerson(r.Context(), c.Admin.PersonID)
@@ -139,7 +145,7 @@ func (s *Server) ficheBase(r *http.Request, e *store.Event) (string, error) {
 		return "", err
 	}
 
-	return editionURL(e) + "/volunteers/", nil
+	return editionURL(e) + "/", nil
 }
 
 // managesPole tells whether the person runs a pole: its managers, and
@@ -274,7 +280,7 @@ func (s *Server) volunteerHome(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	http.Redirect(w, r, "/volunteers/"+e.Slug, http.StatusSeeOther)
+	http.Redirect(w, r, volunteerHomeURL(e), http.StatusSeeOther)
 
 	return nil
 }
@@ -735,7 +741,7 @@ func (s *Server) profilePhoto(w http.ResponseWriter, r *http.Request) error {
 		var ue uploadError
 		if errors.As(err, &ue) {
 			s.flash(w, string(ue))
-			http.Redirect(w, r, "/volunteers/profile", http.StatusSeeOther)
+			http.Redirect(w, r, "/me", http.StatusSeeOther)
 
 			return nil
 		}
@@ -750,7 +756,7 @@ func (s *Server) profilePhoto(w http.ResponseWriter, r *http.Request) error {
 
 	s.dropFile(r, old)
 	s.flash(w, "flash.vol.photo_saved")
-	http.Redirect(w, r, "/volunteers/profile", http.StatusSeeOther)
+	http.Redirect(w, r, "/me", http.StatusSeeOther)
 
 	return nil
 }
@@ -765,7 +771,7 @@ func (s *Server) profilePhotoDelete(w http.ResponseWriter, r *http.Request) erro
 
 	s.dropFile(r, old)
 	s.flash(w, "flash.vol.photo_removed")
-	http.Redirect(w, r, "/volunteers/profile", http.StatusSeeOther)
+	http.Redirect(w, r, "/me", http.StatusSeeOther)
 
 	return nil
 }
@@ -797,7 +803,7 @@ func (s *Server) profileGravatar(w http.ResponseWriter, r *http.Request) error {
 		s.flash(w, "flash.vol.gravatar_none", person.Email)
 	}
 
-	http.Redirect(w, r, "/volunteers/profile", http.StatusSeeOther)
+	http.Redirect(w, r, "/me", http.StatusSeeOther)
 
 	return nil
 }
@@ -860,8 +866,9 @@ func (s *Server) loginContext(r *http.Request, next string) map[string]any {
 	path, _, _ := strings.Cut(next, "?")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 
-	if len(parts) >= 3 && parts[0] == "volunteers" {
-		if e, err := s.store.GetEventBySlug(ctx, parts[1]); err == nil && e.VisibleToVolunteers() {
+	// A pole's page or invitation: /{event}/poles/{pole}…
+	if len(parts) >= 3 && parts[1] == "poles" {
+		if e, err := s.store.GetEventBySlug(ctx, parts[0]); err == nil && e.VisibleToVolunteers() {
 			if p, err := s.store.GetPoleBySlug(ctx, e.ID, parts[2]); err == nil && p.AccessMode != store.PoleRestricted && !p.IsDefault {
 				managers, err := s.store.ListPoleManagers(ctx, p.ID)
 				if err != nil {

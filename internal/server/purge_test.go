@@ -15,8 +15,8 @@ func TestPurgeEdition(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 	admin := e.adminClient()
-	edit := "/admin/events/" + f.event.Slug + "/edit"
-	purge := "/admin/events/" + f.event.Slug + "/purge"
+	edit := "/admin/editions/" + f.event.Slug
+	purge := "/admin/editions/" + f.event.Slug + "/purge"
 
 	// A partner with an attendee, and its change log.
 	org, ps, _ := e.addOrg("Acme", "alice@acme.test", f.event, store.StatusConfirmed, nil)

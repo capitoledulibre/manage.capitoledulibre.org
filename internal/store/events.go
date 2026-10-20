@@ -130,7 +130,24 @@ func (s *Store) CurrentEvent(ctx context.Context) (*Event, error) {
 	return scanEvent(s.db.QueryRowContext(ctx, `SELECT `+eventCols+` FROM events ORDER BY is_current DESC, year DESC, id DESC LIMIT 1`))
 }
 
+// reservedSlugs are the first segments of the site's own pages: an edition's
+// pages sit below its slug, which cannot take one of them.
+var reservedSlugs = map[string]bool{
+	"admin": true, "api": true, "auth": true, "avatars": true, "brand": true, "calendar": true, "choose": true,
+	"healthz": true, "jobs": true, "jwks": true, "lang": true, "login": true, "logos": true, "logout": true,
+	"me": true, "new": true, "partners": true, "privacy": true, "static": true, "theme": true, "token": true,
+	"volunteer-images": true, "volunteers": true, "welcome": true,
+}
+
+// ReservedSlug tells whether an edition cannot take a slug: a word of the
+// site's own URLs.
+func ReservedSlug(slug string) bool { return reservedSlugs[slug] || strings.HasPrefix(slug, ".") }
+
 func (s *Store) SaveEvent(ctx context.Context, e *Event) error {
+	if ReservedSlug(e.Slug) {
+		return ErrBadInput
+	}
+
 	return s.tx(ctx, func(tx *sql.Tx) error {
 		if e.IsCurrent {
 			if _, err := tx.ExecContext(ctx, `UPDATE events SET is_current = 0 WHERE id != ?`, e.ID); err != nil {

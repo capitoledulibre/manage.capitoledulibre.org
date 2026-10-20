@@ -73,7 +73,7 @@ func (s *Server) volunteerDetailsSave(w http.ResponseWriter, r *http.Request) er
 	}
 
 	s.flash(w, "flash.vol.details_saved")
-	http.Redirect(w, r, "/volunteers/"+e.Slug, http.StatusSeeOther)
+	http.Redirect(w, r, volunteerHomeURL(e), http.StatusSeeOther)
 
 	return nil
 }
@@ -291,7 +291,7 @@ func (s *Server) coordinationRemind(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	planning := s.cfg.BaseURL + planningURL(e) + "?view=open"
-	home := s.cfg.BaseURL + "/volunteers/" + e.Slug
+	home := s.cfg.BaseURL + volunteerHomeURL(e)
 
 	s.notifyPeople(people, func(lang string) string { return volSubject(lang, "mail.vol.remind_"+audience+".subject") },
 		func(p *store.Person) string {
@@ -307,7 +307,7 @@ func (s *Server) coordinationRemind(w http.ResponseWriter, r *http.Request) erro
 	s.flashCount(w, "flash.vol.reminded", len(people))
 
 	if audience == "idle" {
-		http.Redirect(w, r, editionURL(e)+"/volunteers", http.StatusSeeOther)
+		http.Redirect(w, r, editionURL(e)+"/list", http.StatusSeeOther)
 
 		return nil
 	}

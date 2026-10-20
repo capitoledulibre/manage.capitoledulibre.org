@@ -15,7 +15,7 @@ func TestTasksFromThePlanning(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	f := e.volFixture()
-	planning := "/volunteers/" + f.event.Slug + "/planning?day=all"
+	planning := "/" + f.event.Slug + "/planning?day=all"
 
 	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
 	mustOK(t, err)
@@ -28,7 +28,7 @@ func TestTasksFromThePlanning(t *testing.T) {
 	_, body := e.get(ninaC, planning)
 	mustContain(t, body, `<details id="tasks-`+f.morning.UID+`"`, "Tâches · 0/1", `name="view" value="card"`)
 
-	toggle := "/volunteers/" + f.event.Slug + "/" + f.buvette.Slug + "/tasks/" + f.taskUID + "/toggle"
+	toggle := f.buvette.URL() + "/tasks/" + f.taskUID + "/toggle"
 
 	_, body = e.hx(ninaC, toggle, url.Values{"view": {"card"}, "back": {planning}})
 	mustContain(t, body, `<details id="tasks-`+f.morning.UID+`" class="group/tasks mt-2" open>`, "Tâches · 1/1", ">faites<", "fait par Nina à")
@@ -59,7 +59,7 @@ func TestTasksFromThePlanning(t *testing.T) {
 
 	done, _ = e.st.GetSlot(ctx, done.ID, 0)
 
-	_, body = e.get(lead, "/volunteers/"+f.event.Slug+"/planning?view=late&day=all")
+	_, body = e.get(lead, "/"+f.event.Slug+"/planning?view=late&day=all")
 	mustContain(t, body, `aria-current="page">Tâches en retard`, "Rangement", ">en retard<", `id="tasks-`+done.UID+`" class="group/tasks mt-2" open`)
 
 	if strings.Contains(body, "Café") {
@@ -67,14 +67,14 @@ func TestTasksFromThePlanning(t *testing.T) {
 	}
 
 	// Nobody signs up for a slot that is over.
-	_, body = e.get(ninaC, "/volunteers/"+f.event.Slug+"/planning?view=all&day=all")
+	_, body = e.get(ninaC, "/"+f.event.Slug+"/planning?view=all&day=all")
 	mustContain(t, body, ">Terminé<")
 
 	_, body = e.hx(ninaC, done.URL()+"/signup", url.Values{"back": {planning}})
 	mustContain(t, body, "Ce créneau est terminé.")
 
 	// A volunteer has no such view.
-	_, body = e.get(ninaC, "/volunteers/"+f.event.Slug+"/planning?view=late&day=all")
+	_, body = e.get(ninaC, "/"+f.event.Slug+"/planning?view=late&day=all")
 	if strings.Contains(body, "Tâches en retard") {
 		t.Error("a volunteer gets the late tasks view")
 	}

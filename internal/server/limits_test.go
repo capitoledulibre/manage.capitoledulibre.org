@@ -87,7 +87,7 @@ func TestPersonSessionSlides(t *testing.T) {
 	// Age the session to ten days from its end.
 	mustOK(t, e.st.ExtendSession(ctx, token, 10*24*time.Hour))
 
-	if code, _ := e.get(nina, "/volunteers/"+f.event.Slug); code != 200 {
+	if code, _ := e.get(nina, "/"+f.event.Slug); code != 200 {
 		t.Fatalf("page: %d", code)
 	}
 

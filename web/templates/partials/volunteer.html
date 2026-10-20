@@ -317,8 +317,8 @@
 {{range .Tasks}}
 <li>
   {{if $.CanTick}}
-  <form method="post" action="/volunteers/{{$.Slot.EventSlug}}/{{$.Slot.PoleSlug}}/tasks/{{.UID}}/toggle"
-        hx-post="/volunteers/{{$.Slot.EventSlug}}/{{$.Slot.PoleSlug}}/tasks/{{.UID}}/toggle" hx-target="#tasks-{{$.Slot.UID}}" hx-swap="outerHTML"
+  <form method="post" action="/{{$.Slot.EventSlug}}/poles/{{$.Slot.PoleSlug}}/tasks/{{.UID}}/toggle"
+        hx-post="/{{$.Slot.EventSlug}}/poles/{{$.Slot.PoleSlug}}/tasks/{{.UID}}/toggle" hx-target="#tasks-{{$.Slot.UID}}" hx-swap="outerHTML"
         class="flex flex-wrap items-center gap-x-3 gap-y-1">
     {{with $.View}}<input type="hidden" name="view" value="{{.}}">{{end}}
     {{with $.Back}}<input type="hidden" name="back" value="{{.}}">{{end}}

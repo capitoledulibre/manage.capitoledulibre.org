@@ -1,6 +1,6 @@
 {{define "content"}}
 {{$d := .D}}{{$l := .Lang}}{{$v := $d.V}}{{$pole := $v.Pole}}{{$e := $v.Event}}
-<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="/volunteers/{{$e.Slug}}">← {{t $l "vol.nav.poles"}}</a></nav>
+<nav class="mb-3 text-sm" aria-label="{{t $l "vol.breadcrumb"}}"><a class="link" href="/{{$e.Slug}}/">← {{t $l "vol.nav.poles"}}</a></nav>
 <div class="pole-c{{$pole.Color}} mb-4 flex flex-wrap items-center gap-4">
   {{template "pole_icon" (dict "Pole" $pole "Big" true)}}
   <div class="flex-1">
@@ -63,7 +63,7 @@
   {{end}}
   <a href="{{$pole.URL}}?{{with $d.Filter}}location={{.}}&amp;{{end}}{{if not $d.OnlyOpen}}open=1{{end}}" class="filter {{if $d.OnlyOpen}}filter-on{{end}}" {{if $d.OnlyOpen}}aria-current="true"{{end}}>{{t $l "vol.pole.only_open"}}</a>
 </nav>
-{{if and $v.Manage $d.Total}}<p class="flex flex-wrap gap-x-4 gap-y-1 text-sm"><a class="link" href="/volunteers/{{$e.Slug}}/planning?pole={{$pole.Slug}}&amp;day=all">{{t $l "vol.planning.link_pole"}}</a><a class="link" href="{{$pole.ManageURL}}/signups.csv">{{t $l "vol.planning.csv"}}</a></p>{{end}}
+{{if and $v.Manage $d.Total}}<p class="flex flex-wrap gap-x-4 gap-y-1 text-sm"><a class="link" href="/{{$e.Slug}}/planning?pole={{$pole.Slug}}&amp;day=all">{{t $l "vol.planning.link_pole"}}</a><a class="link" href="{{$pole.ManageURL}}/signups.csv">{{t $l "vol.planning.csv"}}</a></p>{{end}}
 </div>
 {{end}}
 
@@ -183,7 +183,7 @@
       <div>
         <label class="label" for="p-slug">{{t $l "vol.manage.slug"}}</label>
         <input id="p-slug" class="input font-mono" name="slug" value="{{$pole.Slug}}" pattern="[a-z0-9-]+" required>
-        <p class="help">{{t $l "vol.manage.slug_help" (printf "/volunteers/%s/…" $e.Slug)}}</p>
+        <p class="help">{{t $l "vol.manage.slug_help" (printf "/%s/poles/…" $e.Slug)}}</p>
       </div>
       {{end}}
       <div>

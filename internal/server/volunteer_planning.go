@@ -149,7 +149,7 @@ func (s *Server) planning(r *http.Request, e *store.Event, q planQuery) (out []*
 }
 
 // planningURL is the planning of an edition.
-func planningURL(e *store.Event) string { return "/volunteers/" + e.Slug + "/planning" }
+func planningURL(e *store.Event) string { return "/" + e.Slug + "/planning" }
 
 var planViews = []string{"all", "mine", "open"}
 

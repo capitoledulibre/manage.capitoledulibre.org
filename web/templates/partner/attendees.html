@@ -30,10 +30,10 @@
             <td>{{.Dietary}}</td>
             <td class="whitespace-nowrap text-right">
               {{if $.D.Locked}}
-              <a class="btn-secondary btn-sm" href="/partners/attendees?event={{$pc.Event.Slug}}&amp;edit={{.UID}}#attendee-form">{{t $l "attendees.edit_dietary"}}</a>
+              <a class="btn-secondary btn-sm" href="{{$.PartnerSpace}}/attendees?edit={{.UID}}#attendee-form">{{t $l "attendees.edit_dietary"}}</a>
               {{else}}
-              <a class="btn-secondary btn-sm" href="/partners/attendees?event={{$pc.Event.Slug}}&amp;edit={{.UID}}#attendee-form">{{t $l "action.edit"}}</a>
-              <form method="post" action="/partners/attendees/{{.UID}}/delete{{$.D.Query}}" class="inline-block" data-confirm="{{t $l "action.confirm_delete"}}">
+              <a class="btn-secondary btn-sm" href="{{$.PartnerSpace}}/attendees?edit={{.UID}}#attendee-form">{{t $l "action.edit"}}</a>
+              <form method="post" action="{{$.PartnerSpace}}/attendees/{{.UID}}/delete" class="inline-block" data-confirm="{{t $l "action.confirm_delete"}}">
                 <button class="btn-danger btn-sm">{{t $l "action.delete"}}</button>
               </form>
               {{end}}
@@ -52,14 +52,14 @@
     {{if and .D.Locked $editing}}
       {{/* Closed, the list keeps its people; their diet can still change. */}}
       <p class="mb-3 text-sm text-gray-600">{{t $l "attendees.locked_dietary"}}</p>
-      <form method="post" action="/partners/attendees/{{$editing.UID}}" class="space-y-3">
+      <form method="post" action="{{$.PartnerSpace}}/attendees/{{$editing.UID}}" class="space-y-3">
         <input type="hidden" name="event" value="{{$pc.Event.Slug}}">
         <div>
           <label class="label" for="dietary">{{t $l "attendees.dietary"}}</label>
           <input class="input" id="dietary" name="dietary" placeholder="{{t $l "attendees.dietary_placeholder"}}" value="{{$editing.Dietary}}">
         </div>
         <button class="btn w-full">{{t $l "action.save"}}</button>
-        <a class="link block text-center text-sm" href="/partners/attendees{{.D.Query}}">{{t $l "action.cancel"}}</a>
+        <a class="link block text-center text-sm" href="{{$.PartnerSpace}}/attendees">{{t $l "action.cancel"}}</a>
       </form>
     {{else if .D.Locked}}
       <p class="text-sm text-gray-600">{{t $l "attendees.locked"}}</p>
@@ -68,7 +68,7 @@
     {{else}}
     {{with .D.Form}}{{with .Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $l .}}</div>{{end}}{{end}}
     {{$a := ""}}{{with .D.Form}}{{$a = .A}}{{end}}
-    <form method="post" action="/partners/attendees{{with $editing}}/{{.UID}}{{end}}" class="space-y-3">
+    <form method="post" action="{{$.PartnerSpace}}/attendees{{with $editing}}/{{.UID}}{{end}}" class="space-y-3">
       <input type="hidden" name="event" value="{{$pc.Event.Slug}}">
       <div>
         <label class="label" for="first_name">{{t $l "attendees.first_name"}} *</label>
@@ -95,7 +95,7 @@
       </div>
       {{if $editing}}
       <button class="btn w-full">{{t $l "action.save"}}</button>
-      <a class="link block text-center text-sm" href="/partners/attendees{{.D.Query}}">{{t $l "action.cancel"}}</a>
+      <a class="link block text-center text-sm" href="{{$.PartnerSpace}}/attendees">{{t $l "action.cancel"}}</a>
       {{else}}<button class="btn w-full">{{t $l "action.add"}}</button>{{end}}
     </form>
     {{end}}

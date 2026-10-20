@@ -19,12 +19,12 @@ import (
 // messages and the volunteer settings. Creating, renaming or deleting an
 // edition stays in the staff administration, shared with the partners.
 
-func (s *Server) coordinationRoutes(mux *http.ServeMux) {
+func (s *Server) coordinationRoutes(mux *router) {
 	c := func(pattern string, h handlerFunc) {
 		mux.Handle(pattern, s.wrap(s.requireVolunteer(s.requireCoordination(h))))
 	}
 
-	const base = "/volunteers/{event}/edition"
+	const base = "/{event}/volunteers"
 
 	c("GET "+base, s.coordination)
 	c("POST "+base+"/settings", s.coordinationSettings)
@@ -38,16 +38,16 @@ func (s *Server) coordinationRoutes(mux *http.ServeMux) {
 	c("POST "+base+"/poles/{pole}/copy", s.coordinationPoleCopy)
 	c("POST "+base+"/messages", s.coordinationMessage)
 	c("POST "+base+"/messages/{message}/delete", s.coordinationMessageDelete)
-	c("GET "+base+"/volunteers", s.coordinationVolunteers)
-	c("GET "+base+"/volunteers.csv", s.coordinationVolunteersCSV)
+	c("GET "+base+"/list", s.coordinationVolunteers)
+	c("GET "+base+"/list.csv", s.coordinationVolunteersCSV)
 	c("GET "+base+"/signups.csv", s.coordinationSignupsCSV)
 	c("GET "+base+"/logistics.csv", s.coordinationLogisticsCSV)
 	c("POST "+base+"/remind", s.coordinationRemind)
-	c("POST "+base+"/volunteers", s.coordinationVolunteerAdd)
-	c("POST "+base+"/volunteers/join", s.coordinationVolunteersJoin)
-	c("GET "+base+"/volunteers/{person}", s.coordinationVolunteer)
-	c("POST "+base+"/volunteers/{person}/join", s.coordinationVolunteerJoin)
-	c("POST "+base+"/volunteers/{person}", s.coordinationVolunteerSave)
+	c("POST "+base+"/list", s.coordinationVolunteerAdd)
+	c("POST "+base+"/list/join", s.coordinationVolunteersJoin)
+	c("GET "+base+"/{person}", s.coordinationVolunteer)
+	c("POST "+base+"/{person}/join", s.coordinationVolunteerJoin)
+	c("POST "+base+"/{person}", s.coordinationVolunteerSave)
 }
 
 // requireCoordination lets in the coordinators of the edition of the path,
@@ -78,7 +78,11 @@ func (s *Server) coordinationEvent(r *http.Request) (*store.Event, error) {
 	return s.store.GetEventBySlug(r.Context(), r.PathValue("event"))
 }
 
-func editionURL(e *store.Event) string { return "/volunteers/" + e.Slug + "/edition" }
+// editionURL is the coordination of an edition's volunteers.
+func editionURL(e *store.Event) string { return "/" + e.Slug + "/volunteers" }
+
+// volunteerHomeURL is an edition's home page in the volunteer space.
+func volunteerHomeURL(e *store.Event) string { return "/" + e.Slug + "/" }
 
 func (s *Server) redirectCoordination(w http.ResponseWriter, r *http.Request, e *store.Event, tab string) error {
 	to := editionURL(e)
@@ -578,7 +582,7 @@ func (s *Server) coordinationMessage(w http.ResponseWriter, r *http.Request) err
 
 	name := e.Name
 	s.notifyMessage(recipients, e.Slug, func(lang string) string { return i18n.T(lang, "mail.vol.scope_event", name) },
-		body, s.cfg.BaseURL+"/volunteers/"+e.Slug)
+		body, s.cfg.BaseURL+volunteerHomeURL(e))
 	s.flashCount(w, "flash.vol.message_sent", len(recipients))
 
 	return s.redirectCoordination(w, r, e, "messages")
@@ -714,7 +718,7 @@ func (s *Server) coordinationVolunteerAdd(w http.ResponseWriter, r *http.Request
 		return err
 	}
 
-	back := "/volunteers/" + e.Slug + "/edition/volunteers"
+	back := editionURL(e) + "/list"
 
 	email := store.NormalizeEmail(r.FormValue("email"))
 	if !validEmail(email) {
@@ -775,7 +779,7 @@ func (s *Server) coordinationVolunteerJoin(w http.ResponseWriter, r *http.Reques
 
 	s.logVol(r, logPole(store.LogMemberAdded, pole, who))
 	s.flash(w, "flash.vol.member_joined", who.Label(), pole.Name)
-	http.Redirect(w, r, safeRedirect(r.FormValue("back"), "/volunteers/"+e.Slug+"/edition/volunteers"), http.StatusSeeOther)
+	http.Redirect(w, r, safeRedirect(r.FormValue("back"), editionURL(e)+"/list"), http.StatusSeeOther)
 
 	return nil
 }
@@ -888,7 +892,7 @@ func (s *Server) coordinationVolunteerSave(w http.ResponseWriter, r *http.Reques
 	}
 
 	s.flash(w, "flash.saved")
-	http.Redirect(w, r, editionURL(e)+"/volunteers/"+who.UID, http.StatusSeeOther)
+	http.Redirect(w, r, editionURL(e)+"/"+who.UID, http.StatusSeeOther)
 
 	return nil
 }
@@ -926,7 +930,7 @@ func (s *Server) coordinationVolunteersJoin(w http.ResponseWriter, r *http.Reque
 	}
 
 	s.flashCount(w, "flash.vol.members_joined", added, pole.Name)
-	http.Redirect(w, r, "/volunteers/"+e.Slug+"/edition/volunteers", http.StatusSeeOther)
+	http.Redirect(w, r, editionURL(e)+"/list", http.StatusSeeOther)
 
 	return nil
 }

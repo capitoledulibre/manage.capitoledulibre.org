@@ -66,7 +66,7 @@ func slotLine(lang string, pole *store.Pole, sl *store.Slot) string {
 func (s *Server) volMail(p *store.Person, eventSlug, body string) string {
 	planning := s.cfg.BaseURL + "/volunteers/"
 	if eventSlug != "" {
-		planning += eventSlug + "/planning?view=mine"
+		planning = s.cfg.BaseURL + "/" + eventSlug + "/planning?view=mine"
 	}
 
 	return i18n.T(p.Lang, "mail.vol.greeting", p.Label()) + "\n\n" + body + "\n\n" +

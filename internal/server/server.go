@@ -169,9 +169,53 @@ func (s *Server) Handler() http.Handler {
 	return h
 }
 
+// router holds the routes in two muxes: the site's own pages, and the pages
+// of an edition, below its slug (/{event}/…). A request goes to the
+// editions' when none of the site's own matches: the patterns of both
+// would otherwise conflict (/static/… against /{event}/…), and a word of the
+// site can be no edition's slug (store.ReservedSlug).
+type router struct {
+	main, editions *http.ServeMux
+}
+
+func newRouter() *router {
+	rt := &router{main: http.NewServeMux(), editions: http.NewServeMux()}
+	rt.main.Handle("/", rt.editions)
+
+	return rt
+}
+
+// Handle registers a pattern on the mux it belongs to.
+func (rt *router) Handle(pattern string, h http.Handler) {
+	if _, path, _ := strings.Cut(pattern, " "); path == "/{event}" || strings.HasPrefix(path, "/{event}/") {
+		rt.editions.Handle(pattern, h)
+
+		return
+	}
+
+	rt.main.Handle(pattern, h)
+}
+
+func (rt *router) HandleFunc(pattern string, h func(http.ResponseWriter, *http.Request)) {
+	rt.Handle(pattern, http.HandlerFunc(h))
+}
+
+func (rt *router) ServeHTTP(w http.ResponseWriter, r *http.Request) { rt.main.ServeHTTP(w, r) }
+
+// pattern is the route a request reaches, empty for none.
+func (rt *router) pattern(r *http.Request) string {
+	if _, p := rt.main.Handler(r); p != "" && p != "/" {
+		return p
+	}
+
+	_, p := rt.editions.Handler(r)
+
+	return p
+}
+
 // routes registers every route of the application.
-func (s *Server) routes() *http.ServeMux {
-	mux := http.NewServeMux()
+func (s *Server) routes() *router {
+	mux := newRouter()
 
 	static, _ := fs.Sub(web.Static, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))

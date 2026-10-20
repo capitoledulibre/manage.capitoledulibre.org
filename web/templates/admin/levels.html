@@ -1,12 +1,12 @@
 {{define "content"}}
 {{$e := .D.E}}
-<a class="link text-sm" href="/admin/events/{{$e.Slug}}">← {{$e.Name}}</a>
+<a class="link text-sm" href="/{{$e.Slug}}/partners/">← {{$e.Name}}</a>
 <h1 class="mt-2 mb-6 text-2xl font-bold tracking-tight">Niveaux et contreparties</h1>
 
 {{if .D.Others}}
 <section class="card mb-6">
   <h2 class="card-title">Copier depuis une autre édition</h2>
-  <form method="post" action="/admin/events/{{$e.Slug}}/clone" class="flex flex-wrap items-center gap-2"
+  <form method="post" action="/admin/editions/{{$e.Slug}}/clone" class="flex flex-wrap items-center gap-2"
         data-confirm="Copier les niveaux, contreparties et cases cochées de l'édition choisie ? Les éléments existants (même nom) sont conservés.">
     <select class="input w-auto" name="source" aria-label="Édition source">{{range .D.Others}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}</select>
     <button class="btn-secondary">Copier les niveaux et contreparties</button>
@@ -27,7 +27,7 @@
         <tr>
           <td class="align-middle">{{template "medal" (levelMedal . 36)}}</td>
           <td colspan="7">
-            <form method="post" action="/admin/events/{{$e.Slug}}/levels" class="grid grid-cols-7 gap-2" id="level-{{.UID}}">
+            <form method="post" action="/admin/editions/{{$e.Slug}}/levels" class="grid grid-cols-7 gap-2" id="level-{{.UID}}">
               <input type="hidden" name="level" value="{{.UID}}">
               <input class="input" name="name" value="{{.Name}}" required aria-label="Nom">
               <input class="input" name="position" type="number" value="{{.Position}}" aria-label="Ordre">
@@ -42,7 +42,7 @@
           <td>{{.Taken}}</td>
           <td class="whitespace-nowrap text-right">
             <button class="btn-secondary btn-sm" form="level-{{.UID}}">Enregistrer</button>
-            <form method="post" action="/admin/events/{{$e.Slug}}/levels/{{.UID}}/delete" class="inline" data-confirm="Supprimer ce niveau ? Les partenariats associés n'auront plus de niveau.">
+            <form method="post" action="/admin/editions/{{$e.Slug}}/levels/{{.UID}}/delete" class="inline" data-confirm="Supprimer ce niveau ? Les partenariats associés n'auront plus de niveau.">
               <button class="btn-danger btn-sm">Supprimer</button>
             </form>
           </td>
@@ -51,7 +51,7 @@
         <tr>
           <td></td>
           <td colspan="7">
-            <form method="post" action="/admin/events/{{$e.Slug}}/levels" class="grid grid-cols-7 gap-2" id="level-new">
+            <form method="post" action="/admin/editions/{{$e.Slug}}/levels" class="grid grid-cols-7 gap-2" id="level-new">
               <input class="input" name="name" placeholder="Nouveau niveau" required aria-label="Nom">
               <input class="input" name="position" type="number" placeholder="Ordre" aria-label="Ordre">
               <input class="input" name="price" type="number" placeholder="Prix" aria-label="Prix">
@@ -74,20 +74,20 @@
   <ul class="space-y-2">
     {{range .D.Perks}}
     <li class="flex flex-wrap items-center gap-2">
-      <form method="post" action="/admin/events/{{$e.Slug}}/perks" class="flex flex-1 flex-wrap gap-2">
+      <form method="post" action="/admin/editions/{{$e.Slug}}/perks" class="flex flex-1 flex-wrap gap-2">
         <input type="hidden" name="perk" value="{{.UID}}">
         <input class="input w-20" name="position" type="number" value="{{.Position}}" aria-label="Ordre">
         <input class="input flex-1" name="name_fr" value="{{.NameFR}}" required aria-label="Nom FR">
         <input class="input flex-1" name="name_en" value="{{.NameEN}}" aria-label="Nom EN" placeholder="English">
         <button class="btn-secondary btn-sm">Enregistrer</button>
       </form>
-      <form method="post" action="/admin/events/{{$e.Slug}}/perks/{{.UID}}/delete" data-confirm="Supprimer cette contrepartie ?">
+      <form method="post" action="/admin/editions/{{$e.Slug}}/perks/{{.UID}}/delete" data-confirm="Supprimer cette contrepartie ?">
         <button class="btn-danger btn-sm">Supprimer</button>
       </form>
     </li>
     {{end}}
     <li>
-      <form method="post" action="/admin/events/{{$e.Slug}}/perks" class="flex flex-wrap gap-2">
+      <form method="post" action="/admin/editions/{{$e.Slug}}/perks" class="flex flex-wrap gap-2">
         <input class="input w-20" name="position" type="number" placeholder="Ordre" aria-label="Ordre">
         <input class="input flex-1" name="name_fr" required placeholder="Ex. Logo sur le site web" aria-label="Nom FR">
         <input class="input flex-1" name="name_en" placeholder="E.g. Logo on the website" aria-label="Nom EN">
@@ -100,7 +100,7 @@
 {{if and .D.Levels .D.Perks}}
 <section class="card">
   <h2 class="card-title">Contreparties incluses par niveau</h2>
-  <form method="post" action="/admin/events/{{$e.Slug}}/matrix">
+  <form method="post" action="/admin/editions/{{$e.Slug}}/matrix">
     <div class="overflow-x-auto">
       <table class="table">
         <thead><tr><th>Contrepartie</th>{{range .D.Levels}}<th class="text-center">{{.Name}}</th>{{end}}</tr></thead>

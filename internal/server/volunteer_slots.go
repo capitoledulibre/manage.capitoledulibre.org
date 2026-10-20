@@ -244,7 +244,7 @@ func (s *Server) poleJoin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	home := "/volunteers/" + v.Event.Slug
+	home := volunteerHomeURL(v.Event)
 
 	if v.Event.VolunteerStatus != store.VolunteersOpen && !v.Manage {
 		s.flash(w, "vol.err.closed")
@@ -329,7 +329,7 @@ func (s *Server) poleLeave(w http.ResponseWriter, r *http.Request) error {
 
 	s.notifyLateWithdrawal(r, person, v.Pole, late)
 	s.flash(w, "flash.vol.left", v.Pole.Name)
-	http.Redirect(w, r, "/volunteers/"+v.Event.Slug, http.StatusSeeOther)
+	http.Redirect(w, r, volunteerHomeURL(v.Event), http.StatusSeeOther)
 
 	return nil
 }

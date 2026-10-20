@@ -32,9 +32,11 @@ type Progress struct {
 	Ready   bool
 }
 
-// computeProgress builds the progress bar and to-do list. query is appended
-// to edition-specific links to keep the selected edition.
-func computeProgress(p *store.Partnership, org *store.Organization, e *store.Event, attendees int, query string) Progress {
+// computeProgress builds the progress bar and to-do list, its links in the
+// partner's space of the edition.
+func computeProgress(p *store.Partnership, org *store.Organization, e *store.Event, attendees int) Progress {
+	space := partnerBase(e)
+
 	quoteSent := p.QuoteSentAt != nil || p.QuoteFile != ""
 	invoiceSent := p.InvoiceSentAt != nil || p.InvoiceFile != ""
 	info := org.BillingComplete() && org.CommunicationComplete()
@@ -59,15 +61,15 @@ func computeProgress(p *store.Partnership, org *store.Organization, e *store.Eve
 	pr.Ready = pr.Done == len(pr.Steps)
 
 	if !org.BillingComplete() {
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.billing", Link: "/partners/organization", Missing: org.MissingBilling()})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.billing", Link: space + "/organization", Missing: org.MissingBilling()})
 	}
 
 	if !org.CommunicationComplete() {
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.communication", Link: "/partners/organization", Missing: org.MissingCommunication()})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.communication", Link: space + "/organization", Missing: org.MissingCommunication()})
 	}
 
 	if org.LogoFile == "" {
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.logo", Link: "/partners/logo", Deadline: e.LogoDeadline})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.logo", Link: space + "/logo", Deadline: e.LogoDeadline})
 	}
 
 	// Once sent back signed, it waits for the staff, not for the partner.
@@ -84,7 +86,7 @@ func computeProgress(p *store.Partnership, org *store.Organization, e *store.Eve
 	case attendees == 0 && e.AttendeesLocked():
 		pr.Todos = append(pr.Todos, Todo{Key: "todo.attendees_locked"})
 	case attendees == 0:
-		pr.Todos = append(pr.Todos, Todo{Key: "todo.attendees", Link: "/partners/attendees" + query, Deadline: e.AttendeesDeadline})
+		pr.Todos = append(pr.Todos, Todo{Key: "todo.attendees", Link: space + "/attendees", Deadline: e.AttendeesDeadline})
 	}
 
 	return pr
@@ -96,5 +98,5 @@ func documentLink(e *store.Event, p *store.Partnership, kind string) string {
 		return ""
 	}
 
-	return "/partners/documents/" + e.Slug + "/" + kind
+	return partnerBase(e) + "/documents/" + kind
 }

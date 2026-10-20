@@ -16,7 +16,7 @@ func TestCoordination(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	f := e.volFixture()
-	base := "/volunteers/" + f.event.Slug + "/edition"
+	base := "/" + f.event.Slug + "/volunteers"
 
 	admin := e.adminClient()
 	lead := e.loginAs(f.leadEmail)
@@ -55,7 +55,7 @@ func TestCoordination(t *testing.T) {
 
 	// The coordinators get the link in the menu; coordinators do not appoint
 	// coordinators.
-	_, body = e.get(coco, "/volunteers/"+f.event.Slug)
+	_, body = e.get(coco, "/"+f.event.Slug)
 	mustContain(t, body, `href="`+base+`"`)
 
 	if code, _ := e.post(coco, base+"/coordinators", url.Values{"email": {"x@example.org"}}); code != http.StatusForbidden {
@@ -99,7 +99,7 @@ func TestCoordination(t *testing.T) {
 	}
 
 	// No e-mail about an edition volunteers cannot see.
-	if code, _ := e.post(e.adminClient(), "/volunteers/"+f.draft.Slug+"/edition/messages", url.Values{"body": {"Hello"}, "notify": {"1"}}); code != http.StatusBadRequest {
+	if code, _ := e.post(e.adminClient(), "/"+f.draft.Slug+"/volunteers/messages", url.Values{"body": {"Hello"}, "notify": {"1"}}); code != http.StatusBadRequest {
 		t.Errorf("e-mail about a draft edition: %d", code)
 	}
 
@@ -108,7 +108,7 @@ func TestCoordination(t *testing.T) {
 	mustContain(t, body, "Message publié et envoyé à")
 	e.mailed("nina@example.org", "Briefing vendredi 18 h.", "Example Conf 2026")
 
-	_, body = e.get(nina, "/volunteers/"+f.event.Slug)
+	_, body = e.get(nina, "/"+f.event.Slug)
 	mustContain(t, body, "Briefing vendredi 18 h.")
 
 	msgs, _ := e.st.ListEventMessages(ctx, f.event.ID)
@@ -132,28 +132,28 @@ func TestCoordination(t *testing.T) {
 
 	// Planning and volunteers.
 	// The planning of every pole, with the links to edit the slots.
-	_, body = e.get(coco, "/volunteers/"+f.event.Slug+"/planning?day=all")
+	_, body = e.get(coco, "/"+f.event.Slug+"/planning?day=all")
 	mustContain(t, body, "Tous les pôles", "Buvette", `href="`+f.morning.ManageURL()+`"`, "Modifier le créneau")
 
-	_, body = e.post(coco, base+"/volunteers", url.Values{"name": {"Paul"}, "email": {"paul@example.org"}, "phone": {"0600000000"}, "pole": {f.accueil.Slug}})
+	_, body = e.post(coco, base+"/list", url.Values{"name": {"Paul"}, "email": {"paul@example.org"}, "phone": {"0600000000"}, "pole": {f.accueil.Slug}})
 	mustContain(t, body, "Paul est enregistré·e, dans le pôle « Accueil ».", "paul@example.org", "06 00 00 00 00")
 
-	_, body = e.post(coco, base+"/volunteers", url.Values{"name": {"Léon"}, "email": {"leon@example.org"}})
+	_, body = e.post(coco, base+"/list", url.Values{"name": {"Léon"}, "email": {"leon@example.org"}})
 	mustContain(t, body, "dans le pôle « "+def.Name+" »")
 
 	leon, _ := e.st.PersonByEmail(ctx, "leon@example.org")
-	_, body = e.post(coco, base+"/volunteers/"+leon.UID+"/join", url.Values{"pole": {"regie"}})
+	_, body = e.post(coco, base+"/"+leon.UID+"/join", url.Values{"pole": {"regie"}})
 	mustContain(t, body, "Léon a été ajouté·e au pôle « Régie ».")
 
-	_, body = e.get(coco, base+"/volunteers.csv")
+	_, body = e.get(coco, base+"/list.csv")
 	mustContain(t, body, "name,email,phone,poles,slots", "Paul,paul@example.org,0600000000")
 
 	// Another edition is prepared from this one, by the staff.
-	if code, _ := e.post(coco, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}}); code != http.StatusForbidden {
+	if code, _ := e.post(coco, "/"+f.draft.Slug+"/volunteers/copy", url.Values{"from": {f.event.Slug}}); code != http.StatusForbidden {
 		t.Fatalf("copy by a non-coordinator of the target: %d", code)
 	}
 
-	_, body = e.post(admin, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}})
+	_, body = e.post(admin, "/"+f.draft.Slug+"/volunteers/copy", url.Values{"from": {f.event.Slug}})
 	mustContain(t, body, "Pôles, coordination et logo repris de « Example Conf 2026 »")
 
 	if _, err := e.st.GetPoleBySlug(ctx, f.draft.ID, "buvette"); err != nil {
@@ -172,13 +172,13 @@ func TestCoordination(t *testing.T) {
 	}
 
 	// The staff editions list links to the coordination.
-	_, body = e.get(admin, "/admin/events")
+	_, body = e.get(admin, "/admin/editions")
 	mustContain(t, body, `href="`+base+`"`)
 
 	// No integer id on the coordination pages.
 	numeric := regexp.MustCompile(`(?:href|action)="[^"]*/[0-9]+(?:[/"?#])|<option value="[0-9]+"`)
 
-	for _, path := range []string{base, base + "?tab=messages", base + "?tab=settings", "/volunteers/" + f.event.Slug + "/planning", base + "/volunteers"} {
+	for _, path := range []string{base, base + "?tab=messages", base + "?tab=settings", "/" + f.event.Slug + "/planning", base + "/list"} {
 		code, body := e.get(admin, path)
 		if code != 200 {
 			t.Errorf("%s: %d", path, code)
@@ -204,14 +204,14 @@ func TestLeaveVolunteering(t *testing.T) {
 	e.post(omar, f.buvette.URL()+"/join", nil)
 	e.post(omar, f.morning.URL()+"/waitlist", nil)
 
-	_, body := e.get(nina, "/volunteers/profile")
+	_, body := e.get(nina, "/me")
 	mustContain(t, body, "Supprimer mon compte")
 
-	if code, _ := e.post(nina, "/volunteers/profile/delete", nil); code != http.StatusBadRequest {
+	if code, _ := e.post(nina, "/me/delete", nil); code != http.StatusBadRequest {
 		t.Fatalf("leaving without confirmation: %d", code)
 	}
 
-	_, body = e.post(nina, "/volunteers/profile/delete", url.Values{"confirm": {"yes"}})
+	_, body = e.post(nina, "/me/delete", url.Values{"confirm": {"yes"}})
 	mustContain(t, body, "Votre compte a été supprimé.")
 
 	if _, err := e.st.PersonByEmail(ctx, "nina@example.org"); err != store.ErrNotFound {
@@ -226,10 +226,10 @@ func TestLeaveVolunteering(t *testing.T) {
 	_, err := e.st.AddManager(ctx, &store.Manager{OrgID: org.ID, Email: "omar@example.org", Name: "Omar"})
 	mustOK(t, err)
 
-	_, body = e.get(omar, "/volunteers/profile")
+	_, body = e.get(omar, "/me")
 	mustContain(t, body, "Votre compte reste")
 
-	e.post(omar, "/volunteers/profile/delete", url.Values{"confirm": {"yes"}})
+	e.post(omar, "/me/delete", url.Values{"confirm": {"yes"}})
 
 	omarP, err := e.st.PersonByEmail(ctx, "omar@example.org")
 	mustOK(t, err)
@@ -244,7 +244,7 @@ func TestVolunteerPageAndBulk(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 	admin := e.adminClient()
-	base := "/volunteers/" + f.event.Slug + "/edition"
+	base := "/" + f.event.Slug + "/volunteers"
 
 	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "0600000000", "fr")
 	mustOK(t, err)
@@ -256,16 +256,16 @@ func TestVolunteerPageAndBulk(t *testing.T) {
 	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, omar.ID))
 
 	// The list links to each person, and filters by pole.
-	_, body := e.get(admin, base+"/volunteers")
-	mustContain(t, body, base+"/volunteers/"+nina.UID, `form="bulk" name="person" value="`+omar.UID+`"`)
+	_, body := e.get(admin, base+"/list")
+	mustContain(t, body, base+"/"+nina.UID, `form="bulk" name="person" value="`+omar.UID+`"`)
 
-	_, body = e.get(admin, base+"/volunteers?pole="+f.accueil.Slug)
+	_, body = e.get(admin, base+"/list?pole="+f.accueil.Slug)
 	if strings.Contains(body, "nina@example.org") {
 		t.Error("the pole filter keeps someone not in it")
 	}
 
 	// A person's page: slots, hours, history.
-	_, body = e.get(admin, base+"/volunteers/"+nina.UID)
+	_, body = e.get(admin, base+"/"+nina.UID)
 	mustContain(t, body, "Nina", "06 00 00 00 00", "Buvette", "2 h", f.morning.URL())
 
 	// The staff edits the person from there, on their staff page.
@@ -275,29 +275,29 @@ func TestVolunteerPageAndBulk(t *testing.T) {
 	e.post(admin, base+"/coordinators", url.Values{"email": {"coco@example.org"}})
 	coco := e.loginAs("coco@example.org")
 
-	_, body = e.get(coco, base+"/volunteers/"+nina.UID)
+	_, body = e.get(coco, base+"/"+nina.UID)
 	mustContain(t, body, `name="phone" value="0600000000"`, "se change auprès du staff")
 
-	e.post(coco, base+"/volunteers/"+nina.UID, url.Values{"name": {"Nina Dupont"}, "phone": {"0611111111"}, "email": {"x@example.org"}})
+	e.post(coco, base+"/"+nina.UID, url.Values{"name": {"Nina Dupont"}, "phone": {"0611111111"}, "email": {"x@example.org"}})
 
 	if got, _ := e.st.GetPerson(ctx, nina.ID); got.Name != "Nina Dupont" || got.Phone != "0611111111" || got.Email != "nina@example.org" {
 		t.Errorf("after the edit: %+v", got)
 	}
 
-	if code, _ := e.post(coco, base+"/volunteers/"+nina.UID, url.Values{"name": {""}}); code != http.StatusBadRequest {
+	if code, _ := e.post(coco, base+"/"+nina.UID, url.Values{"name": {""}}); code != http.StatusBadRequest {
 		t.Errorf("no name: %d", code)
 	}
 
-	if code, _ := e.post(coco, base+"/volunteers/"+e.mustPersonUID("other@example.org"), url.Values{"name": {"X"}}); code != http.StatusNotFound {
+	if code, _ := e.post(coco, base+"/"+e.mustPersonUID("other@example.org"), url.Values{"name": {"X"}}); code != http.StatusNotFound {
 		t.Errorf("someone not in the edition: %d", code)
 	}
 
-	if code, _ := e.get(admin, base+"/volunteers/"+e.mustPersonUID("nobody@example.org")); code != http.StatusNotFound {
+	if code, _ := e.get(admin, base+"/"+e.mustPersonUID("nobody@example.org")); code != http.StatusNotFound {
 		t.Errorf("someone not in the edition: %d", code)
 	}
 
 	// Both added to a pole at once.
-	_, body = e.post(admin, base+"/volunteers/join", url.Values{"pole": {f.accueil.Slug}, "person": {nina.UID, omar.UID}})
+	_, body = e.post(admin, base+"/list/join", url.Values{"pole": {f.accueil.Slug}, "person": {nina.UID, omar.UID}})
 	mustContain(t, body, "2 personnes ajoutées au pôle")
 
 	for _, p := range []*store.Person{nina, omar} {
@@ -306,7 +306,7 @@ func TestVolunteerPageAndBulk(t *testing.T) {
 		}
 	}
 
-	_, body = e.get(admin, base+"/volunteers/"+nina.UID)
+	_, body = e.get(admin, base+"/"+nina.UID)
 	mustContain(t, body, "Accueil")
 }
 
@@ -354,20 +354,20 @@ func TestCopyEditionWithSlots(t *testing.T) {
 	}
 
 	// A coordinator of the next edition only cannot copy from this one.
-	_, _ = e.post(admin, "/volunteers/"+f.draft.Slug+"/edition/coordinators", url.Values{"email": {"coco@example.org"}})
+	_, _ = e.post(admin, "/"+f.draft.Slug+"/volunteers/coordinators", url.Values{"email": {"coco@example.org"}})
 	coco := e.loginAs("coco@example.org")
 
-	if code, _ := e.post(coco, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}, "slots": {"1"}}); code != http.StatusForbidden {
+	if code, _ := e.post(coco, "/"+f.draft.Slug+"/volunteers/copy", url.Values{"from": {f.event.Slug}, "slots": {"1"}}); code != http.StatusForbidden {
 		t.Errorf("copy from an edition not coordinated: %d", code)
 	}
 
 	// Coordinating both, they can, slots included.
-	_, _ = e.post(admin, "/volunteers/"+f.event.Slug+"/edition/coordinators", url.Values{"email": {"coco@example.org"}})
+	_, _ = e.post(admin, "/"+f.event.Slug+"/volunteers/coordinators", url.Values{"email": {"coco@example.org"}})
 
-	_, body := e.get(coco, "/volunteers/"+f.draft.Slug+"/edition?tab=settings")
+	_, body := e.get(coco, "/"+f.draft.Slug+"/volunteers?tab=settings")
 	mustContain(t, body, `name="slots" value="1"`, f.event.Name)
 
-	e.post(coco, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}, "slots": {"1"}})
+	e.post(coco, "/"+f.draft.Slug+"/volunteers/copy", url.Values{"from": {f.event.Slug}, "slots": {"1"}})
 
 	buvette, err := e.st.GetPoleBySlug(ctx, f.draft.ID, f.buvette.Slug)
 	mustOK(t, err)
@@ -382,7 +382,7 @@ func TestCopyEditionWithSlots(t *testing.T) {
 	}
 
 	// Copying again would double everything: refused, and the form gone.
-	_, body = e.post(coco, "/volunteers/"+f.draft.Slug+"/edition/copy", url.Values{"from": {f.event.Slug}, "slots": {"1"}})
+	_, body = e.post(coco, "/"+f.draft.Slug+"/volunteers/copy", url.Values{"from": {f.event.Slug}, "slots": {"1"}})
 	mustContain(t, body, "Cette édition a déjà des pôles")
 
 	if strings.Contains(body, `name="slots" value="1"`) {
@@ -399,7 +399,7 @@ func TestNamesLeadToVolunteerPage(t *testing.T) {
 	ctx := context.Background()
 	f := e.volFixture()
 	admin := e.adminClient()
-	fiche := "/volunteers/" + f.event.Slug + "/edition/volunteers/"
+	fiche := "/" + f.event.Slug + "/volunteers/"
 
 	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
 	mustOK(t, err)
@@ -412,7 +412,7 @@ func TestNamesLeadToVolunteerPage(t *testing.T) {
 	// members of a pole, a slot's people, the planning's cards.
 	for _, path := range []string{
 		f.buvette.URL() + "?tab=members", f.morning.ManageURL(), f.morning.URL(),
-		f.buvette.URL(), "/volunteers/" + f.event.Slug + "/planning?view=all&day=all",
+		f.buvette.URL(), "/" + f.event.Slug + "/planning?view=all&day=all",
 	} {
 		if _, body := e.get(admin, path); !strings.Contains(body, link) {
 			t.Errorf("%s: no link to her page", path)

@@ -107,19 +107,24 @@ func (s *Server) ficheURL(r *http.Request, org *store.Organization) (string, err
 	return orgURL(org), nil
 }
 
-// Admin URLs, built from slugs.
+// Staff URLs, built from slugs: an edition's pages sit below its slug, the
+// global administration below /admin.
 
-func eventURL(e *store.Event) string { return "/admin/events/" + e.Slug }
+// eventURL is the pipeline of an edition's partners.
+func eventURL(e *store.Event) string { return "/" + e.Slug + "/partners/" }
+
+// editionAdminURL is the settings of an edition, in the administration.
+func editionAdminURL(e *store.Event) string { return "/admin/editions/" + e.Slug }
 
 func orgURL(o *store.Organization) string { return "/admin/organizations/" + o.Slug }
 
 func partnershipURL(o *store.Organization, e *store.Event) string {
-	return orgURL(o) + "/editions/" + e.Slug
+	return "/" + e.Slug + "/partners/" + o.Slug
 }
 
 // partnershipURLFromPath is the partnership page of the current request.
 func partnershipURLFromPath(r *http.Request) string {
-	return "/admin/organizations/" + r.PathValue("org") + "/editions/" + r.PathValue("event")
+	return "/" + r.PathValue("event") + "/partners/" + r.PathValue("org")
 }
 
 // latestPartnership returns the most recent partnership of an organization

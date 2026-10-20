@@ -1,10 +1,10 @@
 {{define "content"}}
 {{$l := .Lang}}
 {{$j := .D.J}}
-<a class="link text-sm" href="/partners/jobs">← {{t $l "jobs.manage_title"}}</a>
+<a class="link text-sm" href="{{$.PartnerSpace}}/jobs">← {{t $l "jobs.manage_title"}}</a>
 <h1 class="mt-2 mb-6 text-2xl font-bold tracking-tight">{{if $j.ID}}{{t $l "jobs.edit"}}{{else}}{{t $l "jobs.new"}}{{end}}</h1>
 {{with .D.Error}}<div class="alert mb-4 bg-red-50 text-red-800">{{t $l .}}</div>{{end}}
-<form method="post" action="{{if $j.ID}}/partners/jobs/{{$j.UID}}{{else}}/partners/jobs/new{{end}}" class="card max-w-2xl space-y-4">
+<form method="post" action="{{if $j.ID}}{{$.PartnerSpace}}/jobs/{{$j.UID}}{{else}}{{$.PartnerSpace}}/jobs/new{{end}}" class="card max-w-2xl space-y-4">
   <div>
     <label class="label" for="title">{{t $l "jobs.job_title"}} *</label>
     <input class="input" id="title" name="title" required value="{{$j.Title}}">
