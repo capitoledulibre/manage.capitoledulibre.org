@@ -50,6 +50,7 @@ func (s *Server) poleManageRoutes(mux *http.ServeMux) {
 	m("POST "+base+"/slots/{slot}/tasks", s.manageTaskAdd)
 	m("POST "+base+"/slots/{slot}/messages", s.manageSlotMessage)
 	m("POST "+base+"/slots/{slot}/volunteers", s.manageSlotAddVolunteer)
+	m("GET "+base+"/slots/{slot}/picker", s.manageSlotPicker)
 	m("POST "+base+"/slots/{slot}/volunteers/{person}/delete", s.manageSlotRemoveVolunteer)
 	m("POST "+base+"/tasks/{task}/delete", s.manageTaskDelete)
 	m("POST "+base+"/days/copy", s.manageDayCopy)
@@ -1140,6 +1141,25 @@ func (s *Server) manageTaskDelete(w http.ResponseWriter, r *http.Request) error 
 
 // --- volunteers on a slot ---------------------------------------------------
 
+// manageSlotPicker is the "sign someone up" form of a slot card, fetched
+// when it opens: the pole's members not on the slot, or an address. The
+// card comes back to the page it is on.
+func (s *Server) manageSlotPicker(w http.ResponseWriter, r *http.Request) error {
+	v, sl, err := s.managedSlot(r)
+	if err != nil {
+		return err
+	}
+
+	d, err := s.slotEditExtras(r, v, sl)
+	if err != nil {
+		return err
+	}
+
+	d["Lang"], d["Slot"], d["Back"] = rc(r).Lang, sl, safeRedirect(r.URL.Query().Get("back"), sl.URL())
+
+	return s.fragment(w, "slot_picker", d)
+}
+
 // manageSlotAddVolunteer puts someone on a slot, even a full one. Two
 // intents, two fields: picking a member of the pole (the common case), or
 // deliberately inviting someone by address. A single "name or e-mail" box
@@ -1197,7 +1217,7 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	http.Redirect(w, r, sl.ManageURL()+"#volunteers", http.StatusSeeOther)
+	http.Redirect(w, r, safeRedirect(r.FormValue("back"), sl.ManageURL()+"#volunteers"), http.StatusSeeOther)
 
 	return nil
 }
@@ -1316,7 +1336,7 @@ func (s *Server) manageSlotRemoveVolunteer(w http.ResponseWriter, r *http.Reques
 	s.notifySignupRemoved(who, v.Pole, sl)
 	s.announceFreePlace(r, v.Pole, sl.ID)
 	s.flash(w, "flash.vol.volunteer_removed", who.Label())
-	http.Redirect(w, r, sl.ManageURL()+"#volunteers", http.StatusSeeOther)
+	http.Redirect(w, r, safeRedirect(r.FormValue("back"), sl.ManageURL()+"#volunteers"), http.StatusSeeOther)
 
 	return nil
 }

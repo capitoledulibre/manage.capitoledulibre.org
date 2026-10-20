@@ -259,10 +259,25 @@
   <div class="mt-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
     {{if .People}}
     <ul class="flex flex-wrap gap-x-4 gap-y-1.5 text-sm" aria-label="{{t $l "vol.planning.people"}}">
-      {{range .People}}<li class="flex items-center gap-1.5">{{template "person_avatar" .}}<span class="text-gray-800">{{template "person_name" (dict "Lang" $l "Person" . "Manage" $.Manage "Fiche" $.Fiche)}}{{if and $.Manage .Phone}} <a class="text-gray-500 tabular-nums hover:underline" href="tel:{{telHref .Phone}}">· {{phone .Phone}}</a>{{end}}</span></li>{{end}}
+      {{range .People}}<li class="flex items-center gap-1.5">{{template "person_avatar" .}}<span class="text-gray-800">{{template "person_name" (dict "Lang" $l "Person" . "Manage" $.Manage "Fiche" $.Fiche)}}{{if and $.Manage .Phone}} <a class="text-gray-500 tabular-nums hover:underline" href="tel:{{telHref .Phone}}">· {{phone .Phone}}</a>{{end}}</span>
+        {{/* Whoever runs the pole takes someone off from here; they are
+             told by e-mail, and the waiting list too. */}}
+        {{if $.Manage}}<form method="post" action="{{$.Slot.ManageURL}}/volunteers/{{.UID}}/delete" data-confirm="{{t $l "vol.slot_form.remove_confirm" .Label}}"><input type="hidden" name="back" value="{{$.Back}}"><button class="rounded px-1 text-gray-400 hover:bg-red-50 hover:text-red-700" aria-label="{{t $l "vol.card.remove" .Label}}">×</button></form>{{end}}
+      </li>{{end}}
     </ul>
     {{else}}<p class="text-sm text-gray-500">{{t $l "vol.planning.nobody"}}</p>{{end}}
-    {{if .Manage}}<a class="link text-xs" href="{{.Slot.ManageURL}}">{{t $l "vol.planning.edit_slot"}}</a>{{end}}
+    {{if .Manage}}<span class="flex flex-wrap items-start gap-3">
+      {{/* The form loads when opened: the members of the pole, for every
+           card of a long planning, would weigh for nothing. Without
+           script, the slot's page has the same. */}}
+      {{if not (slotOver .Slot)}}
+      <details class="text-xs" hx-get="{{.Slot.ManageURL}}/picker?back={{queryValue .Back}}" hx-trigger="toggle once" hx-target="find [data-picker]">
+        <summary class="link cursor-pointer list-none">+ {{t $l "vol.card.sign_up_someone"}}</summary>
+        <div data-picker class="mt-2"><a class="link" href="{{.Slot.ManageURL}}#volunteers">{{t $l "vol.planning.edit_slot"}}</a></div>
+      </details>
+      {{end}}
+      <a class="link text-xs" href="{{.Slot.ManageURL}}">{{t $l "vol.planning.edit_slot"}}</a>
+    </span>{{end}}
   </div>
   {{end}}
   {{with .Tasks}}{{template "task_block" (dict "Lang" $l "Slot" $.Slot "Tasks" . "CanTick" $.CanTick "View" "card" "Back" $.Back "Open" $.OpenTasks)}}{{end}}
@@ -387,4 +402,32 @@
   </table>
 </div>
 {{end}}
+{{end}}
+
+{{/* slot_picker signs someone up on a slot from its card: a member of the
+     pole, or an address. Expects Lang, Slot, Back, Available and
+     CanAddMembers. */}}
+{{define "slot_picker"}}
+{{$l := .Lang}}{{$s := .Slot}}
+<div class="w-72 space-y-3 rounded-lg bg-surface p-3 text-sm shadow-sm ring-1 ring-gray-200">
+  {{if .Available}}
+  <form method="post" action="{{$s.ManageURL}}/volunteers" class="space-y-2">
+    <input type="hidden" name="back" value="{{.Back}}">
+    <label for="pick-{{$s.UID}}" class="sr-only">{{t $l "vol.slot_form.pick_member"}}</label>
+    <select id="pick-{{$s.UID}}" class="input" name="person" required>
+      <option value="" disabled selected>{{t $l "vol.slot_form.pick_member"}}</option>
+      {{range .Available}}<option value="{{.Person.UID}}">{{.Person.Label}}{{if eq .SlotCount 0}} — {{t $l "vol.manage.no_slot"}}{{end}}</option>{{end}}
+    </select>
+    <button class="btn btn-sm">{{t $l "vol.slot_form.sign_up_member"}}</button>
+  </form>
+  {{else}}<p class="help">{{t $l "vol.slot_form.all_on"}}</p>{{end}}
+  {{if .CanAddMembers}}
+  <form method="post" action="{{$s.ManageURL}}/volunteers" class="space-y-2 border-t border-gray-100 pt-3">
+    <input type="hidden" name="back" value="{{.Back}}">
+    <label for="pick-mail-{{$s.UID}}" class="label">{{t $l "vol.card.or_email"}}</label>
+    <input id="pick-mail-{{$s.UID}}" class="input" type="email" name="email" required autocomplete="off" placeholder="{{t $l "login.email"}}">
+    <button class="btn-secondary btn-sm">{{t $l "vol.slot_form.invite_submit"}}</button>
+  </form>
+  {{end}}
+</div>
 {{end}}

@@ -387,10 +387,13 @@ var funcs = template.FuncMap{
 	// urgent marks a slot still short of volunteers that starts within two
 	// days. Highlighting every slot not yet full painted whole plannings
 	// amber, which drowned the signal.
-	"urgent":  func(sl *store.Slot) bool { return !sl.IsFull() && isLate(sl) },
-	"late":    isLate,
-	"phone":   formatPhone,
-	"telHref": telHref,
+	"urgent": func(sl *store.Slot) bool { return !sl.IsFull() && isLate(sl) },
+	"late":   isLate,
+	// queryValue escapes a value going in a query string: a URL with its
+	// own query, say, whose "&" html/template leaves as it is there.
+	"queryValue": url.QueryEscape,
+	"phone":      formatPhone,
+	"telHref":    telHref,
 	"nl2br": func(v string) template.HTML {
 		return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(v), "\n", "<br>"))
 	},

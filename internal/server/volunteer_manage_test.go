@@ -378,3 +378,68 @@ func TestBulkSlotDelete(t *testing.T) {
 		t.Error("a refused selection deleted some of it")
 	}
 }
+
+func TestSignUpFromSlotCard(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	lead := e.loginAs(f.leadEmail)
+	planning := "/volunteers/" + f.event.Slug + "/planning?view=all&day=all"
+
+	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, nina.ID))
+
+	omar, err := e.st.EnsureVolunteer(ctx, "omar@example.org", "Omar", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, omar.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.overlap.ID, omar.ID))
+
+	// The lead's cards offer to sign someone up, and to take someone off.
+	_, body := e.get(lead, planning)
+	mustContain(t, body, "Inscrire quelqu&#39;un", f.overlap.ManageURL()+"/picker?back="+url.QueryEscape("/volunteers/"+f.event.Slug+"/planning?view=all")+`"`, f.overlap.ManageURL()+"/volunteers/"+omar.UID+"/delete")
+
+	// The form, fetched when opened: the members not on the slot.
+	_, body = e.get(lead, f.overlap.ManageURL()+"/picker?back="+url.QueryEscape(planning))
+	mustContain(t, body, `<option value="`+nina.UID+`">Nina`, `name="back" value="`+strings.ReplaceAll(planning, "&", "&amp;")+`"`)
+
+	if strings.Contains(body, `<option value="`+omar.UID+`"`) {
+		t.Error("someone on the slot is offered again")
+	}
+
+	// Signing Nina up, then taking Omar off, come back to the planning.
+	c := e.loginAs(f.leadEmail)
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+
+	for _, step := range []struct {
+		path string
+		form url.Values
+	}{
+		{f.overlap.ManageURL() + "/volunteers", url.Values{"person": {nina.UID}, "back": {planning}}},
+		{f.overlap.ManageURL() + "/volunteers/" + omar.UID + "/delete", url.Values{"back": {planning}}},
+	} {
+		resp, err := c.PostForm(e.srv.URL+step.path, step.form)
+		mustOK(t, err)
+		resp.Body.Close()
+
+		if loc := resp.Header.Get("Location"); loc != planning {
+			t.Errorf("%s: back to %q", step.path, loc)
+		}
+	}
+
+	if on, _ := e.st.IsSignedUp(ctx, f.overlap.ID, nina.ID); !on {
+		t.Error("Nina not signed up")
+	}
+
+	if on, _ := e.st.IsSignedUp(ctx, f.overlap.ID, omar.ID); on {
+		t.Error("Omar still on the slot")
+	}
+
+	e.mailed("omar@example.org", "Inscription annulée")
+
+	// A volunteer sees neither.
+	_, body = e.get(e.loginAs("nina@example.org"), planning)
+	if strings.Contains(body, "/picker?") || strings.Contains(body, "/volunteers/"+omar.UID+"/delete") {
+		t.Error("a volunteer gets the lead's buttons")
+	}
+}
