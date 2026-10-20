@@ -137,11 +137,23 @@ func loginNext(r *http.Request) string {
 // loaded once.
 func (s *Server) actor(r *http.Request) (*access.Actor, error) {
 	c := rc(r)
-	if c.actor != nil && c.actor.Person == c.Person {
+	if c.actor != nil && (c.Person == nil || c.actor.Person == c.Person) {
 		return c.actor, nil
 	}
 
-	a, err := access.Load(r.Context(), s.store, c.Person, c.Admin != nil)
+	// A staff member signed in through the staff login only is their own
+	// person: what they do is theirs.
+	person := c.Person
+	if person == nil && c.Admin != nil {
+		p, err := s.store.GetPerson(r.Context(), c.Admin.PersonID)
+		if err != nil {
+			return nil, err
+		}
+
+		person = p
+	}
+
+	a, err := access.Load(r.Context(), s.store, person, c.Admin != nil)
 	if err != nil {
 		return nil, err
 	}

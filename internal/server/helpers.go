@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"manage/internal/access"
 	"manage/internal/i18n"
 	"manage/internal/mail"
 	"manage/internal/store"
@@ -96,15 +98,32 @@ func actionLabel(action string) string {
 	return action
 }
 
-// record logs an activity entry and, when a partner made the change, notifies
-// the staff by email.
-func (s *Server) record(r *http.Request, org *store.Organization, partnershipID *int64, action, details string) {
-	c := rc(r)
+// recordAs logs an activity entry of an actor (see logActivity), for the
+// services, which know no request.
+func (s *Server) recordAs(ctx context.Context, a *access.Actor, org *store.Organization, partnershipID *int64, action, details string) {
+	s.logActivity(ctx, activityActor(a), org, partnershipID, action, details)
+}
 
-	err := s.store.LogActivity(r.Context(), &store.Activity{
+// activityActor is how the partners' activity names an actor: "staff:"
+// and the address for the staff, the address for a partner's contact.
+func activityActor(a *access.Actor) string {
+	switch {
+	case a.Person == nil:
+		return "system"
+	case a.Staff:
+		return "staff:" + a.Person.Email
+	}
+
+	return a.Person.Email
+}
+
+// logActivity logs an activity entry by who and, when a partner made the
+// change, notifies the staff by email.
+func (s *Server) logActivity(ctx context.Context, who string, org *store.Organization, partnershipID *int64, action, details string) {
+	err := s.store.LogActivity(ctx, &store.Activity{
 		OrgID:         org.ID,
 		PartnershipID: partnershipID,
-		Actor:         c.Actor(),
+		Actor:         who,
 		Action:        action,
 		Details:       details,
 	})
@@ -112,7 +131,7 @@ func (s *Server) record(r *http.Request, org *store.Organization, partnershipID 
 		slog.Error("log activity", "err", err)
 	}
 
-	if strings.HasPrefix(c.Actor(), "staff:") || len(s.cfg.StaffNotifyEmails) == 0 {
+	if strings.HasPrefix(who, "staff:") || len(s.cfg.StaffNotifyEmails) == 0 {
 		return
 	}
 
@@ -120,7 +139,7 @@ func (s *Server) record(r *http.Request, org *store.Organization, partnershipID 
 		To:      s.cfg.StaffNotifyEmails,
 		Subject: fmt.Sprintf("[Partenaires] %s : %s", org.Name, actionLabel(action)),
 		Body: fmt.Sprintf("%s\n\nPar : %s\n%s\n\n%s/admin/organizations/%d\n",
-			actionLabel(action), c.Actor(), details, s.cfg.BaseURL, org.ID),
+			actionLabel(action), who, details, s.cfg.BaseURL, org.ID),
 	}
 
 	s.background(func() {
@@ -134,8 +153,8 @@ func (s *Server) record(r *http.Request, org *store.Organization, partnershipID 
 // Args are passed to the localized body after the link, to path, the page
 // the e-mail is about: logged out, the login comes back to it. Answers go
 // to the partnership's staff contact, else to the site's address.
-func (s *Server) notifyManagers(r *http.Request, org *store.Organization, p *store.Partnership, path, subjectKey, bodyKey string, args ...any) error {
-	managers, err := s.store.ListManagers(r.Context(), org.ID)
+func (s *Server) notifyManagers(ctx context.Context, org *store.Organization, p *store.Partnership, path, subjectKey, bodyKey string, args ...any) error {
+	managers, err := s.store.ListManagers(ctx, org.ID)
 	if err != nil {
 		return err
 	}
@@ -143,7 +162,7 @@ func (s *Server) notifyManagers(r *http.Request, org *store.Organization, p *sto
 	replyTo := s.site.ContactEmail
 
 	if p.OwnerAdminID != nil {
-		if owner, err := s.store.GetAdmin(r.Context(), *p.OwnerAdminID); err == nil {
+		if owner, err := s.store.GetAdmin(ctx, *p.OwnerAdminID); err == nil {
 			replyTo = owner.Email
 		}
 	}

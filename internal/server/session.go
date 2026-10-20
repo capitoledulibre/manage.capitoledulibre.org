@@ -70,18 +70,6 @@ func rc(r *http.Request) *reqCtx {
 	return r.Context().Value(ctxKey{}).(*reqCtx)
 }
 
-// Actor describes who performs an action, for the activity log.
-func (c *reqCtx) Actor() string {
-	switch {
-	case c.Admin != nil && (c.Impersonating || c.Manager == nil):
-		return "staff:" + c.Admin.Email
-	case c.Manager != nil:
-		return c.Manager.Email
-	}
-
-	return "system"
-}
-
 func (s *Server) withSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/static/") {

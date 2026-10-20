@@ -1,10 +1,10 @@
 package server
 
 import (
+	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"regexp"
 	"sort"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"manage/internal/files"
+	"manage/internal/i18n"
 	"manage/internal/store"
 )
 
@@ -212,26 +213,18 @@ func (s *Server) adminEventPurge(w http.ResponseWriter, r *http.Request) error {
 
 	to := editionAdminURL(e)
 
-	if !eventEnded(e) {
-		s.flash(w, "flash.event_not_over")
+	res, err := s.purgeEdition(r.Context(), act(r), e)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 		http.Redirect(w, r, to, http.StatusSeeOther)
 
 		return nil
 	}
 
-	end := e.EndsOn.In(time.UTC)
-	ended := time.Date(end.Year(), end.Month(), end.Day()+1, 0, 0, 0, 0, paris)
-
-	res, err := s.store.PurgeEvent(r.Context(), e.ID, ended)
 	if err != nil {
 		return err
 	}
 
-	for _, f := range res.Files {
-		s.dropFile(r.Context(), f)
-	}
-
-	slog.Info("edition purged", "event", e.Slug, "attendees", res.Attendees, "signups", res.Signups, "people", res.People)
 	s.flash(w, "flash.event_purged", strconv.FormatInt(res.Attendees, 10), strconv.FormatInt(res.Signups, 10), strconv.FormatInt(res.People, 10))
 	http.Redirect(w, r, to, http.StatusSeeOther)
 
@@ -248,53 +241,31 @@ func (s *Server) adminEventSubmit(w http.ResponseWriter, r *http.Request) error 
 		}
 	}
 
-	e.Name = strings.TrimSpace(r.FormValue("name"))
+	e.Name = r.FormValue("name")
 	e.Year = formInt(r, "year")
-	e.Slug = store.Slugify(firstNonEmpty(r.FormValue("slug"), e.Name))
+	e.Slug = r.FormValue("slug")
 	e.StartsOn = parseDate(r.FormValue("starts_on"))
 	e.EndsOn = parseDate(r.FormValue("ends_on"))
 	e.LogoDeadline = parseDate(r.FormValue("logo_deadline"))
 	e.AttendeesDeadline = parseDate(r.FormValue("attendees_deadline"))
 	e.IsCurrent = r.FormValue("is_current") == "on"
-	e.PaymentInfo = strings.TrimSpace(r.FormValue("payment_info"))
-	e.PaymentMention = strings.TrimSpace(r.FormValue("payment_mention"))
+	e.PaymentInfo = r.FormValue("payment_info")
+	e.PaymentMention = r.FormValue("payment_mention")
 
-	// An edition's pages sit below its slug: not a word of the site's own.
-	if store.ReservedSlug(e.Slug) {
-		e.Slug += "-" + strconv.Itoa(e.Year)
-	}
-
-	if e.Name == "" || e.Year == 0 {
+	// A new edition can start with the levels and perks of another one.
+	cloned, err := s.saveEdition(r.Context(), act(r), e, r.FormValue("copy_from"))
+	if rf, ok := refused(err); ok {
 		p := s.page(r, "Édition")
-		p.D = map[string]any{"E": e, "Error": "Le nom et l'année sont obligatoires."}
+		p.D = map[string]any{"E": e, "Error": i18n.T("fr", rf.Key, anys(rf.Args)...)}
 
 		return s.render(w, r, "admin/event_form", p)
 	}
 
-	isNew := e.ID == 0
-
-	if err := s.store.SaveEvent(r.Context(), e); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
-			p := s.page(r, "Édition")
-			p.D = map[string]any{"E": e, "Error": "Ce slug est déjà utilisé."}
-
-			return s.render(w, r, "admin/event_form", p)
-		}
-
+	if err != nil {
 		return err
 	}
 
-	// A new edition can start with the levels and perks of another one.
-	if isNew && r.FormValue("copy_from") != "" {
-		src, err := s.store.GetEventBySlug(r.Context(), r.FormValue("copy_from"))
-		if err != nil {
-			return errBadInput
-		}
-
-		if _, err := s.store.CloneLevelsAndPerks(r.Context(), src.ID, e.ID); err != nil {
-			return err
-		}
-
+	if cloned {
 		s.flash(w, "flash.cloned")
 		http.Redirect(w, r, editionAdminURL(e)+"/levels", http.StatusSeeOther)
 
@@ -339,19 +310,15 @@ func (s *Server) adminLevelsClone(w http.ResponseWriter, r *http.Request) error 
 		return errBadInput
 	}
 
-	if src.ID == e.ID {
-		return errBadInput
-	}
-
-	res, err := s.store.CloneLevelsAndPerks(r.Context(), src.ID, e.ID)
+	copied, err := s.cloneLevels(r.Context(), act(r), e, src)
 	if err != nil {
 		return err
 	}
 
-	if res.Levels+res.Perks+res.Pairs == 0 {
-		s.flash(w, "flash.clone_nothing")
-	} else {
+	if copied {
 		s.flash(w, "flash.cloned")
+	} else {
+		s.flash(w, "flash.clone_nothing")
 	}
 
 	http.Redirect(w, r, editionAdminURL(e)+"/levels", http.StatusSeeOther)
@@ -380,20 +347,7 @@ func (s *Server) adminEventDocument(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	switch r.FormValue("kind") {
-	case "brochure_fr":
-		e.BrochureFRFile = name
-	case "brochure_en":
-		e.BrochureENFile = name
-	case "guide_fr":
-		e.GuideFRFile = name
-	case "guide_en":
-		e.GuideENFile = name
-	default:
-		return errBadInput
-	}
-
-	if err := s.store.SaveEvent(r.Context(), e); err != nil {
+	if err := s.setEditionDocument(r.Context(), act(r), e, r.FormValue("kind"), name); err != nil {
 		return err
 	}
 
@@ -608,19 +562,15 @@ func (s *Server) adminLevelSave(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	l.Name = strings.TrimSpace(r.FormValue("name"))
+	l.Name = r.FormValue("name")
 	l.Position = formInt(r, "position")
 	l.Price = formInt(r, "price")
 	l.MaxPartners = formInt(r, "max_partners")
 	l.MaxAttendees = formInt(r, "max_attendees")
 	l.TaxMode = r.FormValue("tax_mode")
-	l.Color = strings.ToLower(strings.TrimSpace(r.FormValue("color")))
+	l.Color = r.FormValue("color")
 
-	if l.Name == "" {
-		return errBadInput
-	}
-
-	if err := s.store.SaveLevel(r.Context(), l); err != nil {
+	if err := s.saveLevel(r.Context(), act(r), e, l); err != nil {
 		return err
 	}
 
@@ -636,12 +586,7 @@ func (s *Server) adminLevelDelete(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	l, err := s.store.GetLevelByUID(r.Context(), e.ID, r.PathValue("level"))
-	if err != nil {
-		return err
-	}
-
-	if err := s.store.DeleteLevel(r.Context(), l.ID); err != nil {
+	if err := s.deleteLevel(r.Context(), act(r), e, r.PathValue("level")); err != nil {
 		return err
 	}
 
@@ -659,8 +604,8 @@ func (s *Server) adminPerkSave(w http.ResponseWriter, r *http.Request) error {
 
 	p := &store.Perk{
 		EventID:  e.ID,
-		NameFR:   strings.TrimSpace(r.FormValue("name_fr")),
-		NameEN:   strings.TrimSpace(r.FormValue("name_en")),
+		NameFR:   r.FormValue("name_fr"),
+		NameEN:   r.FormValue("name_en"),
 		Position: formInt(r, "position"),
 	}
 
@@ -673,11 +618,7 @@ func (s *Server) adminPerkSave(w http.ResponseWriter, r *http.Request) error {
 		p.ID, p.UID = existing.ID, existing.UID
 	}
 
-	if p.NameFR == "" {
-		return errBadInput
-	}
-
-	if err := s.store.SavePerk(r.Context(), p); err != nil {
+	if err := s.savePerk(r.Context(), act(r), e, p); err != nil {
 		return err
 	}
 
@@ -693,12 +634,7 @@ func (s *Server) adminPerkDelete(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	perk, err := s.store.GetPerkByUID(r.Context(), e.ID, r.PathValue("perk"))
-	if err != nil {
-		return err
-	}
-
-	if err := s.store.DeletePerk(r.Context(), perk.ID); err != nil {
+	if err := s.deletePerk(r.Context(), act(r), e, r.PathValue("perk")); err != nil {
 		return err
 	}
 
@@ -718,38 +654,8 @@ func (s *Server) adminMatrixSave(w http.ResponseWriter, r *http.Request) error {
 		return errBadInput
 	}
 
-	// Checkbox values are "<level uid>:<perk uid>"; unknown uids are
-	// ignored.
-	levels, err := s.store.ListLevels(r.Context(), e.ID)
-	if err != nil {
-		return err
-	}
-
-	perks, err := s.store.ListPerks(r.Context(), e.ID)
-	if err != nil {
-		return err
-	}
-
-	levelIDs, perkIDs := map[string]int64{}, map[string]int64{}
-
-	for _, l := range levels {
-		levelIDs[l.UID] = l.ID
-	}
-
-	for _, p := range perks {
-		perkIDs[p.UID] = p.ID
-	}
-
-	var pairs [][2]int64
-
-	for _, v := range r.PostForm["lp"] {
-		lu, pu, ok := strings.Cut(v, ":")
-		if l, p := levelIDs[lu], perkIDs[pu]; ok && l != 0 && p != 0 {
-			pairs = append(pairs, [2]int64{l, p})
-		}
-	}
-
-	if err := s.store.SetLevelPerkMatrix(r.Context(), e.ID, pairs); err != nil {
+	// Checkbox values are "<level uid>:<perk uid>".
+	if err := s.saveLevelPerks(r.Context(), act(r), e, r.PostForm["lp"]); err != nil {
 		return err
 	}
 
@@ -857,7 +763,7 @@ func (s *Server) adminOrganizations(w http.ResponseWriter, r *http.Request) erro
 	for _, o := range orgs {
 		rw := row{Org: o, URL: orgURL(o)}
 
-		latest, level, err := s.latestPartnership(r, o.ID)
+		latest, level, err := s.latestPartnership(ctx, o.ID)
 		if err != nil {
 			return err
 		}
@@ -877,55 +783,20 @@ func (s *Server) adminOrganizations(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (s *Server) adminOrganizationCreate(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
+	org, err := s.createOrganization(r.Context(), act(r), newOrganization{
+		Name: r.FormValue("name"), Event: r.FormValue("event"), Status: r.FormValue("status"),
+		ManagerEmail: r.FormValue("manager_email"), ManagerName: r.FormValue("manager_name"),
+		Lang: r.FormValue("lang"), SendInvite: r.FormValue("send_invite") == "on",
+	})
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+		http.Redirect(w, r, orgURL(org), http.StatusSeeOther)
 
-	name := strings.TrimSpace(r.FormValue("name"))
-	if name == "" {
-		return errBadInput
+		return nil
 	}
 
-	org := &store.Organization{Name: name}
-	if err := s.store.CreateOrganization(ctx, org); err != nil {
+	if err != nil {
 		return err
-	}
-
-	if slug := r.FormValue("event"); slug != "" {
-		e, err := s.store.GetEventBySlug(ctx, slug)
-		if err != nil {
-			return errBadInput
-		}
-
-		p := &store.Partnership{OrgID: org.ID, EventID: e.ID, Status: r.FormValue("status")}
-		if !store.ValidStatus(p.Status) {
-			p.Status = store.StatusProspect
-		}
-
-		if err := s.store.CreatePartnership(ctx, p); err != nil {
-			return err
-		}
-	}
-
-	if email := store.NormalizeEmail(r.FormValue("manager_email")); email != "" {
-		if !validEmail(email) {
-			s.flash(w, "flash.invalid_email")
-			http.Redirect(w, r, orgURL(org), http.StatusSeeOther)
-
-			return nil
-		}
-
-		m := &store.Manager{
-			OrgID: org.ID, Email: email, Name: strings.TrimSpace(r.FormValue("manager_name")),
-			Lang: firstNonEmpty(r.FormValue("lang"), "fr"), InvitedBy: rc(r).Actor(),
-		}
-		if _, err := s.store.AddManager(ctx, m); err != nil {
-			return err
-		}
-
-		if r.FormValue("send_invite") == "on" {
-			if err := s.sendInvite(r, m, org, s.cfg.SiteName); err != nil {
-				return err
-			}
-		}
 	}
 
 	target, err := s.ficheURL(r, org)
@@ -993,15 +864,10 @@ func (s *Server) adminOrganizationUpdate(w http.ResponseWriter, r *http.Request)
 
 	readOrgForm(r, org)
 
-	if org.Name == "" {
-		return errBadInput
-	}
-
-	if err := s.store.UpdateOrganization(r.Context(), org); err != nil {
+	if err := s.staffSaveOrganization(r.Context(), act(r), org); err != nil {
 		return err
 	}
 
-	s.record(r, org, nil, "organization.updated", "")
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, orgURL(org), http.StatusSeeOther)
 
@@ -1014,14 +880,15 @@ func (s *Server) adminOrganizationDelete(w http.ResponseWriter, r *http.Request)
 		return err
 	}
 
-	if r.FormValue("confirm") != org.Name {
-		s.flash(w, "flash.confirm_mismatch")
+	err = s.deleteOrganization(r.Context(), act(r), org, r.FormValue("confirm"))
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 		http.Redirect(w, r, orgURL(org), http.StatusSeeOther)
 
 		return nil
 	}
 
-	if err := s.store.DeleteOrganization(r.Context(), org.ID); err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -1039,36 +906,20 @@ func (s *Server) adminManagerAdd(w http.ResponseWriter, r *http.Request) error {
 
 	back := orgURL(org)
 
-	m := &store.Manager{
-		OrgID:     org.ID,
-		Email:     store.NormalizeEmail(r.FormValue("email")),
-		Name:      strings.TrimSpace(r.FormValue("name")),
-		Lang:      r.FormValue("lang"),
-		InvitedBy: rc(r).Actor(),
-	}
+	m := &store.Manager{Email: r.FormValue("email"), Name: r.FormValue("name"), Lang: r.FormValue("lang")}
 
-	if !validLang(m.Lang) {
-		m.Lang = "fr"
-	}
-
-	if !validEmail(m.Email) {
-		s.flash(w, "flash.invalid_email")
+	err = s.addManager(r.Context(), act(r), org, m, r.FormValue("send_invite") == "on")
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 		http.Redirect(w, r, back, http.StatusSeeOther)
 
 		return nil
 	}
 
-	if _, err := s.store.AddManager(r.Context(), m); err != nil {
+	if err != nil {
 		return err
 	}
 
-	if r.FormValue("send_invite") == "on" {
-		if err := s.sendInvite(r, m, org, s.cfg.SiteName); err != nil {
-			return err
-		}
-	}
-
-	s.record(r, org, nil, "manager.invited", m.Email)
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, back, http.StatusSeeOther)
 
@@ -1097,33 +948,16 @@ func (s *Server) managerFromPath(r *http.Request) (*store.Organization, *store.M
 // the email revokes the manager's sessions, since the account now belongs to
 // another address.
 func (s *Server) adminManagerUpdate(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	org, m, err := s.managerFromPath(r)
 	if err != nil {
 		return err
 	}
 
 	back := orgURL(org)
-	oldEmail := m.Email
 
-	m.Email = store.NormalizeEmail(r.FormValue("email"))
-	m.Name = strings.TrimSpace(r.FormValue("name"))
-
-	if lang := r.FormValue("lang"); validLang(lang) {
-		m.Lang = lang
-	}
-
-	if !validEmail(m.Email) {
-		s.flash(w, "flash.invalid_email")
-		http.Redirect(w, r, back, http.StatusSeeOther)
-
-		return nil
-	}
-
-	err = s.store.UpdateManagerIdentity(ctx, m)
-	if errors.Is(err, store.ErrDuplicate) {
-		s.flash(w, "managers.already")
+	err = s.updateManager(r.Context(), act(r), org, m, managerEdit{Email: r.FormValue("email"), Name: r.FormValue("name"), Lang: r.FormValue("lang")})
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 		http.Redirect(w, r, back, http.StatusSeeOther)
 
 		return nil
@@ -1133,16 +967,6 @@ func (s *Server) adminManagerUpdate(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	details := m.Email
-	if m.Email != oldEmail {
-		if err := s.store.DetachManagerSessions(ctx, m.ID); err != nil {
-			return err
-		}
-
-		details = oldEmail + " → " + m.Email
-	}
-
-	s.record(r, org, nil, "manager.updated", details)
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, back, http.StatusSeeOther)
 
@@ -1155,15 +979,10 @@ func (s *Server) adminManagerDelete(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	if err := s.store.DetachManagerSessions(r.Context(), m.ID); err != nil {
+	if err := s.removeManager(r.Context(), act(r), org, m); err != nil {
 		return err
 	}
 
-	if err := s.store.DeleteManager(r.Context(), org.ID, m.ID); err != nil {
-		return err
-	}
-
-	s.record(r, org, nil, "manager.removed", m.Email)
 	s.flash(w, "flash.deleted")
 	http.Redirect(w, r, orgURL(org), http.StatusSeeOther)
 
@@ -1176,7 +995,7 @@ func (s *Server) adminManagerSendLink(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	if err := s.sendInvite(r, m, org, s.cfg.SiteName); err != nil {
+	if err := s.sendManagerLink(r.Context(), act(r), org, m); err != nil {
 		return err
 	}
 
@@ -1194,7 +1013,10 @@ func (s *Server) adminLogoUpload(w http.ResponseWriter, r *http.Request) error {
 
 	back := orgURL(org)
 
-	if err := s.saveLogo(w, r, org); err != nil {
+	err = s.saveLogo(w, r, func(ctx context.Context, variant, file string) error {
+		return s.staffUploadLogo(ctx, act(r), org, variant, file)
+	})
+	if err != nil {
 		var ue uploadError
 		if errors.As(err, &ue) {
 			s.flash(w, string(ue))
@@ -1217,46 +1039,19 @@ func (s *Server) adminLogoUpload(w http.ResponseWriter, r *http.Request) error {
 // "contacted", same level (matched by name) and same staff owner. Otherwise
 // it starts as a prospect.
 func (s *Server) adminPartnershipCreate(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	org, err := s.orgFromPath(r)
 	if err != nil {
 		return err
 	}
 
-	target, err := s.store.GetEventBySlug(ctx, r.FormValue("event"))
+	target, err := s.store.GetEventBySlug(r.Context(), r.FormValue("event"))
 	if err != nil {
 		return errBadInput
 	}
 
-	np := &store.Partnership{OrgID: org.ID, EventID: target.ID, Status: store.StatusProspect}
-	action := "partnership.created"
-
-	latest, level, err := s.latestPartnership(r, org.ID)
-	if err != nil {
-		return err
-	}
-
-	if latest != nil {
-		np.Status, np.OwnerAdminID, action = store.StatusContacted, latest.OwnerAdminID, "partnership.renewed"
-
-		if level != nil {
-			levels, err := s.store.ListLevels(ctx, target.ID)
-			if err != nil {
-				return err
-			}
-
-			for _, l := range levels {
-				if strings.EqualFold(l.Name, level.Name) {
-					np.LevelID = &l.ID
-				}
-			}
-		}
-	}
-
-	err = s.store.CreatePartnership(ctx, np)
-	if errors.Is(err, store.ErrDuplicate) {
-		s.flash(w, "flash.already_renewed")
+	renewed, err := s.createPartnership(r.Context(), act(r), org, target)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 		http.Redirect(w, r, safeRedirect(r.FormValue("return"), orgURL(org)), http.StatusSeeOther)
 
 		return nil
@@ -1266,9 +1061,7 @@ func (s *Server) adminPartnershipCreate(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	s.record(r, org, &np.ID, action, target.Name)
-
-	if latest != nil {
+	if renewed {
 		s.flash(w, "flash.renewed")
 	}
 
@@ -1283,14 +1076,7 @@ func (s *Server) adminJobToggle(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	j, err := s.store.GetJobOffer(r.Context(), org.ID, r.PathValue("job"))
-	if err != nil {
-		return err
-	}
-
-	j.Hidden = !j.Hidden
-
-	if err := s.store.SaveJobOffer(r.Context(), j); err != nil {
+	if err := s.toggleJob(r.Context(), act(r), org, r.PathValue("job")); err != nil {
 		return err
 	}
 
@@ -1353,19 +1139,32 @@ func (s *Server) adminStopImpersonate(w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-// partnershipFromPath resolves /admin/organizations/{org}/editions/{event}.
+// partnershipFromPath resolves /{event}/partners/{org}.
 func (s *Server) partnershipFromPath(r *http.Request) (*store.Partnership, error) {
+	_, _, p, err := s.partnershipOfPath(r)
+
+	return p, err
+}
+
+// partnershipOfPath resolves /{event}/partners/{org}, with the organization
+// and the edition, which the services take too.
+func (s *Server) partnershipOfPath(r *http.Request) (*store.Organization, *store.Event, *store.Partnership, error) {
 	org, err := s.orgFromPath(r)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	e, err := s.eventFromPath(r)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	return s.store.GetPartnershipByOrgEvent(r.Context(), org.ID, e.ID)
+	p, err := s.store.GetPartnershipByOrgEvent(r.Context(), org.ID, e.ID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return org, e, p, nil
 }
 
 func (s *Server) adminPartnership(w http.ResponseWriter, r *http.Request) error {
@@ -1448,69 +1247,29 @@ func (s *Server) adminPartnership(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *Server) adminPartnershipUpdate(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
-	p, err := s.partnershipFromPath(r)
+	org, _, p, err := s.partnershipOfPath(r)
 	if err != nil {
 		return err
 	}
 
-	if st := r.FormValue("status"); store.ValidStatus(st) {
-		p.Status = st
-	}
-
-	p.LevelID = nil
-
-	if r.FormValue("level") != "" {
-		l, err := s.store.GetLevelByUID(ctx, p.EventID, r.FormValue("level"))
-		if err != nil {
-			return errBadInput
-		}
-
-		p.LevelID = &l.ID
-	}
-
-	p.PriceOverride = nil
-
-	if v := strings.TrimSpace(r.FormValue("price_override")); v != "" {
-		n, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || n < 0 {
-			return errBadInput
-		}
-
-		p.PriceOverride = &n
-	}
-
-	p.OwnerAdminID = nil
-
-	if uid := r.FormValue("owner"); uid != "" {
-		owner, err := s.store.GetAdminByUID(ctx, uid)
-		if err != nil {
-			return errBadInput
-		}
-
-		p.OwnerAdminID = &owner.ID
-	}
-
-	p.PONumber = formEdit(r, "po_number", p.PONumber)
-	p.QuoteSentAt = parseDate(r.FormValue("quote_sent_at"))
-	p.QuoteSignedAt = parseDate(r.FormValue("quote_signed_at"))
-	p.InvoiceSentAt = parseDate(r.FormValue("invoice_sent_at"))
-	p.InvoicePaidAt = parseDate(r.FormValue("invoice_paid_at"))
-	p.FollowupAt = parseDate(r.FormValue("followup_at"))
-	p.PartnerNotes = formEdit(r, "partner_notes", p.PartnerNotes)
-	p.InternalNotes = strings.TrimSpace(r.FormValue("internal_notes"))
-
-	if err := s.store.UpdatePartnership(ctx, p); err != nil {
-		return err
-	}
-
-	org, err := s.store.GetOrganization(ctx, p.OrgID)
+	err = s.savePartnership(r.Context(), act(r), org, p, partnershipEdit{
+		Status:        r.FormValue("status"),
+		Level:         r.FormValue("level"),
+		PriceOverride: r.FormValue("price_override"),
+		Owner:         r.FormValue("owner"),
+		PONumber:      formEdit(r, "po_number", p.PONumber),
+		QuoteSentAt:   parseDate(r.FormValue("quote_sent_at")),
+		QuoteSignedAt: parseDate(r.FormValue("quote_signed_at")),
+		InvoiceSentAt: parseDate(r.FormValue("invoice_sent_at")),
+		InvoicePaidAt: parseDate(r.FormValue("invoice_paid_at")),
+		FollowupAt:    parseDate(r.FormValue("followup_at")),
+		PartnerNotes:  formEdit(r, "partner_notes", p.PartnerNotes),
+		InternalNotes: r.FormValue("internal_notes"),
+	})
 	if err != nil {
 		return err
 	}
 
-	s.record(r, org, &p.ID, "partnership.updated", "Statut : "+p.Status)
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnershipURLFromPath(r), http.StatusSeeOther)
 
@@ -1521,39 +1280,15 @@ func (s *Server) adminPartnershipUpdate(w http.ResponseWriter, r *http.Request) 
 // signed or the invoice was paid today: the commonest updates, which
 // otherwise went through the whole follow-up form.
 func (s *Server) adminPartnershipMark(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
-	p, err := s.partnershipFromPath(r)
+	org, _, p, err := s.partnershipOfPath(r)
 	if err != nil {
 		return err
 	}
 
-	today := time.Now().UTC().Truncate(24 * time.Hour)
-	what := r.FormValue("what")
-
-	switch what {
-	case "quote_signed":
-		if p.QuoteSignedAt == nil {
-			p.QuoteSignedAt = &today
-		}
-	case "invoice_paid":
-		if p.InvoicePaidAt == nil {
-			p.InvoicePaidAt = &today
-		}
-	default:
-		return errBadInput
-	}
-
-	if err := s.store.UpdatePartnership(ctx, p); err != nil {
+	if err := s.markPartnership(r.Context(), act(r), org, p, r.FormValue("what")); err != nil {
 		return err
 	}
 
-	org, err := s.store.GetOrganization(ctx, p.OrgID)
-	if err != nil {
-		return err
-	}
-
-	s.record(r, org, &p.ID, "partnership.updated", what)
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnershipURLFromPath(r), http.StatusSeeOther)
 
@@ -1561,9 +1296,7 @@ func (s *Server) adminPartnershipMark(w http.ResponseWriter, r *http.Request) er
 }
 
 func (s *Server) adminPartnershipDocument(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
-	p, err := s.partnershipFromPath(r)
+	org, e, p, err := s.partnershipOfPath(r)
 	if err != nil {
 		return err
 	}
@@ -1583,39 +1316,9 @@ func (s *Server) adminPartnershipDocument(w http.ResponseWriter, r *http.Request
 		return err
 	}
 
-	today := time.Now().UTC().Truncate(24 * time.Hour)
-	kind := r.FormValue("kind")
-
-	switch kind {
-	case "quote":
-		p.QuoteFile = name
-		if p.QuoteSentAt == nil {
-			p.QuoteSentAt = &today
-		}
-	case "invoice":
-		p.InvoiceFile = name
-		if p.InvoiceSentAt == nil {
-			p.InvoiceSentAt = &today
-		}
-	default:
-		return errBadInput
-	}
-
-	if err := s.store.UpdatePartnership(ctx, p); err != nil {
-		return err
-	}
-
-	org, err := s.store.GetOrganization(ctx, p.OrgID)
+	err = s.setPartnershipDocument(r.Context(), act(r), org, e, p, r.FormValue("kind"), name, r.FormValue("notify") == "on")
 	if err != nil {
 		return err
-	}
-
-	s.record(r, org, &p.ID, "document.uploaded", kind)
-
-	if r.FormValue("notify") == "on" && p.VisibleToPartner() {
-		if err := s.notifyManagers(r, org, p, "/"+r.PathValue("event")+"/partner/documents/"+kind, "mail."+kind+".subject", "mail."+kind+".body"); err != nil {
-			return err
-		}
 	}
 
 	s.flash(w, "flash.saved")
@@ -1625,9 +1328,7 @@ func (s *Server) adminPartnershipDocument(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) adminPartnershipPerks(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
-	p, err := s.partnershipFromPath(r)
+	org, _, p, err := s.partnershipOfPath(r)
 	if err != nil {
 		return err
 	}
@@ -1636,36 +1337,10 @@ func (s *Server) adminPartnershipPerks(w http.ResponseWriter, r *http.Request) e
 		return errBadInput
 	}
 
-	var ids []int64
-
-	if p.LevelID != nil {
-		allowed, err := s.store.ListLevelPerks(ctx, *p.LevelID)
-		if err != nil {
-			return err
-		}
-
-		checked := map[string]bool{}
-		for _, v := range r.PostForm["perk"] {
-			checked[v] = true
-		}
-
-		for _, perk := range allowed {
-			if checked[perk.UID] {
-				ids = append(ids, perk.ID)
-			}
-		}
-	}
-
-	if err := s.store.SetDonePerks(ctx, p.ID, ids); err != nil {
+	if err := s.setDonePerks(r.Context(), act(r), org, p, r.PostForm["perk"]); err != nil {
 		return err
 	}
 
-	org, err := s.store.GetOrganization(ctx, p.OrgID)
-	if err != nil {
-		return err
-	}
-
-	s.record(r, org, &p.ID, "perks.updated", "")
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnershipURLFromPath(r), http.StatusSeeOther)
 
@@ -1678,24 +1353,7 @@ func (s *Server) adminAttendeeAdd(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	a := &store.Attendee{
-		PartnershipID: p.ID,
-		FirstName:     strings.TrimSpace(r.FormValue("first_name")),
-		LastName:      strings.TrimSpace(r.FormValue("last_name")),
-		Email:         strings.TrimSpace(r.FormValue("email")),
-		Role:          r.FormValue("role"),
-		Dietary:       strings.TrimSpace(r.FormValue("dietary")),
-	}
-
-	if a.Role != store.RoleVisitor {
-		a.Role = store.RoleBooth
-	}
-
-	if a.FirstName == "" || a.LastName == "" {
-		return errBadInput
-	}
-
-	if err := s.store.AddAttendee(r.Context(), a); err != nil {
+	if err := s.staffAddAttendee(r.Context(), act(r), p, readAttendee(r)); err != nil {
 		return err
 	}
 
@@ -1711,7 +1369,7 @@ func (s *Server) adminAttendeeDelete(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	if err := s.store.DeleteAttendee(r.Context(), p.ID, r.PathValue("attendee")); err != nil {
+	if err := s.staffDeleteAttendee(r.Context(), act(r), p, r.PathValue("attendee")); err != nil {
 		return err
 	}
 
@@ -1725,9 +1383,7 @@ func (s *Server) adminAttendeeDelete(w http.ResponseWriter, r *http.Request) err
 // the post gets its URL and "notify" is checked, managers are emailed so they
 // can share it.
 func (s *Server) adminSocialPostSave(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
-	p, err := s.partnershipFromPath(r)
+	org, e, p, err := s.partnershipOfPath(r)
 	if err != nil {
 		return err
 	}
@@ -1735,38 +1391,17 @@ func (s *Server) adminSocialPostSave(w http.ResponseWriter, r *http.Request) err
 	post := &store.SocialPost{PartnershipID: p.ID}
 
 	if uid := r.FormValue("post"); uid != "" {
-		if post, err = s.store.GetSocialPost(ctx, p.ID, uid); err != nil {
+		if post, err = s.store.GetSocialPost(r.Context(), p.ID, uid); err != nil {
 			return err
 		}
 	}
 
-	wasPublished := post.Published()
-
-	post.Network = r.FormValue("network")
-	post.PlannedAt = parseDate(r.FormValue("planned_at"))
-	post.URL = normalizeURL(strings.TrimSpace(r.FormValue("url")))
-	post.Note = strings.TrimSpace(r.FormValue("note"))
-
-	if !store.ValidNetwork(post.Network) {
-		return errBadInput
-	}
-
-	if err := s.store.SaveSocialPost(ctx, post); err != nil {
-		return err
-	}
-
-	org, err := s.store.GetOrganization(ctx, p.OrgID)
+	err = s.saveSocialPost(r.Context(), act(r), org, e, p, post, socialPostEdit{
+		Network: r.FormValue("network"), PlannedAt: parseDate(r.FormValue("planned_at")),
+		URL: r.FormValue("url"), Note: r.FormValue("note"),
+	}, r.FormValue("notify") == "on")
 	if err != nil {
 		return err
-	}
-
-	s.record(r, org, &p.ID, "social.saved", networkName(post.Network)+" "+post.URL)
-
-	if post.Published() && !wasPublished && r.FormValue("notify") == "on" && p.VisibleToPartner() {
-		if err := s.notifyManagers(r, org, p, "/"+r.PathValue("event")+"/partner/", "mail.post.subject", "mail.post.body",
-			networkName(post.Network), post.URL); err != nil {
-			return err
-		}
 	}
 
 	s.flash(w, "flash.saved")
@@ -1781,7 +1416,7 @@ func (s *Server) adminSocialPostDelete(w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	if err := s.store.DeleteSocialPost(r.Context(), p.ID, r.PathValue("post")); err != nil {
+	if err := s.deleteSocialPost(r.Context(), act(r), p, r.PathValue("post")); err != nil {
 		return err
 	}
 
@@ -1828,7 +1463,7 @@ func (s *Server) adminPartnershipDelete(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	if err := s.store.DeletePartnership(r.Context(), p.ID); err != nil {
+	if err := s.deletePartnership(r.Context(), act(r), p); err != nil {
 		return err
 	}
 

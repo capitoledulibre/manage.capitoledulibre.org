@@ -303,8 +303,8 @@ func (s *Server) volunteerSpaceOpen(r *http.Request, p *store.Person) (bool, err
 }
 
 // sendInvite emails a long-lived magic link to a newly added manager.
-func (s *Server) sendInvite(r *http.Request, m *store.Manager, org *store.Organization, inviter string) error {
-	token, err := s.store.CreateMagicToken(r.Context(), m.Email, inviteTokenTTL)
+func (s *Server) sendInvite(ctx context.Context, m *store.Manager, org *store.Organization, inviter string) error {
+	token, err := s.store.CreateMagicToken(ctx, m.Email, inviteTokenTTL)
 	if err != nil {
 		return err
 	}

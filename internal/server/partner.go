@@ -1,9 +1,9 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -337,14 +337,12 @@ func (s *Server) partnerNotes(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	p := pc.Partnership
-	p.PONumber = formEdit(r, "po_number", p.PONumber)
-	p.PartnerNotes = formEdit(r, "partner_notes", p.PartnerNotes)
+	po, notes := formEdit(r, "po_number", p.PONumber), formEdit(r, "partner_notes", p.PartnerNotes)
 
-	if err := s.store.UpdatePartnership(r.Context(), p); err != nil {
+	if err := s.savePartnerNotes(r.Context(), act(r), rc(r).Org, p, po, notes); err != nil {
 		return err
 	}
 
-	s.record(r, rc(r).Org, &p.ID, "partnership.notes", fmt.Sprintf("PO: %s\n%s", p.PONumber, p.PartnerNotes))
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnerSpace(r)+"/", http.StatusSeeOther)
 
@@ -389,12 +387,12 @@ func (s *Server) partnerChooseSubmit(w http.ResponseWriter, r *http.Request) err
 		return errBadInput
 	}
 
-	// Only switch between organizations the logged-in person manages.
-	if target.PersonID != c.Person.ID {
-		return errForbidden
+	a, err := s.actor(r)
+	if err != nil {
+		return err
 	}
 
-	if err := s.store.SwitchSessionManager(r.Context(), c.personToken, target.ID); err != nil {
+	if err := s.chooseOrganization(r.Context(), a, c.personToken, target); err != nil {
 		return err
 	}
 
@@ -457,8 +455,9 @@ func (s *Server) partnerSignedQuote(w http.ResponseWriter, r *http.Request) erro
 
 	back := partnerBase(e) + "/"
 
-	if !act(r).SeesPartnership(p) || p.QuoteFile == "" && p.QuoteSentAt == nil {
-		return errNotFound
+	// Asked before the file comes in, so that a refusal stores nothing.
+	if err := quoteAwaited(act(r), rc(r).Org, p); err != nil {
+		return err
 	}
 
 	name, err := s.upload(w, r, "file", files.KindPDF, maxPDFSize)
@@ -474,13 +473,10 @@ func (s *Server) partnerSignedQuote(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	p.SignedQuoteFile = name
-
-	if err := s.store.UpdatePartnership(ctx, p); err != nil {
+	if err := s.sendSignedQuote(ctx, act(r), rc(r).Org, e, p, name); err != nil {
 		return err
 	}
 
-	s.record(r, rc(r).Org, &p.ID, "quote.signed_uploaded", e.Name)
 	s.flash(w, "flash.signed_quote")
 	http.Redirect(w, r, back, http.StatusSeeOther)
 
@@ -533,18 +529,18 @@ func (s *Server) partnerOrganizationSubmit(w http.ResponseWriter, r *http.Reques
 	org := *rc(r).Org
 	readOrgForm(r, &org)
 
-	if org.Name == "" {
+	err := s.saveOrganization(r.Context(), act(r), &org)
+	if rf, ok := refused(err); ok {
 		p := s.page(r, "organization.title")
-		p.D = map[string]any{"O": &org, "Error": "organization.name_required"}
+		p.D = map[string]any{"O": &org, "Error": rf.Key}
 
 		return s.render(w, r, "partner/organization", p)
 	}
 
-	if err := s.store.UpdateOrganization(r.Context(), &org); err != nil {
+	if err != nil {
 		return err
 	}
 
-	s.record(r, &org, nil, "organization.updated", "")
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnerSpace(r)+"/organization", http.StatusSeeOther)
 
@@ -605,7 +601,10 @@ func (s *Server) partnerLogo(w http.ResponseWriter, r *http.Request) error {
 func (s *Server) partnerLogoSubmit(w http.ResponseWriter, r *http.Request) error {
 	org := rc(r).Org
 
-	if err := s.saveLogo(w, r, org); err != nil {
+	err := s.saveLogo(w, r, func(ctx context.Context, variant, file string) error {
+		return s.uploadLogo(ctx, act(r), org, variant, file)
+	})
+	if err != nil {
 		var ue uploadError
 		if errors.As(err, &ue) {
 			s.flash(w, string(ue))
@@ -662,33 +661,17 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request, field string, ki
 	return name, err
 }
 
-func (s *Server) saveLogo(w http.ResponseWriter, r *http.Request, org *store.Organization) error {
+// saveLogo takes in the logo uploaded with the request and hands it, with
+// its variant, to add: the service of the space it comes from.
+func (s *Server) saveLogo(w http.ResponseWriter, r *http.Request, add func(ctx context.Context, variant, file string) error) error {
 	name, err := s.upload(w, r, "logo", files.KindLogo, maxLogoSize)
 	if err != nil {
 		return err
 	}
 
-	variant := store.LogoDefault
-	if r.FormValue("variant") == store.LogoDark {
-		variant = store.LogoDark
-	}
-
-	if err := s.store.AddLogo(r.Context(), &store.Logo{OrgID: org.ID, Variant: variant, File: name, UploadedBy: rc(r).Actor()}); err != nil {
+	if err := add(r.Context(), r.FormValue("variant"), name); err != nil {
 		return err
 	}
-
-	removed, err := s.store.PruneLogos(r.Context(), org.ID, variant, maxLogoVersions)
-	if err != nil {
-		slog.Error("prune logos", "org", org.Name, "err", err)
-	}
-
-	for _, f := range removed {
-		if err := s.files.Remove(f); err != nil {
-			slog.Error("remove old logo", "file", f, "err", err)
-		}
-	}
-
-	s.record(r, org, nil, "logo.uploaded", variant)
 
 	return nil
 }
@@ -745,64 +728,33 @@ func (s *Server) partnerAttendeeAdd(w http.ResponseWriter, r *http.Request) erro
 		return errNotFound
 	}
 
-	if !act(r).ChangesAttendees(pc.Event, rc(r).Org.ID) {
-		return errForbidden
+	a := readAttendee(r)
+
+	err = s.addAttendee(ctx, act(r), rc(r).Org, pc.Event, pc.Partnership, a)
+	if rf, ok := refused(err); ok {
+		return s.renderAttendees(w, r, map[string]any{"A": a, "Error": rf.Key})
 	}
 
-	a, form := readAttendee(r, pc.Partnership.ID)
-
-	if pc.Level != nil && pc.Level.MaxAttendees > 0 {
-		n, err := s.store.CountAttendees(ctx, pc.Partnership.ID)
-		if err != nil {
-			return err
-		}
-
-		if n >= pc.Level.MaxAttendees {
-			form["Error"] = "attendees.full"
-		}
-	}
-
-	if form["Error"] != nil {
-		return s.renderAttendees(w, r, form)
-	}
-
-	if err := s.store.AddAttendee(ctx, a); err != nil {
+	if err != nil {
 		return err
 	}
 
-	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.added", a.FirstName+" "+a.LastName)
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnerSpace(r)+"/attendees", http.StatusSeeOther)
 
 	return nil
 }
 
-// readAttendee reads the attendee form, and the form to show again with an
-// error when it is not valid.
-func readAttendee(r *http.Request, partnershipID int64) (*store.Attendee, map[string]any) {
-	a := &store.Attendee{
-		PartnershipID: partnershipID,
-		FirstName:     strings.TrimSpace(r.FormValue("first_name")),
-		LastName:      strings.TrimSpace(r.FormValue("last_name")),
-		Email:         strings.TrimSpace(r.FormValue("email")),
-		Role:          r.FormValue("role"),
-		Dietary:       strings.TrimSpace(r.FormValue("dietary")),
+// readAttendee reads the attendee form, as typed: the services clean and
+// check it.
+func readAttendee(r *http.Request) *store.Attendee {
+	return &store.Attendee{
+		FirstName: r.FormValue("first_name"),
+		LastName:  r.FormValue("last_name"),
+		Email:     r.FormValue("email"),
+		Role:      r.FormValue("role"),
+		Dietary:   r.FormValue("dietary"),
 	}
-
-	if a.Role != store.RoleVisitor {
-		a.Role = store.RoleBooth
-	}
-
-	form := map[string]any{"A": a}
-
-	switch {
-	case a.FirstName == "" || a.LastName == "":
-		form["Error"] = "attendees.name_required"
-	case a.Email != "" && !validEmail(store.NormalizeEmail(a.Email)):
-		form["Error"] = "login.invalid_email"
-	}
-
-	return a, form
 }
 
 // partnerAttendeeUpdate saves the changes to an attendee: a typo or a diet
@@ -818,33 +770,18 @@ func (s *Server) partnerAttendeeUpdate(w http.ResponseWriter, r *http.Request) e
 		return errNotFound
 	}
 
-	if !act(r).ChangesAttendees(pc.Event, rc(r).Org.ID) {
-		uid := r.PathValue("attendee")
-		if err := s.store.UpdateAttendeeDietary(r.Context(), pc.Partnership.ID, uid, strings.TrimSpace(r.FormValue("dietary"))); err != nil {
-			return err
-		}
-
-		s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.updated", "")
-		s.flash(w, "flash.saved")
-		http.Redirect(w, r, partnerSpace(r)+"/attendees", http.StatusSeeOther)
-
-		return nil
-	}
-
-	a, form := readAttendee(r, pc.Partnership.ID)
+	a := readAttendee(r)
 	a.UID = r.PathValue("attendee")
 
-	if form["Error"] != nil {
-		form["Editing"] = a
-
-		return s.renderAttendees(w, r, form)
+	err = s.updateAttendee(r.Context(), act(r), rc(r).Org, pc.Event, pc.Partnership, a)
+	if rf, ok := refused(err); ok {
+		return s.renderAttendees(w, r, map[string]any{"A": a, "Error": rf.Key, "Editing": a})
 	}
 
-	if err := s.store.UpdateAttendee(r.Context(), a); err != nil {
+	if err != nil {
 		return err
 	}
 
-	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.updated", a.FirstName+" "+a.LastName)
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnerSpace(r)+"/attendees", http.StatusSeeOther)
 
@@ -861,15 +798,10 @@ func (s *Server) partnerAttendeeDelete(w http.ResponseWriter, r *http.Request) e
 		return errNotFound
 	}
 
-	if !act(r).ChangesAttendees(pc.Event, rc(r).Org.ID) {
-		return errForbidden
-	}
-
-	if err := s.store.DeleteAttendee(r.Context(), pc.Partnership.ID, r.PathValue("attendee")); err != nil {
+	if err := s.deleteAttendee(r.Context(), act(r), rc(r).Org, pc.Event, pc.Partnership, r.PathValue("attendee")); err != nil {
 		return err
 	}
 
-	s.record(r, rc(r).Org, &pc.Partnership.ID, "attendee.deleted", "")
 	s.flash(w, "flash.deleted")
 	http.Redirect(w, r, partnerSpace(r)+"/attendees", http.StatusSeeOther)
 
@@ -916,34 +848,25 @@ func (s *Server) partnerJobSubmit(w http.ResponseWriter, r *http.Request) error 
 		}
 	}
 
-	j.Title = strings.TrimSpace(r.FormValue("title"))
-	j.Location = strings.TrimSpace(r.FormValue("location"))
-	j.Contract = strings.TrimSpace(r.FormValue("contract"))
-	j.URL = normalizeURL(strings.TrimSpace(r.FormValue("url")))
-	j.Description = strings.TrimSpace(r.FormValue("description"))
+	j.Title = r.FormValue("title")
+	j.Location = r.FormValue("location")
+	j.Contract = r.FormValue("contract")
+	j.URL = r.FormValue("url")
+	j.Description = r.FormValue("description")
 	j.ExpiresAt = parseDate(r.FormValue("expires_at"))
 
-	var errKey string
-
-	switch {
-	case j.Title == "":
-		errKey = "jobs.title_required"
-	case j.URL == "" && j.Description == "":
-		errKey = "jobs.url_or_description"
-	}
-
-	if errKey != "" {
+	err := s.saveJob(ctx, act(r), org, j)
+	if rf, ok := refused(err); ok {
 		p := s.page(r, "jobs.manage_title")
-		p.D = map[string]any{"J": j, "Error": errKey}
+		p.D = map[string]any{"J": j, "Error": rf.Key}
 
 		return s.render(w, r, "partner/job_form", p)
 	}
 
-	if err := s.store.SaveJobOffer(ctx, j); err != nil {
+	if err != nil {
 		return err
 	}
 
-	s.record(r, org, nil, "job.saved", j.Title)
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnerSpace(r)+"/jobs", http.StatusSeeOther)
 
@@ -951,11 +874,9 @@ func (s *Server) partnerJobSubmit(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *Server) partnerJobDelete(w http.ResponseWriter, r *http.Request) error {
-	if err := s.store.DeleteJobOffer(r.Context(), rc(r).Org.ID, r.PathValue("job")); err != nil {
+	if err := s.deleteJob(r.Context(), act(r), rc(r).Org, r.PathValue("job")); err != nil {
 		return err
 	}
-
-	s.record(r, rc(r).Org, nil, "job.deleted", "")
 	s.flash(w, "flash.deleted")
 	http.Redirect(w, r, partnerSpace(r)+"/jobs", http.StatusSeeOther)
 
@@ -981,121 +902,54 @@ func (s *Server) renderManagers(w http.ResponseWriter, r *http.Request, form map
 func (s *Server) partnerManagerInvite(w http.ResponseWriter, r *http.Request) error {
 	c := rc(r)
 
-	m := &store.Manager{
-		OrgID:     c.Org.ID,
-		Email:     store.NormalizeEmail(r.FormValue("email")),
-		Name:      strings.TrimSpace(r.FormValue("name")),
-		Lang:      r.FormValue("lang"),
-		InvitedBy: c.Actor(),
-	}
+	m := &store.Manager{Email: r.FormValue("email"), Name: r.FormValue("name"), Lang: r.FormValue("lang")}
 
 	if !validLang(m.Lang) {
 		m.Lang = c.Lang
 	}
 
-	if !validEmail(m.Email) {
-		return s.renderManagers(w, r, map[string]any{"M": m, "Error": "login.invalid_email"})
+	err := s.inviteColleague(r.Context(), act(r), c.Org, m)
+	if rf, ok := refused(err); ok {
+		return s.renderManagers(w, r, map[string]any{"M": m, "Error": rf.Key})
 	}
 
-	created, err := s.store.AddManager(r.Context(), m)
 	if err != nil {
 		return err
 	}
 
-	if !created {
-		return s.renderManagers(w, r, map[string]any{"M": m, "Error": "managers.already"})
-	}
-
-	if err := s.sendInvite(r, m, c.Org, inviterName(c)); err != nil {
-		return err
-	}
-
-	s.record(r, c.Org, nil, "manager.invited", m.Email)
 	s.flash(w, "flash.invited")
 	http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
 
 	return nil
 }
 
-// inviterName is who an invitation comes from: the manager sending it,
-// else the organization.
-func inviterName(c *reqCtx) string {
-	if c.Manager != nil && !c.Impersonating {
-		return firstNonEmpty(c.Manager.Name, c.Manager.Email)
-	}
-
-	return c.Org.Name
-}
-
 // partnerManagerSendLink sends a colleague a fresh invitation, for one who
 // let the first expire: inviting them again only said they already were.
 func (s *Server) partnerManagerSendLink(w http.ResponseWriter, r *http.Request) error {
-	c := rc(r)
-
-	managers, err := s.store.ListManagers(r.Context(), c.Org.ID)
-	if err != nil {
+	if err := s.resendInvitation(r.Context(), act(r), rc(r).Org, r.PathValue("manager")); err != nil {
 		return err
 	}
 
-	for _, m := range managers {
-		if m.UID != r.PathValue("manager") {
-			continue
-		}
+	s.flash(w, "flash.invited")
+	http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
 
-		if err := s.sendInvite(r, m, c.Org, inviterName(c)); err != nil {
-			return err
-		}
-
-		s.record(r, c.Org, nil, "manager.invited", m.Email)
-		s.flash(w, "flash.invited")
-		http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
-
-		return nil
-	}
-
-	return errNotFound
+	return nil
 }
 
 func (s *Server) partnerManagerDelete(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
 	c := rc(r)
 
-	uid := r.PathValue("manager")
-
-	managers, err := s.store.ListManagers(ctx, c.Org.ID)
-	if err != nil {
-		return err
-	}
-
-	var target *store.Manager
-
-	for _, m := range managers {
-		if m.UID == uid {
-			target = m
-		}
-	}
-
-	if target == nil {
-		return errNotFound
-	}
-
-	// Keep at least one manager, otherwise nobody could log in any more.
-	if len(managers) <= 1 {
-		s.flash(w, "flash.last_manager")
+	target, err := s.removeColleague(r.Context(), act(r), c.Org, r.PathValue("manager"))
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 		http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
 
 		return nil
 	}
 
-	if err := s.store.DetachManagerSessions(ctx, target.ID); err != nil {
+	if err != nil {
 		return err
 	}
-
-	if err := s.store.DeleteManager(ctx, c.Org.ID, target.ID); err != nil {
-		return err
-	}
-
-	s.record(r, c.Org, nil, "manager.removed", target.Email)
 
 	// Removing oneself only takes the organization away: the person stays
 	// logged in, for whatever else they come for.
@@ -1119,19 +973,16 @@ func (s *Server) partnerProfile(w http.ResponseWriter, r *http.Request) error {
 		return errForbidden
 	}
 
-	m := c.Manager
-	m.Name = strings.TrimSpace(r.FormValue("name"))
+	lang := r.FormValue("lang")
 
-	if lang := r.FormValue("lang"); validLang(lang) {
-		m.Lang = lang
-		s.setCookie(w, langCookie, lang, 365*24*time.Hour)
-	}
-
-	if err := s.store.UpdateManager(r.Context(), m); err != nil {
+	if err := s.saveContactProfile(r.Context(), act(r), c.Org, c.Manager, r.FormValue("name"), lang); err != nil {
 		return err
 	}
 
-	s.record(r, c.Org, nil, "profile.updated", m.Email)
+	if validLang(lang) {
+		s.setCookie(w, langCookie, lang, 365*24*time.Hour)
+	}
+
 	s.flash(w, "flash.saved")
 	http.Redirect(w, r, partnerSpace(r)+"/managers", http.StatusSeeOther)
 

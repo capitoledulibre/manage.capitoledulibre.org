@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"manage/internal/files"
-	"manage/internal/i18n"
-	"manage/internal/mail"
 	"manage/internal/store"
 )
 
@@ -91,8 +89,6 @@ func (s *Server) adminPeople(w http.ResponseWriter, r *http.Request) error {
 // adminPersonDelete removes a person altogether, from every space. The
 // staff are not removed here: their access comes from the staff login.
 func (s *Server) adminPersonDelete(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	p, err := s.pathPerson(r)
 	if err != nil {
 		return err
@@ -103,9 +99,9 @@ func (s *Server) adminPersonDelete(w http.ResponseWriter, r *http.Request) error
 		back = "/admin/people"
 	}
 
-	freed, err := s.store.DeletePerson(ctx, p.ID)
-	if errors.Is(err, store.ErrBadInput) {
-		s.flash(w, "flash.person_staff")
+	err = s.deletePerson(r.Context(), act(r), p)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 		http.Redirect(w, r, back, http.StatusSeeOther)
 
 		return nil
@@ -115,15 +111,6 @@ func (s *Server) adminPersonDelete(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	for _, id := range freed {
-		if sl, err := s.store.GetSlot(ctx, id, 0); err == nil {
-			if pole, err := s.store.GetPole(ctx, sl.PoleID); err == nil {
-				s.announceFreePlace(r.Context(), pole, sl.ID)
-			}
-		}
-	}
-
-	s.dropFile(r.Context(), p.AvatarFile)
 	s.flash(w, "flash.person_deleted", p.Label())
 	http.Redirect(w, r, back, http.StatusSeeOther)
 
@@ -186,52 +173,26 @@ func personURL(p *store.Person) string { return "/admin/people/" + p.UID }
 // out, as for a partner contact: the old one may not be theirs any more. A
 // staff member's address comes from the staff login and stays.
 func (s *Server) adminPersonSave(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	p, err := s.pathPerson(r)
 	if err != nil {
 		return err
 	}
 
-	staff, err := s.store.IsStaff(ctx, p.ID)
+	moved, err := s.savePerson(r.Context(), act(r), p, personEdit{
+		Name: r.FormValue("name"), Email: r.FormValue("email"), Phone: r.FormValue("phone"), Lang: r.FormValue("lang"),
+	})
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+		http.Redirect(w, r, personURL(p), http.StatusSeeOther)
+
+		return nil
+	}
+
 	if err != nil {
 		return err
 	}
 
-	oldEmail := p.Email
-
-	p.Name = strings.TrimSpace(r.FormValue("name"))
-	p.Phone = strings.TrimSpace(r.FormValue("phone"))
-	p.Lang = r.FormValue("lang")
-
-	if !staff {
-		p.Email = store.NormalizeEmail(r.FormValue("email"))
-	}
-
-	if !validEmail(p.Email) || len(p.Name) > 200 || len(p.Phone) > 40 {
-		s.flash(w, "flash.invalid_email")
-		http.Redirect(w, r, personURL(p), http.StatusSeeOther)
-
-		return nil
-	}
-
-	switch err := s.store.UpdatePerson(ctx, p); {
-	case errors.Is(err, store.ErrDuplicate):
-		s.flash(w, "flash.person_email_taken", p.Email)
-		http.Redirect(w, r, personURL(p), http.StatusSeeOther)
-
-		return nil
-	case errors.Is(err, store.ErrBadInput):
-		return errBadInput
-	case err != nil:
-		return err
-	}
-
-	if p.Email != oldEmail {
-		if err := s.store.DeletePersonSessions(ctx, p.ID); err != nil {
-			return err
-		}
-
+	if moved {
 		s.flash(w, "flash.person_email_changed")
 	} else {
 		s.flash(w, "flash.saved")
@@ -250,17 +211,7 @@ func (s *Server) adminPersonSendLink(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	token, err := s.store.CreateMagicToken(r.Context(), p.Email, inviteTokenTTL)
-	if err != nil {
-		return err
-	}
-
-	err = s.mailer.Send(mail.Message{
-		To:      []string{p.Email},
-		Subject: i18n.T(p.Lang, "mail.link.subject"),
-		Body:    i18n.T(p.Lang, "mail.link.body", s.cfg.BaseURL+"/auth/"+token),
-	})
-	if err != nil {
+	if err := s.sendPersonLink(r.Context(), act(r), p); err != nil {
 		return err
 	}
 
@@ -294,12 +245,10 @@ func (s *Server) adminPersonPhoto(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	old, err := s.store.SetPersonAvatar(r.Context(), p.ID, name, store.AvatarUpload)
-	if err != nil {
+	if err := s.setPersonPhoto(r.Context(), act(r), p, name); err != nil {
 		return err
 	}
 
-	s.dropFile(r.Context(), old)
 	s.flash(w, "flash.person_photo_saved", p.Label())
 	http.Redirect(w, r, back, http.StatusSeeOther)
 
@@ -314,12 +263,10 @@ func (s *Server) adminPersonPhotoDelete(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	old, err := s.store.SetPersonAvatar(r.Context(), p.ID, "", store.AvatarOptOut)
-	if err != nil {
+	if err := s.setPersonPhoto(r.Context(), act(r), p, ""); err != nil {
 		return err
 	}
 
-	s.dropFile(r.Context(), old)
 	s.flash(w, "flash.person_photo_removed", p.Label())
 	http.Redirect(w, r, safeRedirect(r.FormValue("back"), "/admin/people/"+p.UID), http.StatusSeeOther)
 

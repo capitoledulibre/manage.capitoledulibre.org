@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -129,9 +130,7 @@ func partnershipURLFromPath(r *http.Request) string {
 
 // latestPartnership returns the most recent partnership of an organization
 // and its level, used to prefill a new edition.
-func (s *Server) latestPartnership(r *http.Request, orgID int64) (*store.Partnership, *store.Level, error) {
-	ctx := r.Context()
-
+func (s *Server) latestPartnership(ctx context.Context, orgID int64) (*store.Partnership, *store.Level, error) {
 	partnerships, err := s.store.ListOrgPartnerships(ctx, orgID)
 	if err != nil || len(partnerships) == 0 {
 		return nil, nil, err
