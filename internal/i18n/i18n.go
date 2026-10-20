@@ -103,6 +103,8 @@ var messages = map[string][2]string{
 	"flash.logo_saved":           {"Logo enregistré, merci !", "Logo saved, thank you!"},
 	"flash.invited":              {"Invitation envoyée.", "Invitation sent."},
 	"flash.manager_left":         {"Vous n'avez plus accès à l'espace partenaire de %s.", "You no longer have access to the %s partner area."},
+	"flash.person_photo_saved":   {"Photo de %s enregistrée.", "Picture of %s saved."},
+	"flash.person_photo_removed": {"Photo de %s retirée.", "Picture of %s removed."},
 	"flash.last_manager":         {"Impossible de retirer le dernier contact.", "The last contact cannot be removed."},
 	"flash.invalid_email":        {"Adresse e-mail invalide.", "Invalid email address."},
 	"flash.cloned":               {"Niveaux et contreparties copiés. Vérifiez les prix avant d'ouvrir l'édition.", "Levels and perks copied. Check the prices before opening the edition."},

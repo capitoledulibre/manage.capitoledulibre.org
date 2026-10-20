@@ -34,6 +34,8 @@ func (s *Server) adminRoutes(mux *http.ServeMux) {
 	h("POST /admin/people/{person}", s.adminPersonSave)
 	h("POST /admin/people/{person}/send-link", s.adminPersonSendLink)
 	h("POST /admin/people/{person}/delete", s.adminPersonDelete)
+	h("POST /admin/people/{person}/photo", s.adminPersonPhoto)
+	h("POST /admin/people/{person}/photo/delete", s.adminPersonPhotoDelete)
 	h("GET /admin/events", s.adminEvents)
 	h("GET /admin/events/new", s.adminEventForm)
 	h("POST /admin/events/new", s.adminEventSubmit)

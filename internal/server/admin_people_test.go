@@ -102,3 +102,55 @@ func TestAdminPeople(t *testing.T) {
 	_, body = e.post(admin, "/admin/people/"+staff.UID+"/delete", nil)
 	mustContain(t, body, "Un membre du staff ne se supprime pas ici")
 }
+
+func TestStaffSetsPersonPhoto(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	admin := e.adminClient()
+
+	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, nina.ID))
+
+	// From her volunteer page, which it comes back to.
+	fiche := "/volunteers/" + f.event.Slug + "/edition/volunteers/" + nina.UID
+
+	_, body := e.get(admin, fiche)
+	mustContain(t, body, `action="/admin/people/`+nina.UID+`/photo"`, `name="back" value="`+fiche+`"`)
+
+	_, body = e.upload(admin, "/admin/people/"+nina.UID+"/photo", map[string]string{"back": fiche}, "photo", "nina.png", pngBytes())
+	mustContain(t, body, "Photo de Nina enregistrée.")
+
+	got, _ := e.st.GetPerson(ctx, nina.ID)
+	if got.AvatarFile == "" || got.AvatarSource != store.AvatarUpload {
+		t.Fatalf("avatar: %q %q", got.AvatarFile, got.AvatarSource)
+	}
+
+	if code, _ := e.get(admin, "/avatars/"+got.AvatarFile); code != http.StatusOK {
+		t.Errorf("avatar served: %d", code)
+	}
+
+	// Not a picture: refused, the old one kept.
+	e.upload(admin, "/admin/people/"+nina.UID+"/photo", nil, "photo", "nina.pdf", []byte("%PDF-1.4"))
+
+	if again, _ := e.st.GetPerson(ctx, nina.ID); again.AvatarFile != got.AvatarFile {
+		t.Error("a refused file replaced the picture")
+	}
+
+	// A coordinator who is not staff cannot.
+	e.post(admin, "/volunteers/"+f.event.Slug+"/edition/coordinators", url.Values{"email": {"coco@example.org"}})
+
+	e.upload(e.loginAs("coco@example.org"), "/admin/people/"+nina.UID+"/photo", nil, "photo", "x.png", pngBytes())
+
+	if again, _ := e.st.GetPerson(ctx, nina.ID); again.AvatarFile != got.AvatarFile {
+		t.Error("a coordinator changed the picture")
+	}
+
+	// Taken off, as she would herself.
+	e.post(admin, "/admin/people/"+nina.UID+"/photo/delete", url.Values{"back": {fiche}})
+
+	if gone, _ := e.st.GetPerson(ctx, nina.ID); gone.AvatarFile != "" || gone.AvatarSource != store.AvatarOptOut {
+		t.Errorf("after removal: %q %q", gone.AvatarFile, gone.AvatarSource)
+	}
+}

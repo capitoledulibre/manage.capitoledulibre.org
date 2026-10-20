@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"manage/internal/files"
 	"manage/internal/i18n"
 	"manage/internal/mail"
 	"manage/internal/store"
@@ -265,6 +266,62 @@ func (s *Server) adminPersonSendLink(w http.ResponseWriter, r *http.Request) err
 
 	s.flash(w, "flash.link_sent", p.Email)
 	http.Redirect(w, r, personURL(p), http.StatusSeeOther)
+
+	return nil
+}
+
+// adminPersonPhoto puts a picture on a person, for one who sent it by
+// e-mail or never comes to the site: the trombinoscope of the day needs
+// faces. It counts as their own upload, which they can remove.
+func (s *Server) adminPersonPhoto(w http.ResponseWriter, r *http.Request) error {
+	p, err := s.pathPerson(r)
+	if err != nil {
+		return err
+	}
+
+	back := safeRedirect(r.FormValue("back"), "/admin/people/"+p.UID)
+
+	name, err := s.upload(w, r, "photo", files.KindLogo, maxAvatarSize)
+	if err != nil {
+		var ue uploadError
+		if errors.As(err, &ue) {
+			s.flash(w, string(ue))
+			http.Redirect(w, r, back, http.StatusSeeOther)
+
+			return nil
+		}
+
+		return err
+	}
+
+	old, err := s.store.SetPersonAvatar(r.Context(), p.ID, name, store.AvatarUpload)
+	if err != nil {
+		return err
+	}
+
+	s.dropFile(r, old)
+	s.flash(w, "flash.person_photo_saved", p.Label())
+	http.Redirect(w, r, back, http.StatusSeeOther)
+
+	return nil
+}
+
+// adminPersonPhotoDelete takes a person's picture off; as when they do it
+// themselves, no Gravatar comes back in its place.
+func (s *Server) adminPersonPhotoDelete(w http.ResponseWriter, r *http.Request) error {
+	p, err := s.pathPerson(r)
+	if err != nil {
+		return err
+	}
+
+	old, err := s.store.SetPersonAvatar(r.Context(), p.ID, "", store.AvatarOptOut)
+	if err != nil {
+		return err
+	}
+
+	s.dropFile(r, old)
+	s.flash(w, "flash.person_photo_removed", p.Label())
+	http.Redirect(w, r, safeRedirect(r.FormValue("back"), "/admin/people/"+p.UID), http.StatusSeeOther)
 
 	return nil
 }

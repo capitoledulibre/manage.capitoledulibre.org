@@ -2,8 +2,7 @@
 {{$d := .D}}{{$p := $d.P}}
 <nav class="mb-3 text-sm" aria-label="Fil d'Ariane"><a class="link" href="{{$d.Back}}">← Personnes</a></nav>
 <div class="mb-6 flex flex-wrap items-center gap-4">
-  {{with $p.AvatarFile}}<img src="/avatars/{{.}}" alt="" class="h-16 w-16 rounded-full object-cover ring-1 ring-gray-200">
-  {{else}}<span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-xl font-semibold text-brand-800" aria-hidden="true">{{$p.Initials}}</span>{{end}}
+  {{template "person_photo" (dict "P" $p "Back" (printf "/admin/people/%s" $p.UID))}}
   <div class="flex-1">
     <h1 class="text-2xl font-bold tracking-tight">{{if $p.Name}}{{$p.Name}}{{else}}<span class="text-gray-400">sans nom</span>{{end}}</h1>
     <p class="text-sm text-gray-600">{{$p.Email}} · inscrit·e le {{date "fr" $p.CreatedAt}} · {{with $p.LastLoginAt}}dernière connexion le {{date "fr" .}}{{else}}jamais connecté·e{{end}}</p>

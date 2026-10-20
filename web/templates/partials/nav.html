@@ -444,3 +444,17 @@
     </div>
   </fieldset>
 {{end}}
+
+{{/* person_photo is a person's picture for the staff, who can change it
+     (click or drop a file on it) or take it off: for those who sent theirs
+     by e-mail. Expects P (the person) and Back (where to come back). */}}
+{{define "person_photo"}}
+{{$p := .P}}
+<div class="flex flex-col items-center gap-1">
+  {{template "upload_target" (dict "Lang" "fr" "ID" "up-person-photo" "Label" "Photo" "Src" (and $p.AvatarFile (printf "/avatars/%s" $p.AvatarFile)) "Class" "h-20 w-20 rounded-full" "ImgClass" "h-full w-full !max-h-none !max-w-none object-cover")}}
+  {{if $p.AvatarFile}}<form method="post" action="/admin/people/{{$p.UID}}/photo/delete" data-confirm="Retirer la photo de {{$p.Label}} ?"><input type="hidden" name="back" value="{{.Back}}"><button class="link text-xs text-red-700">Retirer</button></form>{{end}}
+</div>
+{{template "upload" (dict "Lang" "fr" "ID" "up-person-photo" "Action" (printf "/admin/people/%s/photo" $p.UID) "Field" "photo"
+  "Accept" ".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" "Formats" "PNG, JPEG, WebP" "MaxBytes" (uploadLimit "avatar")
+  "Title" (printf "Photo de %s" $p.Label) "Image" true "NoButton" true "Hidden" (dict "back" .Back))}}
+{{end}}
