@@ -18,19 +18,25 @@ import (
 // form, call, and say the outcome.
 
 // refusal is an operation declined for a reason the actor can act on: its
-// i18n key says why.
-type refusal string
+// i18n key says why, with Args.
+type refusal struct {
+	Key  string
+	Args []string
+}
 
-func (r refusal) Error() string { return string(r) }
+func (r *refusal) Error() string { return r.Key }
 
-// refused tells whether err is a refusal, and its key.
-func refused(err error) (string, bool) {
-	var r refusal
+// refuse declines an operation for the reason of key.
+func refuse(key string, args ...string) error { return &refusal{Key: key, Args: args} }
+
+// refused tells whether err is a refusal, and which.
+func refused(err error) (*refusal, bool) {
+	var r *refusal
 	if errors.As(err, &r) {
-		return string(r), true
+		return r, true
 	}
 
-	return "", false
+	return nil, false
 }
 
 // poleViewOf is a pole as the actor sees it, or errNotFound when they may
@@ -78,11 +84,11 @@ func (s *Server) signUp(ctx context.Context, a *access.Actor, v *poleView, sl *s
 
 	switch {
 	case !v.Member && !autoJoin:
-		return nil, refusal("vol.err.invitation_only")
+		return nil, refuse("vol.err.invitation_only")
 	case v.Locked:
-		return nil, refusal("vol.err.locked")
+		return nil, refuse("vol.err.locked")
 	case !sl.EndsAt.After(time.Now()):
-		return nil, refusal("vol.err.slot_over")
+		return nil, refuse("vol.err.slot_over")
 	}
 
 	if !force {
@@ -120,7 +126,7 @@ func (s *Server) signUp(ctx context.Context, a *access.Actor, v *poleView, sl *s
 	}
 
 	if !ok {
-		return &signupOutcome{Joined: autoJoin, Slot: sl}, refusal("vol.err.full")
+		return &signupOutcome{Joined: autoJoin, Slot: sl}, refuse("vol.err.full")
 	}
 
 	s.logAs(ctx, person, logSlot(store.LogSignup, v.Pole, sl, person))
@@ -138,7 +144,7 @@ func (s *Server) unsignUp(ctx context.Context, a *access.Actor, v *poleView, sl 
 	}
 
 	if v.Locked {
-		return sl, refusal("vol.err.locked_unsignup")
+		return sl, refuse("vol.err.locked_unsignup")
 	}
 
 	if err := s.store.Unsignup(ctx, sl.ID, person.ID); err != nil {
@@ -173,9 +179,9 @@ func (s *Server) joinWaitlist(ctx context.Context, a *access.Actor, v *poleView,
 
 	switch {
 	case !v.Member && !autoJoin:
-		return false, refusal("vol.err.join_first")
+		return false, refuse("vol.err.join_first")
 	case v.Locked:
-		return false, refusal("vol.err.locked")
+		return false, refuse("vol.err.locked")
 	}
 
 	if autoJoin {

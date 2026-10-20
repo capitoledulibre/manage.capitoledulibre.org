@@ -235,35 +235,18 @@ func (s *Server) poleJoin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	home := volunteerHomeURL(v.Event)
-
-	if v.Event.VolunteerStatus != store.VolunteersOpen && !v.Manage {
-		s.flash(w, "vol.err.closed")
-		http.Redirect(w, r, home, http.StatusSeeOther)
-
-		return nil
-	}
-
-	switch {
-	case v.Pole.IsOpen():
-	case v.Pole.IsPrivate() && strings.TrimSpace(r.FormValue("key")) == v.Pole.AccessKey:
-	case v.Pole.IsPrivate():
-		s.flash(w, "vol.err.bad_invite", v.Pole.Name)
-		http.Redirect(w, r, home, http.StatusSeeOther)
-
-		return nil
-	default:
-		s.flash(w, "vol.err.invitation_only_pole", v.Pole.Name)
-		http.Redirect(w, r, home, http.StatusSeeOther)
+	err = s.joinPole(r.Context(), act(r), v, strings.TrimSpace(r.FormValue("key")))
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+		http.Redirect(w, r, volunteerHomeURL(v.Event), http.StatusSeeOther)
 
 		return nil
 	}
 
-	if err := s.store.JoinPole(r.Context(), v.Pole.ID, rc(r).Person.ID); err != nil {
+	if err != nil {
 		return err
 	}
 
-	s.logVol(r, logPole(store.LogJoined, v.Pole, rc(r).Person))
 	s.flash(w, "flash.vol.joined", v.Pole.Name)
 	http.Redirect(w, r, v.Pole.URL(), http.StatusSeeOther)
 
@@ -271,54 +254,23 @@ func (s *Server) poleJoin(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) poleLeave(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-	person := rc(r).Person
-
 	v, err := s.volunteerPole(r)
 	if err != nil {
 		return err
 	}
 
-	if v.Pole.IsDefault {
-		s.flash(w, "vol.err.default_pole")
+	err = s.leavePole(r.Context(), act(r), v)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 		http.Redirect(w, r, v.Pole.URL(), http.StatusSeeOther)
 
 		return nil
 	}
 
-	if v.Locked {
-		s.flash(w, "vol.err.locked_unsignup")
-		http.Redirect(w, r, v.Pole.URL(), http.StatusSeeOther)
-
-		return nil
-	}
-
-	// Leaving cancels every slot the volunteer had in the pole: each is a
-	// withdrawal, for the waiting list and, close to the day, the managers.
-	mine, err := s.store.PersonSlotsInPole(ctx, v.Pole.ID, person.ID)
 	if err != nil {
 		return err
 	}
 
-	if err := s.store.LeavePole(ctx, v.Pole.ID, person.ID); err != nil {
-		return err
-	}
-
-	left := logPole(store.LogLeft, v.Pole, person)
-	left.Count = len(mine)
-	s.logVol(r, left)
-
-	var late []*store.Slot
-
-	for _, sl := range mine {
-		s.announceFreePlace(r.Context(), v.Pole, sl.ID)
-
-		if after, err := s.store.GetSlot(ctx, sl.ID, 0); err == nil && isLate(after) {
-			late = append(late, after)
-		}
-	}
-
-	s.notifyLateWithdrawal(r.Context(), person, v.Pole, late)
 	s.flash(w, "flash.vol.left", v.Pole.Name)
 	http.Redirect(w, r, volunteerHomeURL(v.Event), http.StatusSeeOther)
 
@@ -529,12 +481,12 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	out, err := s.signUp(r.Context(), act(r), v, sl, r.FormValue("force") == "1")
-	if key, ok := refused(err); ok {
+	if rf, ok := refused(err); ok {
 		if out != nil {
 			sl = out.Slot
 		}
 
-		return s.respondSlot(w, r, s.slotCard(r, v, sl, false), key, "")
+		return s.respondSlot(w, r, s.slotCard(r, v, sl, false), rf.Key, "", rf.Args...)
 	}
 
 	if err != nil {
@@ -583,8 +535,8 @@ func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	after, err := s.unsignUp(r.Context(), act(r), v, sl)
-	if key, ok := refused(err); ok {
-		return s.respondSlot(w, r, s.slotCard(r, v, sl, false), key, "")
+	if rf, ok := refused(err); ok {
+		return s.respondSlot(w, r, s.slotCard(r, v, sl, false), rf.Key, "", rf.Args...)
 	}
 
 	if err != nil {
@@ -604,8 +556,8 @@ func (s *Server) slotWaitlistJoin(w http.ResponseWriter, r *http.Request) error 
 	card := s.slotCard(r, v, sl, false)
 
 	joined, err := s.joinWaitlist(r.Context(), act(r), v, sl)
-	if key, ok := refused(err); ok {
-		return s.respondSlot(w, r, card, key, "")
+	if rf, ok := refused(err); ok {
+		return s.respondSlot(w, r, card, rf.Key, "", rf.Args...)
 	}
 
 	if err != nil {

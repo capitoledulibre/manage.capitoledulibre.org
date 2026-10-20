@@ -49,7 +49,7 @@ func TestSignupService(t *testing.T) {
 
 	// The slot is full now: a refusal, with its reason.
 	_, err = app.signUp(ctx, actor(omar), view(actor(omar), f.buvette), f.morning, false)
-	if key, ok := refused(err); !ok || key != "vol.err.full" {
+	if rf, ok := refused(err); !ok || rf.Key != "vol.err.full" {
 		t.Errorf("full slot: %v", err)
 	}
 

@@ -279,11 +279,7 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if !act(r).CanAddMembers(v.Pole) {
-		return errForbidden
-	}
-
-	added := 0
+	var people []newMember
 
 	for _, raw := range strings.FieldsFunc(r.FormValue("emails"), func(c rune) bool { return c == '\n' || c == ',' || c == ';' }) {
 		addr, err := mail.ParseAddress(strings.TrimSpace(raw))
@@ -291,19 +287,15 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) error {
 			continue
 		}
 
-		p, err := s.store.EnsureVolunteer(ctx, addr.Address, strings.TrimSpace(addr.Name), "", rc(r).Lang)
-		if err != nil {
-			return err
-		}
-
-		if err := s.store.JoinPole(ctx, v.Pole.ID, p.ID); err != nil {
-			return err
-		}
-
-		s.logVol(r, logPole(store.LogMemberAdded, v.Pole, p))
-
-		added++
+		people = append(people, newMember{Email: addr.Address, Name: strings.TrimSpace(addr.Name)})
 	}
+
+	done, err := s.addMembers(ctx, act(r), v, people, rc(r).Lang)
+	if err != nil {
+		return err
+	}
+
+	added := len(done)
 
 	if isHX(r) {
 		d, err := s.memberSearch(r, v, strings.TrimSpace(r.FormValue("q")))
@@ -334,17 +326,9 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) manageMemberRemove(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, err := s.managedPole(r)
 	if err != nil {
 		return err
-	}
-
-	if v.Pole.IsDefault {
-		s.flash(w, "vol.err.default_pole")
-
-		return s.redirectTab(w, r, v.Pole, "members")
 	}
 
 	who, err := s.pathPerson(r)
@@ -352,32 +336,15 @@ func (s *Server) manageMemberRemove(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	// Only a member can be taken out: anyone else would get an e-mail about
-	// a pole they are not in, and the flash would name them.
-	if member, err := s.store.IsPoleMember(ctx, v.Pole.ID, who.ID); err != nil {
-		return err
-	} else if !member {
-		return errNotFound
+	err = s.removeMember(r.Context(), act(r), v, who)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+
+		return s.redirectTab(w, r, v.Pole, "members")
 	}
 
-	// Read the sign-ups before they go, so the e-mail says what is lost.
-	freed, err := s.store.PersonSlotsInPole(ctx, v.Pole.ID, who.ID)
 	if err != nil {
 		return err
-	}
-
-	if err := s.store.LeavePole(ctx, v.Pole.ID, who.ID); err != nil {
-		return err
-	}
-
-	removed := logPole(store.LogMemberRemoved, v.Pole, who)
-	removed.Count = len(freed)
-	s.logVol(r, removed)
-
-	s.notifyPoleRemoved(who, v.Pole, len(freed))
-
-	for _, sl := range freed {
-		s.announceFreePlace(r.Context(), v.Pole, sl.ID)
 	}
 
 	s.flash(w, "flash.vol.member_removed", who.Label())
@@ -388,34 +355,22 @@ func (s *Server) manageMemberRemove(w http.ResponseWriter, r *http.Request) erro
 // --- pole managers: the coordination's call -------------------------------
 
 func (s *Server) manageManagerAdd(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, err := s.managedPole(r)
 	if err != nil {
 		return err
 	}
 
-	if !act(r).CanAppointManagers(v.Pole) {
-		return errForbidden
-	}
-
-	email := store.NormalizeEmail(r.FormValue("email"))
-	if !validEmail(email) {
-		s.flash(w, "flash.invalid_email")
+	p, err := s.appointManager(r.Context(), act(r), v, r.FormValue("email"), rc(r).Lang)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 
 		return s.redirectTab(w, r, v.Pole, "members")
 	}
 
-	p, err := s.store.EnsureVolunteer(ctx, email, "", "", rc(r).Lang)
 	if err != nil {
 		return err
 	}
 
-	if err := s.store.AddPoleManager(ctx, v.Pole.ID, p.ID); err != nil {
-		return err
-	}
-
-	s.logVol(r, logPole(store.LogLeadAdded, v.Pole, p))
 	s.flash(w, "flash.vol.manager_added", p.Label())
 
 	return s.redirectTab(w, r, v.Pole, "members")
@@ -427,20 +382,14 @@ func (s *Server) manageManagerRemove(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	if !act(r).CanAppointManagers(v.Pole) {
-		return errForbidden
-	}
-
 	who, err := s.pathPerson(r)
 	if err != nil {
 		return err
 	}
 
-	if err := s.store.RemovePoleManager(r.Context(), v.Pole.ID, who.ID); err != nil {
+	if err := s.dismissManager(r.Context(), act(r), v, who); err != nil {
 		return err
 	}
-
-	s.logVol(r, logPole(store.LogLeadRemoved, v.Pole, who))
 
 	s.flash(w, "flash.vol.manager_removed", who.Label())
 
