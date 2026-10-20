@@ -14,6 +14,7 @@
   <div class="flex flex-wrap gap-2">
     <a href="{{$pole.ManageURL}}/generate" class="btn">{{t $l "vol.gen.title"}}</a>
     <a href="{{$pole.ManageURL}}/slots/new" class="btn-secondary">+ {{t $l "vol.manage.new_slot"}}</a>
+    {{if $d.Total}}<a href="{{$pole.ManageURL}}/slots/bulk" class="btn-secondary">{{t $l "vol.bulk.link"}}</a>{{end}}
   </div>
   {{end}}
 </div>

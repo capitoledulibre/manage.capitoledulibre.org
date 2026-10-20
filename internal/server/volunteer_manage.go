@@ -45,6 +45,8 @@ func (s *Server) poleManageRoutes(mux *http.ServeMux) {
 	m("GET "+base+"/slots/{slot}", s.manageSlotEdit)
 	m("POST "+base+"/slots/{slot}", s.manageSlotSave)
 	m("POST "+base+"/slots/{slot}/delete", s.manageSlotDelete)
+	m("GET "+base+"/slots/bulk", s.manageSlotsBulk)
+	m("POST "+base+"/slots/bulk/delete", s.manageSlotsBulkDelete)
 	m("POST "+base+"/slots/{slot}/tasks", s.manageTaskAdd)
 	m("POST "+base+"/slots/{slot}/messages", s.manageSlotMessage)
 	m("POST "+base+"/slots/{slot}/volunteers", s.manageSlotAddVolunteer)

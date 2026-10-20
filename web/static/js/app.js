@@ -525,6 +525,43 @@
   preview.addEventListener("input", update);
 })();
 
+// The slots of a pole in bulk: the delete button and its confirmation say
+// how many slots are ticked and how many sign-ups go with them; a day's box
+// ticks all of its slots.
+(() => {
+  const form = document.querySelector("[data-bulk]");
+  if (!form) return;
+
+  const button = form.querySelector("[data-bulk-delete]");
+  const en = form.dataset.lang === "en";
+  const pick = (n, one, other) => (n === 1 || (n === 0 && !en) ? form.dataset[one] : form.dataset[other]);
+  // format fills "%d" in turn, and "%[2]d" by position.
+  const format = (text, ...args) => {
+    let i = 0;
+    return text.replace(/%\[(\d)\]d/g, (_, n) => args[n - 1]).replace(/%d/g, () => args[i++]);
+  };
+
+  const update = () => {
+    const boxes = [...document.querySelectorAll('input[form="bulk-delete"][name=slot]:checked')];
+    const signups = boxes.reduce((n, box) => n + (parseInt(box.dataset.filled, 10) || 0), 0);
+
+    button.textContent = format(pick(boxes.length, "one", "other"), boxes.length);
+    button.disabled = boxes.length === 0;
+    form.dataset.confirm = format(pick(boxes.length, "confirmOne", "confirmOther"), boxes.length, signups);
+  };
+
+  document.addEventListener("change", (event) => {
+    const all = event.target.closest && event.target.closest("[data-bulk-all]");
+    if (all) {
+      all.closest("section").querySelectorAll('input[name=slot]').forEach((box) => (box.checked = all.checked));
+    }
+
+    if (all || (event.target.matches && event.target.matches('input[form="bulk-delete"]'))) update();
+  });
+
+  update();
+})();
+
 // A search field filtering the rows of a table (data-filter: the table),
 // with a live count (data-filter-count, data-one / data-other with %d).
 (() => {

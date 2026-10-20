@@ -321,3 +321,60 @@ func TestSignUpFromMembers(t *testing.T) {
 		t.Errorf("non-member: %d", code)
 	}
 }
+
+func TestBulkSlotDelete(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	lead := e.loginAs(f.leadEmail)
+	bulk := f.buvette.ManageURL() + "/slots/bulk"
+
+	nina, err := e.st.EnsureVolunteer(ctx, "nina@example.org", "Nina", "", "fr")
+	mustOK(t, err)
+	mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, nina.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.morning.ID, nina.ID))
+	mustOK(t, e.st.ForceSignup(ctx, f.overlap.ID, nina.ID))
+
+	// The pole links to its slots as a timetable, a box per slot.
+	_, body := e.get(lead, f.buvette.URL())
+	mustContain(t, body, `href="`+bulk+`"`)
+
+	_, body = e.get(lead, bulk)
+	mustContain(t, body, "Créneaux en lot", `name="slot" value="`+f.morning.UID+`"`, `data-filled="1"`, "Tout le pôle")
+
+	// The deletion always asks first: the boxes live outside its form, so
+	// no data-confirm-if could see them.
+	if i := strings.Index(body, `id="bulk-delete"`); i < 0 || strings.Contains(body[i:i+600], "data-confirm-if") || !strings.Contains(body[i:i+600], `data-confirm="Supprimer`) {
+		t.Error("the bulk deletion does not always confirm")
+	}
+
+	if code, _ := e.get(e.loginAs("nina@example.org"), bulk); code != http.StatusForbidden {
+		t.Errorf("a volunteer opens the bulk page: %d", code)
+	}
+
+	// Two slots at once: Nina gets one e-mail listing both.
+	before := e.mailer.count("nina@example.org")
+
+	_, body = e.post(lead, bulk+"/delete", url.Values{"slot": {f.morning.UID, f.overlap.UID}})
+	mustContain(t, body, "2 créneaux supprimés. Personnes prévenues par e-mail : 1.")
+
+	slots, _ := e.st.ListSlots(ctx, f.buvette.ID, 0)
+	if len(slots) != 1 || slots[0].ID != f.tomorrow.ID {
+		t.Fatalf("left: %d slots", len(slots))
+	}
+
+	waitFor(t, func() bool { return e.mailer.count("nina@example.org") == before+1 })
+	e.mailed("nina@example.org", "Créneaux annulés", "Ces 2 créneaux")
+
+	// Another pole's slot is out of reach.
+	other := &store.Slot{PoleID: f.accueil.ID, StartsAt: f.morning.StartsAt, EndsAt: f.morning.EndsAt, Capacity: 1}
+	mustOK(t, e.st.CreateSlot(ctx, other))
+
+	if code, _ := e.post(lead, bulk+"/delete", url.Values{"slot": {f.tomorrow.UID, other.UID}}); code != http.StatusNotFound {
+		t.Errorf("another pole's slot: %d", code)
+	}
+
+	if left, _ := e.st.ListSlots(ctx, f.buvette.ID, 0); len(left) != 1 {
+		t.Error("a refused selection deleted some of it")
+	}
+}
