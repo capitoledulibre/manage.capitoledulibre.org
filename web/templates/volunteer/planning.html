@@ -16,9 +16,14 @@
   {{if eq $e.VolunteerStatus "draft"}}<p class="alert mb-4 bg-amber-50 text-amber-900">{{t $l "vol.planning.draft"}}</p>
   {{else if ne $e.VolunteerStatus "open"}}<p class="alert mb-4 bg-red-50 text-red-800">{{t $l "vol.err.closed"}}</p>{{end}}
 
-  <nav class="mb-4 inline-flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1" aria-label="{{t $l "vol.planning.views"}}">
+  <div class="mb-4 flex flex-wrap items-center gap-3">
+  <nav class="inline-flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1" aria-label="{{t $l "vol.planning.views"}}">
     {{range $d.Views}}<a href="{{.URL}}" class="rounded-md px-3 py-1.5 text-sm font-medium {{if .On}}bg-surface text-gray-900 shadow-sm{{else}}text-gray-600 hover:text-gray-900{{end}}" {{if .On}}aria-current="page"{{end}}>{{t $l .Label}}</a>{{end}}
   </nav>
+  <nav class="inline-flex gap-1 rounded-lg bg-gray-100 p-1" aria-label="{{t $l "vol.planning.layout"}}">
+    {{range $d.Layouts}}<a href="{{.URL}}" class="rounded-md px-3 py-1.5 text-sm font-medium {{if .On}}bg-surface text-gray-900 shadow-sm{{else}}text-gray-600 hover:text-gray-900{{end}}" {{if .On}}aria-current="true"{{end}}>{{t $l .Label}}</a>{{end}}
+  </nav>
+  </div>
   {{with $d.PoleLinks}}
   <nav class="mb-2 flex flex-wrap gap-2 text-sm" aria-label="{{t $l "vol.planning.by_pole"}}">
     {{range .}}<a href="{{.URL}}" class="filter {{with .Pole}}pole-c{{.Color}}{{end}} {{if .On}}filter-on{{end}}" {{if .On}}aria-current="true"{{end}}>{{if .Label}}{{t $l .Label}}{{else}}{{.Name}}{{end}}</a>{{end}}
@@ -40,7 +45,8 @@
         <span class="h-4 w-1 rounded-full" style="background: var(--pole)" aria-hidden="true"></span>
         <a class="text-gray-900 hover:underline" href="{{.Pole.URL}}">{{.Pole.Name}}</a>
       </h3>
-      <div class="space-y-2">{{range .Slots}}{{template "slot_card" .Card}}{{end}}</div>
+      {{if $d.Grid}}{{template "slot_grid" (dict "Lang" $l "Grid" .Grid "Label" .Pole.Name)}}
+      {{else}}<div class="space-y-2">{{range .Slots}}{{template "slot_card" .Card}}{{end}}</div>{{end}}
     </div>
     {{end}}
   </section>

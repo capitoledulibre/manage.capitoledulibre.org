@@ -170,6 +170,12 @@ func TestDayOfEventNavigation(t *testing.T) {
 	_, body = e.get(nina, planning+"?view=all")
 	mustContain(t, body, `aria-current="page">Tout`)
 
+	// The grid layout: a timetable per pole, the hours down, each slot a
+	// link with how full it is; the filters keep it.
+	_, body = e.get(nina, planning+"?day=all&view=all&layout=grid")
+	mustContain(t, body, `aria-current="true">Grille`, ">Les horaires</th>", `href="`+f.morning.URL()+`"`, ">1/1</span>", ">moi</span>",
+		"layout=grid&amp;view=open")
+
 	// Her calendar: one tap from the home page.
 	_, body = e.get(nina, "/volunteers/"+f.event.Slug)
 	mustContain(t, body, "Ajouter mes créneaux à mon agenda")

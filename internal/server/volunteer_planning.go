@@ -37,6 +37,8 @@ type planPole struct {
 	Pole   *store.Pole
 	Manage bool
 	Slots  []*planSlot
+	// Grid is the day of the pole as a timetable, in the grid layout.
+	Grid *bulkGrid
 }
 
 type planDay struct {
@@ -53,6 +55,8 @@ type planQuery struct {
 	Pole     *store.Pole    // a single pole, nil for every visible one
 	View     string         // "mine", "open" or "all"
 	Day      string         // a single day, empty for all of them
+	// Grid lays each pole's day out as a timetable instead of cards.
+	Grid bool
 }
 
 // planning gathers the slots of an edition, day by day and pole by pole.
@@ -202,7 +206,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		views = append(slices.Clone(planViews), leadViews...)
 	}
 
-	q := planQuery{PersonID: person.ID, Visible: visible, View: query.Get("view")}
+	q := planQuery{PersonID: person.ID, Visible: visible, View: query.Get("view"), Grid: query.Get("layout") == "grid"}
 	if !slices.Contains(views, q.View) {
 		q.View = "all"
 
@@ -265,7 +269,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Actions on a card come back to the planning as it was filtered.
-	back := planningURL(e) + "?" + planURLQuery(q.View, q.Pole, dayParam(day, all))
+	back := planningURL(e) + "?" + planURLQuery(q.View, q.Pole, dayParam(day, all), q.Grid)
 
 	now := time.Now()
 	lang := rc(r).Lang
@@ -285,29 +289,56 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	// The filters, each link keeping the other two.
+	// The grid layout: each pole's day as a timetable, hours down and
+	// places across.
+	if q.Grid {
+		locations := map[int64][]*store.Location{}
+
+		for _, d := range days {
+			for _, pp := range d.Poles {
+				if _, ok := locations[pp.Pole.ID]; !ok {
+					if locations[pp.Pole.ID], err = s.store.ListLocations(ctx, pp.Pole.ID); err != nil {
+						return err
+					}
+				}
+
+				slots := make([]*store.Slot, 0, len(pp.Slots))
+				for _, ps := range pp.Slots {
+					slots = append(slots, ps.Slot)
+				}
+
+				pp.Grid = newBulkGrid(slots, locations[pp.Pole.ID])
+			}
+		}
+	}
+
+	// The filters, each link keeping the others.
 	base := planningURL(e) + "?"
 	dp := dayParam(day, all)
+	layouts := []planLink{
+		{Label: "vol.planning.layout_list", URL: base + planURLQuery(q.View, q.Pole, dp, false), On: !q.Grid},
+		{Label: "vol.planning.layout_grid", URL: base + planURLQuery(q.View, q.Pole, dp, true), On: q.Grid},
+	}
 
 	var viewLinks, poleLinks, dayLinks []planLink
 
 	for _, v := range views {
-		viewLinks = append(viewLinks, planLink{Label: "vol.planning.view_" + v, URL: base + planURLQuery(v, q.Pole, dp), On: v == q.View})
+		viewLinks = append(viewLinks, planLink{Label: "vol.planning.view_" + v, URL: base + planURLQuery(v, q.Pole, dp, q.Grid), On: v == q.View})
 	}
 
 	if len(shown) > 1 {
-		poleLinks = append(poleLinks, planLink{Label: "vol.planning.all_poles", URL: base + planURLQuery(q.View, nil, dp), On: q.Pole == nil})
+		poleLinks = append(poleLinks, planLink{Label: "vol.planning.all_poles", URL: base + planURLQuery(q.View, nil, dp, q.Grid), On: q.Pole == nil})
 
 		for _, p := range shown {
-			poleLinks = append(poleLinks, planLink{Name: p.Name, Pole: p, URL: base + planURLQuery(q.View, p, dp), On: q.Pole == p})
+			poleLinks = append(poleLinks, planLink{Name: p.Name, Pole: p, URL: base + planURLQuery(q.View, p, dp, q.Grid), On: q.Pole == p})
 		}
 	}
 
 	if len(all) > 1 {
-		dayLinks = append(dayLinks, planLink{Label: "vol.planning.all_days", URL: base + planURLQuery(q.View, q.Pole, dayParam("", all)), On: day == ""})
+		dayLinks = append(dayLinks, planLink{Label: "vol.planning.all_days", URL: base + planURLQuery(q.View, q.Pole, dayParam("", all), q.Grid), On: day == ""})
 
 		for _, d := range all {
-			dayLinks = append(dayLinks, planLink{Day: d, URL: base + planURLQuery(q.View, q.Pole, d), On: d == day})
+			dayLinks = append(dayLinks, planLink{Day: d, URL: base + planURLQuery(q.View, q.Pole, d, q.Grid), On: d == day})
 		}
 	}
 
@@ -324,8 +355,8 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 
 	data := map[string]any{
 		"Event": e, "Days": days, "View": q.View, "Pole": q.Pole, "Today": dayKey(now), "Printed": now,
-		"Views": viewLinks, "PoleLinks": poleLinks, "DayLinks": dayLinks, "CSV": csvURL,
-		"OpenURL": base + planURLQuery("open", q.Pole, dp),
+		"Views": viewLinks, "PoleLinks": poleLinks, "DayLinks": dayLinks, "CSV": csvURL, "Layouts": layouts, "Grid": q.Grid,
+		"OpenURL": base + planURLQuery("open", q.Pole, dp, q.Grid),
 	}
 
 	// My slots: the waiting list and the calendar subscription go with
@@ -383,11 +414,15 @@ func dayParam(day string, all []string) string {
 // planURLQuery is the query of a planning link. The view always goes in:
 // without one, the page picks a default (a volunteer's own slots), and the
 // "everything" link would not lead to everything.
-func planURLQuery(view string, pole *store.Pole, day string) string {
+func planURLQuery(view string, pole *store.Pole, day string, grid bool) string {
 	v := url.Values{}
 
 	if view != "" {
 		v.Set("view", view)
+	}
+
+	if grid {
+		v.Set("layout", "grid")
 	}
 
 	if pole != nil {
