@@ -18,6 +18,9 @@ const (
 	langCookie   = "manage_lang"
 	flashCookie  = "manage_flash"
 	themeCookie  = "manage_theme"
+	// loginNextCookie keeps, in the browser asking for a login link, the
+	// assistant's authorization to come back to (loginSubmit).
+	loginNextCookie = "manage_login_next"
 	// returnCookie remembers the admin page to go back to after viewing
 	// the partner area as a partner.
 	returnCookie = "manage_admin_return"

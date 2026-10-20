@@ -117,3 +117,61 @@ func TestConsentNamesAnApp(t *testing.T) {
 		"redirect_uri": {"com.example.app:/callback"}, "code_challenge": {strings.Repeat("c", 43)}, "code_challenge_method": {"S256"}}.Encode())
 	mustContain(t, page, "Vous reviendrez ensuite sur com.example.app:/callback.")
 }
+
+// TestLoginLinkNoConsentForOthers: a login link asked for an assistant's
+// authorization leads back to it only in the browser that asked; the
+// e-mail itself carries no such destination.
+func TestLoginLinkNoConsentForOthers(t *testing.T) {
+	e := newEnv(t)
+	f := e.volFixture()
+	authorize := "/oauth/authorize?client_id=x&response_type=code"
+
+	link := func(c *http.Client) string {
+		e.post(c, "/login", url.Values{"email": {f.leadEmail}, "next": {authorize}})
+
+		var body string
+
+		waitFor(t, func() bool {
+			mails := e.mailer.mailTo(f.leadEmail)
+			if len(mails) == 0 {
+				return false
+			}
+
+			body = mails[len(mails)-1]
+
+			return true
+		})
+
+		if strings.Contains(body, "oauth") {
+			t.Errorf("the e-mail carries the authorization: %s", body)
+		}
+
+		i := strings.Index(body, "/auth/")
+		token := strings.Fields(body[i+len("/auth/"):])[0]
+
+		return "/auth/" + strings.SplitN(token, "?", 2)[0]
+	}
+
+	// The browser that asked comes back to the authorization.
+	asker := e.client()
+	path := link(asker)
+
+	resp, err := noRedirect(asker).PostForm(e.srv.URL+path, nil)
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if loc := resp.Header.Get("Location"); loc != authorize {
+		t.Errorf("the asking browser goes to %q", loc)
+	}
+
+	// Anyone else, a victim of a link sent in their name, does not.
+	path = link(e.client())
+
+	resp, err = noRedirect(e.client()).PostForm(e.srv.URL+path, nil)
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if loc := resp.Header.Get("Location"); strings.Contains(loc, "oauth") {
+		t.Errorf("another browser goes to %q", loc)
+	}
+}

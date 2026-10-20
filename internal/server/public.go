@@ -149,13 +149,23 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) error {
 		return refuse("login.too_many")
 	}
 
+	// An assistant's authorization is only ever asked from the browser
+	// logging in: it keeps it, and the e-mail goes without. Anyone may have
+	// a login link sent to anyone; it must not land them on a consent page
+	// of someone else's choosing.
+	mailed := next
+	if strings.HasPrefix(next, "/oauth/") {
+		s.setCookie(w, loginNextCookie, next, loginTokenTTL)
+		mailed = ""
+	}
+
 	// The response is identical whether the email is known or not, so the
 	// form cannot be used to discover who is known; the link goes out off
 	// the request so that the time to answer does not tell either.
 	lang := rc(r).Lang
 
 	s.background(func() {
-		if err := s.sendLoginLink(context.Background(), email, lang, next); err != nil {
+		if err := s.sendLoginLink(context.Background(), email, lang, mailed); err != nil {
 			slog.Error("send login link", "email", email, "err", err)
 		}
 	})
@@ -377,6 +387,15 @@ func (s *Server) magicConsume(w http.ResponseWriter, r *http.Request) error {
 	s.setCookie(w, personCookie, token, personSessionTTL)
 
 	next := safeRedirect(r.FormValue("next"), "")
+
+	// An assistant's authorization asked from this browser (loginSubmit).
+	if ck, err := r.Cookie(loginNextCookie); err == nil {
+		s.clearCookie(w, loginNextCookie)
+
+		if next == "" && strings.HasPrefix(ck.Value, "/oauth/") {
+			next = safeRedirect(ck.Value, "")
+		}
+	}
 
 	// A volunteer without a name is asked for it first: it is what the pole
 	// managers see.
