@@ -24,16 +24,24 @@
     <div class="space-y-3 group-has-[#g-per-day:checked]:hidden">
       {{template "gen_hours" dict "L" $l "P" "" "H" $f.Hours "Lengths" $d.Lengths}}
     </div>
-    <div class="hidden space-y-4 group-has-[#g-per-day:checked]:block">
+    {{/* One block per day of the dates above, kept in step with them as
+         they change (app.js): a day added, a set-up day before the event
+         say, gets a block from the template below, with the common hours. */}}
+    <div class="hidden space-y-4 group-has-[#g-per-day:checked]:block" data-gen-days data-lang="{{if eq $l "en"}}en-GB{{else}}fr-FR{{end}}">
       <p class="help">{{t $l "vol.gen.per_day_help"}}</p>
       {{range $f.Days}}
-      <div class="space-y-2 rounded-md p-3 ring-1 ring-gray-200">
+      <div class="space-y-2 rounded-md p-3 ring-1 ring-gray-200" data-gen-day="{{.Day.Format "2006-01-02"}}">
         <h3 class="text-sm font-semibold first-letter:uppercase">{{dayName $l .Day}}</h3>
         {{template "gen_hours" dict "L" $l "P" .Field "H" .Hours "Lengths" $d.Lengths "Off" true}}
       </div>
-      {{else}}
-      <p class="text-sm text-gray-600">{{t $l "vol.gen.no_days"}}</p>
       {{end}}
+      <p class="text-sm text-gray-600 {{if $f.Days}}hidden{{end}}" data-gen-no-days>{{t $l "vol.gen.no_days"}}</p>
+      <template data-gen-day-template>
+        <div class="space-y-2 rounded-md p-3 ring-1 ring-gray-200" data-gen-day="__DATE__">
+          <h3 class="text-sm font-semibold first-letter:uppercase"></h3>
+          {{template "gen_hours" dict "L" $l "P" "d__DATE__." "H" $f.Hours "Lengths" $d.Lengths "Off" true}}
+        </div>
+      </template>
     </div>
   </fieldset>
 

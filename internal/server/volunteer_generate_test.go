@@ -38,6 +38,9 @@ func TestSlotGenerator(t *testing.T) {
 
 	// Prefilled with the dates of the edition.
 	_, body := e.get(lead, gen)
+	// The days of their own follow the dates: each block is named by its
+	// day, and a template gives the blocks of the days added.
+	mustContain(t, body, "data-gen-days", "data-gen-day-template", `name="d__DATE__.mode"`)
 	mustContain(t, body, `value="2026-11-14"`, `value="2026-11-15"`, "Voir l&#39;aperçu")
 
 	_, body = e.get(lead, salles.URL())

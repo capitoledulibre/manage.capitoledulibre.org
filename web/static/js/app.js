@@ -424,6 +424,75 @@
   });
 })();
 
+// The slot generator, hours per day: one block per day of the dates chosen,
+// following them as they change. A day kept keeps what was typed for it; a
+// day added (a set-up day before the event, say) comes from the template,
+// with the common hours. The server reads the blocks of the days posted.
+(() => {
+  const box = document.querySelector("[data-gen-days]");
+  if (!box) return;
+
+  const form = box.closest("form");
+  const from = form.querySelector("[name=from]");
+  const to = form.querySelector("[name=to]");
+  const template = box.querySelector("[data-gen-day-template]");
+  const none = box.querySelector("[data-gen-no-days]");
+  const label = new Intl.DateTimeFormat(box.dataset.lang, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+
+  // days lists the dates from..to as YYYY-MM-DD, none when they make no
+  // sense or span more than the server takes.
+  const days = () => {
+    const a = new Date(from.value + "T00:00:00Z");
+    const b = new Date(to.value + "T00:00:00Z");
+    if (isNaN(a) || isNaN(b) || b < a || (b - a) / 86400000 > 31) return [];
+
+    const out = [];
+    for (let d = a; d <= b; d = new Date(d.getTime() + 86400000)) out.push(d.toISOString().slice(0, 10));
+    return out;
+  };
+
+  // commonHours copies the common hours into the fields of a new day.
+  const commonHours = (block, day) => {
+    const prefix = `d${day}.`;
+    for (const name of ["day_start", "day_end", "length", "list"]) {
+      const src = form.querySelector(`[name="${name}"]`);
+      const dst = block.querySelector(`[name="${prefix}${name}"]`);
+      if (src && dst) dst.value = src.value;
+    }
+
+    const mode = form.querySelector('[name="mode"]:checked');
+    const radio = mode && block.querySelector(`[name="${prefix}mode"][value="${mode.value}"]`);
+    if (radio) radio.checked = true;
+  };
+
+  const sync = () => {
+    const want = days();
+    const have = new Map([...box.querySelectorAll("[data-gen-day]")].filter((el) => !el.closest("template")).map((el) => [el.dataset.genDay, el]));
+
+    for (const [day, el] of have) if (!want.includes(day)) el.remove();
+
+    let prev = none;
+    for (const day of want.slice().reverse()) {
+      let el = have.get(day);
+      if (!el) {
+        const html = template.innerHTML.replaceAll("__DATE__", day);
+        const holder = document.createElement("div");
+        holder.innerHTML = html.trim();
+        el = holder.firstElementChild;
+        el.querySelector("h3").textContent = label.format(new Date(day + "T00:00:00Z"));
+        commonHours(el, day);
+      }
+      box.insertBefore(el, prev);
+      prev = el;
+    }
+
+    none.classList.toggle("hidden", want.length > 0);
+  };
+
+  from.addEventListener("change", sync);
+  to.addEventListener("change", sync);
+})();
+
 // A search field filtering the rows of a table (data-filter: the table),
 // with a live count (data-filter-count, data-one / data-other with %d).
 (() => {
