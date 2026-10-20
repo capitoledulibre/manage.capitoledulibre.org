@@ -493,6 +493,38 @@
   to.addEventListener("change", sync);
 })();
 
+// The generator's preview: the totals and the "Create" button follow the
+// cells ticked and the volunteers typed, before the page is sent.
+(() => {
+  const preview = document.querySelector("[data-gen-preview]");
+  if (!preview) return;
+
+  const total = preview.querySelector("[data-gen-total]");
+  const create = document.querySelector("[data-gen-create]");
+  const en = preview.dataset.lang === "en";
+  // French counts 0 and 1 as singular, English only 1.
+  const pick = (el, n, one, other) => ((n === 1 || (n === 0 && !en)) ? el.dataset[one] : el.dataset[other]);
+
+  const update = () => {
+    let slots = 0;
+    let seats = 0;
+    preview.querySelectorAll("[data-gen-cell]").forEach((box) => {
+      if (!box.checked) return;
+      slots++;
+      seats += Math.max(0, parseInt(box.parentElement.querySelector("[data-gen-cap]").value, 10) || 0);
+    });
+
+    total.textContent = pick(preview, slots, "totalOne", "totalOther").replace("%d", slots).replace("%d", seats);
+    if (create) {
+      create.textContent = pick(create, slots, "one", "other").replace("%d", slots);
+      create.disabled = slots === 0;
+    }
+  };
+
+  preview.addEventListener("change", update);
+  preview.addEventListener("input", update);
+})();
+
 // A search field filtering the rows of a table (data-filter: the table),
 // with a live count (data-filter-count, data-one / data-other with %d).
 (() => {

@@ -76,11 +76,12 @@
   </fieldset>
 
   {{with $p}}
-  <section class="card space-y-4" aria-labelledby="preview-title" id="preview">
+  <section class="card space-y-4" aria-labelledby="preview-title" id="preview" data-gen-preview data-lang="{{$l}}"
+           data-total-one="{{t $l "vol.gen.total.one"}}" data-total-other="{{t $l "vol.gen.total.other"}}">
     <h2 id="preview-title" class="card-title !mb-0">{{t $l "vol.gen.preview"}}</h2>
     {{with .Errors}}<ul class="alert list-disc space-y-1 bg-red-50 pl-8 text-red-800" role="alert">{{range .}}<li>{{template "gen_msg" dict "L" $l "M" .}}</li>{{end}}</ul>{{end}}
     {{if not .Errors}}
-    <p class="text-lg font-semibold">{{tn $l "vol.gen.total" .Slots .Seats}}</p>
+    <p class="text-lg font-semibold" data-gen-total>{{tn $l "vol.gen.total" .Slots .Seats}}</p>
     {{if gt (len .Places) 1}}<p class="text-sm text-gray-600">{{t $l "vol.gen.total_detail" .RangeCount (len .Places)}}</p>{{end}}
     {{if .Skipped}}<p class="text-sm text-gray-600">{{tn $l "vol.gen.skipped" .Skipped}}</p>{{end}}
     {{with .Warnings}}<ul class="list-disc space-y-1 rounded-md bg-amber-50 py-3 pr-3 pl-8 text-sm text-amber-900">{{range .}}<li>{{template "gen_msg" dict "L" $l "M" .}}</li>{{end}}</ul>{{end}}
@@ -108,7 +109,17 @@
             {{range $row}}
             <td class="p-1">
               {{if .Exists}}<span class="block rounded bg-gray-100 px-2 py-1.5 text-xs whitespace-nowrap text-gray-500">{{t $l "vol.gen.exists"}}</span>
-              {{else if .Capacity}}<span class="block rounded bg-brand-50 px-2 py-1.5 text-xs font-medium whitespace-nowrap text-brand-800 ring-1 ring-brand-200">{{tn $l "vol.gen.cell" .Capacity}}</span>{{end}}
+              {{else if .Capacity}}
+              {{/* A slot to create: untick it to leave it out, change the
+                   volunteers it needs. "seen" tells the server the cell was
+                   shown, so that an unticked one stays out. */}}
+              <span class="flex items-center gap-1.5 rounded bg-brand-50 px-2 py-1 text-xs font-medium whitespace-nowrap text-brand-800 ring-1 ring-brand-200 has-[input[name=keep]:not(:checked)]:bg-white has-[input[name=keep]:not(:checked)]:text-gray-400 has-[input[name=keep]:not(:checked)]:ring-gray-200">
+                <input type="hidden" name="seen" value="{{.Key}}">
+                <input type="checkbox" name="keep" value="{{.Key}}" class="h-4 w-4 accent-brand-600" {{if not .Skip}}checked{{end}} aria-label="{{t $l "vol.gen.cell_keep"}}" data-gen-cell>
+                <input type="number" name="cap.{{.Key}}" value="{{.Capacity}}" min="1" max="500" class="w-12 rounded border-0 bg-transparent p-0 text-right text-xs tabular-nums ring-1 ring-brand-200 focus:ring-2 focus:ring-brand-600" aria-label="{{t $l "vol.slot_form.capacity"}}" data-gen-cap>
+                <span>{{t $l "vol.gen.cell_unit"}}</span>
+              </span>
+              {{end}}
             </td>
             {{end}}
           </tr>
@@ -126,7 +137,7 @@
 
   <div class="flex flex-wrap gap-3">
     <button class="{{if and $p (not $p.Errors) $p.Slots}}btn-secondary{{else}}btn{{end}}" name="action" value="preview">{{if $p}}{{t $l "vol.gen.refresh"}}{{else}}{{t $l "vol.gen.show_preview"}}{{end}}</button>
-    {{if and $p (not $p.Errors) $p.Slots}}<button class="btn" name="action" value="create">{{tn $l "vol.gen.create" $p.Slots}}</button>{{end}}
+    {{if and $p (not $p.Errors) $p.Slots}}<button class="btn" name="action" value="create" data-gen-create data-one="{{t $l "vol.gen.create.one"}}" data-other="{{t $l "vol.gen.create.other"}}">{{tn $l "vol.gen.create" $p.Slots}}</button>{{end}}
   </div>
 </form>
 {{end}}

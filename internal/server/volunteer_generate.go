@@ -59,6 +59,12 @@ type genForm struct {
 	Capacity     int
 	Title        string
 	Tasks        string
+	// The cells of the preview's timetable, by key: those shown (Seen),
+	// those left ticked (Keep), and the volunteers typed in each (Caps).
+	// A cell seen and not kept is not created; one not seen yet (new hours
+	// or places since) is.
+	Seen, Keep map[string]bool
+	Caps       map[string]int
 }
 
 // genDay is a day of the preview.
@@ -75,10 +81,18 @@ type genDay struct {
 }
 
 // genCell is a slot of the timetable: the volunteers it wants, or Exists
-// when it is there already and will not be created again.
+// when it is there already and will not be created again, or Skip when it
+// was unticked. Key names it in the form: day, hours and place.
 type genCell struct {
+	Key      string
 	Capacity int
 	Exists   bool
+	Skip     bool
+}
+
+// cellKey names a cell of the timetable in the form.
+func cellKey(day time.Time, g genRange, place string) string {
+	return fmt.Sprintf("%s.%d-%d.%s", day.Format(time.DateOnly), g.Start, g.End, place)
 }
 
 // genMsg is an error or a warning of the preview, about one day when the
@@ -179,6 +193,19 @@ func readGenForm(r *http.Request) *genForm {
 		From: r.FormValue("from"), To: r.FormValue("to"), Hours: readGenHours(r, "", false),
 		PerDay: r.FormValue("per_day") != "", Locations: r.Form["location"], NewLocations: r.FormValue("new_locations"),
 		Capacity: formInt(r, "capacity"), Title: strings.TrimSpace(r.FormValue("title")), Tasks: r.FormValue("tasks"),
+		Seen: map[string]bool{}, Keep: map[string]bool{}, Caps: map[string]int{},
+	}
+
+	for _, k := range r.Form["seen"] {
+		f.Seen[k] = true
+
+		if n := formInt(r, "cap."+k); n >= 1 && n <= 500 {
+			f.Caps[k] = n
+		}
+	}
+
+	for _, k := range r.Form["keep"] {
+		f.Keep[k] = true
 	}
 
 	f.fillDays(r)
@@ -457,26 +484,39 @@ days:
 					break days
 				}
 
-				locID := int64(0)
+				locID, place := int64(0), ""
 				if len(p.Places) > 0 {
-					locID = byName[p.Places[i]] // 0 for a new place, which cannot clash yet
+					place = p.Places[i]
+					locID = byName[place] // 0 for a new place, which cannot clash yet
 				}
 
+				key := cellKey(d, g, place)
 				start, end := genTimes(d, g)
+
 				if locID != 0 || len(p.Places) == 0 {
 					if have[slotKey(locID, start, end)] {
 						p.Skipped++
-						row[i] = genCell{Capacity: g.Capacity, Exists: true}
+						row[i] = genCell{Key: key, Capacity: g.Capacity, Exists: true}
 
 						continue
 					}
 				}
 
-				row[i] = genCell{Capacity: g.Capacity}
+				cell := genCell{Key: key, Capacity: g.Capacity, Skip: f.Seen[key] && !f.Keep[key]}
+				if n, ok := f.Caps[key]; ok {
+					cell.Capacity = n
+				}
+
+				row[i] = cell
+
+				if cell.Skip {
+					continue
+				}
+
 				p.Slots++
-				p.Seats += g.Capacity
+				p.Seats += cell.Capacity
 				day.Slots++
-				day.Seats += g.Capacity
+				day.Seats += cell.Capacity
 			}
 		}
 	}
@@ -587,15 +627,24 @@ func (s *Server) generateSubmit(w http.ResponseWriter, r *http.Request) error {
 
 	created := 0
 
+	// The timetable of the preview, as ticked and typed.
 	for _, d := range plan.Days {
-		for _, g := range d.Ranges {
-			for _, locID := range places {
+		for i, row := range d.Grid {
+			g := d.Ranges[i]
+
+			for j, cell := range row {
+				if cell.Exists || cell.Skip {
+					continue
+				}
+
+				locID := places[j]
 				start, end := genTimes(d.Day, g)
+
 				if have[slotKey(locID, start, end)] {
 					continue
 				}
 
-				sl := &store.Slot{PoleID: v.Pole.ID, LocationID: locID, Title: f.Title, Capacity: g.Capacity, StartsAt: start, EndsAt: end}
+				sl := &store.Slot{PoleID: v.Pole.ID, LocationID: locID, Title: f.Title, Capacity: cell.Capacity, StartsAt: start, EndsAt: end}
 				if err := s.store.CreateSlot(ctx, sl); err != nil {
 					return err
 				}

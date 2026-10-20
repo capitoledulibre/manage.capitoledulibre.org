@@ -57,10 +57,12 @@ func TestSlotGenerator(t *testing.T) {
 
 	_, body = e.post(lead, gen, form)
 	mustContain(t, body, "48 créneaux, 96 places à pourvoir", "Créer les 48 créneaux", "samedi 14 novembre",
-		"6 horaires × 8 emplacements, un créneau par case.", ">Salle 8 <span class=\"badge bg-green-100 font-normal text-green-800\">nouveau</span></th>", ">09:00 – 12:00</th>", ">2 bénévoles</span>")
+		"6 horaires × 8 emplacements, un créneau par case.", ">Salle 8 <span class=\"badge bg-green-100 font-normal text-green-800\">nouveau</span></th>", ">09:00 – 12:00</th>",
+		`name="keep" value="2026-11-14.540-720.Salle 1"`, `name="cap.2026-11-14.540-720.Salle 1" value="2"`)
 
-	// A timetable per day: three ranges down, eight rooms across.
-	if n := strings.Count(body, ">2 bénévoles</span>"); n != 48 {
+	// A timetable per day: three ranges down, eight rooms across, each cell
+	// a slot to tick.
+	if n := strings.Count(body, `name="keep"`); n != 48 {
 		t.Errorf("cells: %d", n)
 	}
 
@@ -68,17 +70,55 @@ func TestSlotGenerator(t *testing.T) {
 		t.Fatal("the preview created slots")
 	}
 
+	// Saturday 9:00 in room 2 unticked, room 1 asking for five: the
+	// preview counts it, and so does the creation. The cells not sent back
+	// (not seen) are created as planned.
+	form["seen"] = []string{"2026-11-14.540-720.Salle 1", "2026-11-14.540-720.Salle 2"}
+	form["keep"] = []string{"2026-11-14.540-720.Salle 1"}
+	form.Set("cap.2026-11-14.540-720.Salle 1", "5")
+
+	_, body = e.post(lead, gen, form)
+	mustContain(t, body, "47 créneaux, 97 places à pourvoir", `name="cap.2026-11-14.540-720.Salle 1" value="5"`)
+
+	if strings.Contains(body, `name="keep" value="2026-11-14.540-720.Salle 2" class="h-4 w-4 accent-brand-600" checked`) {
+		t.Error("an unticked cell comes back ticked")
+	}
+
 	form.Set("action", "create")
 
 	_, body = e.post(lead, gen, form)
-	mustContain(t, body, "48 créneaux créés.")
+	mustContain(t, body, "47 créneaux créés.")
 
 	slots, _ := e.st.ListSlots(ctx, salles.ID, 0)
 	locations, _ := e.st.ListLocations(ctx, salles.ID)
 
-	if len(slots) != 48 || len(locations) != 8 || slots[0].TaskCount != 2 || slots[0].Capacity != 2 {
+	if len(slots) != 47 || len(locations) != 8 || slots[0].TaskCount != 2 {
 		t.Fatalf("generated: %d slots, %d places, first %+v", len(slots), len(locations), slots[0])
 	}
+
+	// The 9:00 slots of Saturday: room 1 with five, no room 2.
+	for _, sl := range slots {
+		if dayKey(sl.StartsAt) != "2026-11-14" || clock(sl.StartsAt) != "09:00" {
+			continue
+		}
+
+		switch sl.LocationName {
+		case "Salle 1":
+			if sl.Capacity != 5 {
+				t.Errorf("room 1 at 9:00: %d volunteers", sl.Capacity)
+			}
+		case "Salle 2":
+			t.Error("an unticked cell was created")
+		default:
+			if sl.Capacity != 2 {
+				t.Errorf("%s at 9:00: %d volunteers", sl.LocationName, sl.Capacity)
+			}
+		}
+	}
+
+	delete(form, "seen")
+	delete(form, "keep")
+	form.Del("cap.2026-11-14.540-720.Salle 1")
 
 	if clock(slots[0].StartsAt) != "09:00" || dayKey(slots[0].StartsAt) != "2026-11-14" {
 		t.Fatalf("first slot at %s", slots[0].StartsAt)
@@ -93,11 +133,7 @@ func TestSlotGenerator(t *testing.T) {
 	}
 
 	_, body = e.post(lead, gen, form)
-	mustContain(t, body, "48 créneaux existent déjà", ">existe déjà</span>")
-
-	if strings.Contains(body, "Créer les") {
-		t.Error("a create button with nothing to create")
-	}
+	mustContain(t, body, "47 créneaux existent déjà", ">existe déjà</span>", "1 créneau, 2 places à pourvoir")
 
 	// Exact hours with their own volunteers, on one room and one day.
 	list := url.Values{
@@ -147,7 +183,7 @@ func TestSlotGenerator(t *testing.T) {
 	}
 
 	_, body = e.post(lead, gen, perDay)
-	mustContain(t, body, "3 créneaux, 5 places", ">19:00 – 20:00</th>", ">1 bénévole</span>", ">07:00 – 08:00</th>", ">3 bénévoles</span>", "Pas de créneau ce jour-là", `name="d2026-11-15.mode" value="off" class="mt-1 accent-brand-600" checked`)
+	mustContain(t, body, "3 créneaux, 5 places", ">19:00 – 20:00</th>", `name="cap.2026-11-14.1140-1200.Salle 1" value="1"`, ">07:00 – 08:00</th>", `name="cap.2026-11-16.420-480.Salle 1" value="3"`, "Pas de créneau ce jour-là", `name="d2026-11-15.mode" value="off" class="mt-1 accent-brand-600" checked`)
 
 	perDay.Set("d2026-11-16.list", "le matin")
 
