@@ -1,9 +1,9 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 
 	"manage/internal/i18n"
@@ -86,12 +86,10 @@ func (s *Server) notifyPlaceFreed(waiting []*store.Person, pole *store.Pole, sl 
 // notifyLateWithdrawal tells the managers of a pole that a volunteer pulled
 // out of slots starting soon; the slots carry their counts after the
 // withdrawal. A pole without a manager falls back on the coordinators.
-func (s *Server) notifyLateWithdrawal(r *http.Request, who *store.Person, pole *store.Pole, slots []*store.Slot) {
+func (s *Server) notifyLateWithdrawal(ctx context.Context, who *store.Person, pole *store.Pole, slots []*store.Slot) {
 	if len(slots) == 0 {
 		return
 	}
-
-	ctx := r.Context()
 
 	recipients, err := s.store.ListPoleManagers(ctx, pole.ID)
 	if err == nil && len(recipients) == 0 {

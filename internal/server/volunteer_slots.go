@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -310,14 +311,14 @@ func (s *Server) poleLeave(w http.ResponseWriter, r *http.Request) error {
 	var late []*store.Slot
 
 	for _, sl := range mine {
-		s.announceFreePlace(r, v.Pole, sl.ID)
+		s.announceFreePlace(r.Context(), v.Pole, sl.ID)
 
 		if after, err := s.store.GetSlot(ctx, sl.ID, 0); err == nil && isLate(after) {
 			late = append(late, after)
 		}
 	}
 
-	s.notifyLateWithdrawal(r, person, v.Pole, late)
+	s.notifyLateWithdrawal(r.Context(), person, v.Pole, late)
 	s.flash(w, "flash.vol.left", v.Pole.Name)
 	http.Redirect(w, r, volunteerHomeURL(v.Event), http.StatusSeeOther)
 
@@ -520,8 +521,6 @@ func (s *Server) respondSlot(w http.ResponseWriter, r *http.Request, card *slotC
 }
 
 func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-	person := rc(r).Person
 	lang := rc(r).Lang
 
 	v, sl, err := s.volunteerSlot(r)
@@ -529,76 +528,38 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	card := s.slotCard(r, v, sl, false)
-
-	// Anyone may join a public pole, so a sign-up joins it on the way.
-	// Other poles take a key or a manager.
-	autoJoin := !v.Member && v.Pole.IsOpen()
-
-	switch {
-	case !v.Member && !autoJoin:
-		return s.respondSlot(w, r, card, "vol.err.invitation_only", "")
-	case v.Locked:
-		return s.respondSlot(w, r, card, "vol.err.locked", "")
-	case !sl.EndsAt.After(time.Now()):
-		return s.respondSlot(w, r, card, "vol.err.slot_over", "")
-	}
-
-	if r.FormValue("force") != "1" {
-		overlaps, err := s.store.OverlappingSlots(ctx, person.ID, v.Pole.ID, sl.ID, sl.StartsAt, sl.EndsAt)
-		if err != nil {
-			return err
+	out, err := s.signUp(r.Context(), act(r), v, sl, r.FormValue("force") == "1")
+	if key, ok := refused(err); ok {
+		if out != nil {
+			sl = out.Slot
 		}
 
-		if len(overlaps) > 0 {
-			card.Overlaps = overlaps
-
-			if isHX(r) {
-				card.Announce = i18n.T(lang, "vol.overlap.announce")
-
-				return s.fragment(w, "slot_card", card)
-			}
-
-			p := s.page(r, "vol.overlap.title")
-			p.D = card
-
-			return s.render(w, r, "volunteer/slot_confirm", p)
-		}
+		return s.respondSlot(w, r, s.slotCard(r, v, sl, false), key, "")
 	}
 
-	// Joining comes after the overlap check, so that cancelling at that
-	// point leaves the volunteer where they were.
-	if autoJoin {
-		if err := s.store.JoinPole(ctx, v.Pole.ID, person.ID); err != nil {
-			return err
-		}
-
-		v.Member = true
-	}
-
-	ok, err := s.store.Signup(ctx, sl.ID, person.ID)
 	if err != nil {
 		return err
 	}
 
-	if sl, err = s.store.GetSlot(ctx, sl.ID, person.ID); err != nil {
-		return err
+	card := s.slotCard(r, v, out.Slot, false)
+
+	if out.Overlaps != nil {
+		card.Overlaps = out.Overlaps
+
+		if isHX(r) {
+			card.Announce = i18n.T(lang, "vol.overlap.announce")
+
+			return s.fragment(w, "slot_card", card)
+		}
+
+		p := s.page(r, "vol.overlap.title")
+		p.D = card
+
+		return s.render(w, r, "volunteer/slot_confirm", p)
 	}
 
-	card = s.slotCard(r, v, sl, false)
-
-	if !ok {
-		return s.respondSlot(w, r, card, "vol.err.full", "")
-	}
-
-	if autoJoin {
-		s.logVol(r, logPole(store.LogJoined, v.Pole, person))
-	}
-
-	s.logVol(r, logSlot(store.LogSignup, v.Pole, sl, person))
-
-	when := slotWhen(lang, sl.StartsAt, sl.EndsAt)
-	if autoJoin {
+	when := slotWhen(lang, out.Slot.StartsAt, out.Slot.EndsAt)
+	if out.Joined {
 		// Joining changes more than the card: the page's "not in this pole
 		// yet" block and the other cards. htmx reloads the whole page, with
 		// the outcome as its flash message.
@@ -616,34 +577,21 @@ func (s *Server) slotSignup(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) slotUnsignup(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-	person := rc(r).Person
-
 	v, sl, err := s.volunteerSlot(r)
 	if err != nil {
 		return err
 	}
 
-	if v.Locked {
-		return s.respondSlot(w, r, s.slotCard(r, v, sl, false), "vol.err.locked_unsignup", "")
+	after, err := s.unsignUp(r.Context(), act(r), v, sl)
+	if key, ok := refused(err); ok {
+		return s.respondSlot(w, r, s.slotCard(r, v, sl, false), key, "")
 	}
 
-	if err := s.store.Unsignup(ctx, sl.ID, person.ID); err != nil {
+	if err != nil {
 		return err
 	}
 
-	if sl, err = s.store.GetSlot(ctx, sl.ID, person.ID); err != nil {
-		return err
-	}
-
-	s.logVol(r, logSlot(store.LogUnsignup, v.Pole, sl, person))
-	s.announceFreePlace(r, v.Pole, sl.ID)
-
-	if isLate(sl) {
-		s.notifyLateWithdrawal(r, person, v.Pole, []*store.Slot{sl})
-	}
-
-	return s.respondSlot(w, r, s.slotCard(r, v, sl, false), "", "vol.done.unsignup", slotWhen(rc(r).Lang, sl.StartsAt, sl.EndsAt))
+	return s.respondSlot(w, r, s.slotCard(r, v, after, false), "", "vol.done.unsignup", slotWhen(rc(r).Lang, after.StartsAt, after.EndsAt))
 }
 
 // slotWaitlistJoin records that the volunteer wants a full slot.
@@ -655,32 +603,17 @@ func (s *Server) slotWaitlistJoin(w http.ResponseWriter, r *http.Request) error 
 
 	card := s.slotCard(r, v, sl, false)
 
-	// As a sign-up does, waiting for a slot of a public pole joins it.
-	autoJoin := !v.Member && v.Pole.IsOpen()
-
-	switch {
-	case !v.Member && !autoJoin:
-		return s.respondSlot(w, r, card, "vol.err.join_first", "")
-	case v.Locked:
-		return s.respondSlot(w, r, card, "vol.err.locked", "")
+	joined, err := s.joinWaitlist(r.Context(), act(r), v, sl)
+	if key, ok := refused(err); ok {
+		return s.respondSlot(w, r, card, key, "")
 	}
 
-	if autoJoin {
-		if err := s.store.JoinPole(r.Context(), v.Pole.ID, rc(r).Person.ID); err != nil {
-			return err
-		}
-
-		s.logVol(r, logPole(store.LogJoined, v.Pole, rc(r).Person))
-	}
-
-	if err := s.store.JoinWaitlist(r.Context(), sl.ID, rc(r).Person.ID); err != nil {
+	if err != nil {
 		return err
 	}
 
-	s.logVol(r, logSlot(store.LogWaitlist, v.Pole, sl, rc(r).Person))
-
 	// Joining changes the whole page, as for a sign-up.
-	if autoJoin && isHX(r) {
+	if joined && isHX(r) {
 		s.flash(w, "vol.done.waitlist")
 		w.Header().Set("HX-Redirect", card.Back)
 
@@ -698,11 +631,9 @@ func (s *Server) slotWaitlistLeave(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	if err := s.store.LeaveWaitlist(r.Context(), sl.ID, rc(r).Person.ID); err != nil {
+	if err := s.leaveWaitlist(r.Context(), act(r), v, sl); err != nil {
 		return err
 	}
-
-	s.logVol(r, logSlot(store.LogWaitlistLeft, v.Pole, sl, rc(r).Person))
 
 	return s.respondSlot(w, r, s.slotCard(r, v, sl, false), "", "vol.done.waitlist_left")
 }
@@ -805,9 +736,7 @@ func isLate(sl *store.Slot) bool {
 // announceFreePlace tells the people waiting for a slot that a place
 // opened. Nothing happens when the slot is full again or nobody waits, so
 // callers invoke it after any action that might free a place.
-func (s *Server) announceFreePlace(r *http.Request, pole *store.Pole, slotID int64) {
-	ctx := r.Context()
-
+func (s *Server) announceFreePlace(ctx context.Context, pole *store.Pole, slotID int64) {
 	sl, err := s.store.GetSlot(ctx, slotID, 0)
 	if err != nil || sl.IsFull() {
 		return

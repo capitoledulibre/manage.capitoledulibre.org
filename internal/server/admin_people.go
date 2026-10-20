@@ -118,7 +118,7 @@ func (s *Server) adminPersonDelete(w http.ResponseWriter, r *http.Request) error
 	for _, id := range freed {
 		if sl, err := s.store.GetSlot(ctx, id, 0); err == nil {
 			if pole, err := s.store.GetPole(ctx, sl.PoleID); err == nil {
-				s.announceFreePlace(r, pole, sl.ID)
+				s.announceFreePlace(r.Context(), pole, sl.ID)
 			}
 		}
 	}

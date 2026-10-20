@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -13,11 +14,17 @@ import (
 // unless the entry names its actor. Logging never fails the action it
 // records.
 func (s *Server) logVol(r *http.Request, e *store.LogEntry) {
+	s.logAs(r.Context(), rc(r).Person, e)
+}
+
+// logAs writes an entry of the volunteer history, by actor unless the
+// entry names one.
+func (s *Server) logAs(ctx context.Context, actor *store.Person, e *store.LogEntry) {
 	if e.ActorID == 0 && e.ActorName == "" {
-		e.SetActor(rc(r).Person)
+		e.SetActor(actor)
 	}
 
-	if err := s.store.Log(r.Context(), e); err != nil {
+	if err := s.store.Log(ctx, e); err != nil {
 		slog.Error("volunteer log", "action", e.Action, "err", err)
 	}
 }

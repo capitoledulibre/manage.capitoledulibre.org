@@ -377,7 +377,7 @@ func (s *Server) manageMemberRemove(w http.ResponseWriter, r *http.Request) erro
 	s.notifyPoleRemoved(who, v.Pole, len(freed))
 
 	for _, sl := range freed {
-		s.announceFreePlace(r, v.Pole, sl.ID)
+		s.announceFreePlace(r.Context(), v.Pole, sl.ID)
 	}
 
 	s.flash(w, "flash.vol.member_removed", who.Label())
@@ -958,7 +958,7 @@ func (s *Server) manageSlotSave(w http.ResponseWriter, r *http.Request) error {
 
 	// More places on a slot that was full: the waiting list wants to know.
 	if before.IsFull() && !after.IsFull() {
-		s.announceFreePlace(r, v.Pole, sl.ID)
+		s.announceFreePlace(r.Context(), v.Pole, sl.ID)
 	}
 
 	s.flashCount(w, "flash.vol.slot_saved", notified)
@@ -1203,34 +1203,37 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 
 	// Signing someone up makes them a member: on a restricted pole, only the
 	// coordination brings in new people, as in the members tab.
-	for _, who := range people {
-		if err := s.ensurePoleMember(r, v, who); err != nil {
-			return err
-		}
+	done, err := s.signUpOthers(ctx, act(r), v, sl, people)
+	if err != nil {
+		return err
 	}
 
-	if len(people) == 1 {
-		if err := s.signUpByLead(w, r, v, sl, people[0]); err != nil {
-			return err
+	s.flashPlaced(w, v, done)
+	http.Redirect(w, r, back, http.StatusSeeOther)
+
+	return nil
+}
+
+// flashPlaced says who was signed up by whoever runs the pole, warning of
+// those already on another slot at that time.
+func (s *Server) flashPlaced(w http.ResponseWriter, v *poleView, done []placed) {
+	if len(done) == 1 {
+		if done[0].Also != "" {
+			s.flash(w, "flash.vol.volunteer_added_overlap", done[0].Person.Label(), done[0].Also)
+		} else {
+			s.flash(w, "flash.vol.volunteer_added", done[0].Person.Label(), v.Pole.Name)
 		}
 
-		http.Redirect(w, r, back, http.StatusSeeOther)
-
-		return nil
+		return
 	}
 
 	var names, also []string
 
-	for _, who := range people {
-		overlaps, err := s.leadSignup(r, v, sl, who)
-		if err != nil {
-			return err
-		}
+	for _, p := range done {
+		names = append(names, p.Person.Label())
 
-		names = append(names, who.Label())
-
-		if overlaps != "" {
-			also = append(also, who.Label()+" : "+overlaps)
+		if p.Also != "" {
+			also = append(also, p.Person.Label()+" : "+p.Also)
 		}
 	}
 
@@ -1239,71 +1242,6 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 	} else {
 		s.flash(w, "flash.vol.volunteers_added", strings.Join(names, ", "))
 	}
-
-	http.Redirect(w, r, back, http.StatusSeeOther)
-
-	return nil
-}
-
-// ensurePoleMember makes someone signed up by whoever runs the pole one of
-// its members, if allowed.
-func (s *Server) ensurePoleMember(r *http.Request, v *poleView, who *store.Person) error {
-	ctx := r.Context()
-
-	member, err := s.store.IsPoleMember(ctx, v.Pole.ID, who.ID)
-	if err != nil || member {
-		return err
-	}
-
-	if !act(r).CanAddMembers(v.Pole) {
-		return errForbidden
-	}
-
-	return s.store.JoinPole(ctx, v.Pole.ID, who.ID)
-}
-
-// signUpByLead puts a member of the pole on a slot, even a full one, tells
-// them by e-mail, and says so to the lead: with the other slot they are
-// already on at that time, if any, as a volunteer signing up is told; the
-// lead decides, so it only warns.
-func (s *Server) signUpByLead(w http.ResponseWriter, r *http.Request, v *poleView, sl *store.Slot, who *store.Person) error {
-	also, err := s.leadSignup(r, v, sl, who)
-	if err != nil {
-		return err
-	}
-
-	if also != "" {
-		s.flash(w, "flash.vol.volunteer_added_overlap", who.Label(), also)
-	} else {
-		s.flash(w, "flash.vol.volunteer_added", who.Label(), v.Pole.Name)
-	}
-
-	return nil
-}
-
-// leadSignup does the sign-up of signUpByLead, and tells the other slots
-// the person is on at that time, if any.
-func (s *Server) leadSignup(r *http.Request, v *poleView, sl *store.Slot, who *store.Person) (string, error) {
-	ctx := r.Context()
-
-	overlaps, err := s.store.OverlappingSlots(ctx, who.ID, v.Pole.ID, sl.ID, sl.StartsAt, sl.EndsAt)
-	if err != nil {
-		return "", err
-	}
-
-	if err := s.store.ForceSignup(ctx, sl.ID, who.ID); err != nil {
-		return "", err
-	}
-
-	s.logVol(r, logSlot(store.LogSignupAdded, v.Pole, sl, who))
-	s.notifySignupAdded(who, v.Pole, sl)
-
-	var also []string
-	for _, o := range overlaps {
-		also = append(also, o.PoleName+" ("+clock(o.StartsAt)+"–"+clock(o.EndsAt)+")")
-	}
-
-	return strings.Join(also, ", "), nil
 }
 
 // upcomingPoleSlots are the slots of a pole still to come, the ones a
@@ -1355,9 +1293,12 @@ func (s *Server) manageMemberSignup(w http.ResponseWriter, r *http.Request) erro
 		return errNotFound
 	}
 
-	if err := s.signUpByLead(w, r, v, sl, who); err != nil {
+	done, err := s.signUpOthers(ctx, act(r), v, sl, []*store.Person{who})
+	if err != nil {
 		return err
 	}
+
+	s.flashPlaced(w, v, done)
 
 	return s.redirectTab(w, r, v.Pole, "members")
 }
@@ -1373,19 +1314,10 @@ func (s *Server) manageSlotRemoveVolunteer(w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
-	if on, err := s.store.IsSignedUp(r.Context(), sl.ID, who.ID); err != nil {
-		return err
-	} else if !on {
-		return errNotFound
-	}
-
-	if err := s.store.Unsignup(r.Context(), sl.ID, who.ID); err != nil {
+	if err := s.takeOff(r.Context(), act(r), v, sl, who); err != nil {
 		return err
 	}
 
-	s.logVol(r, logSlot(store.LogSignupRemoved, v.Pole, sl, who))
-	s.notifySignupRemoved(who, v.Pole, sl)
-	s.announceFreePlace(r, v.Pole, sl.ID)
 	s.flash(w, "flash.vol.volunteer_removed", who.Label())
 	http.Redirect(w, r, safeRedirect(r.FormValue("back"), sl.ManageURL()+"#volunteers"), http.StatusSeeOther)
 

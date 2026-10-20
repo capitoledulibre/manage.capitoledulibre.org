@@ -205,7 +205,6 @@ type poleView struct {
 // it, and a restricted pole only to its members and to whoever runs it.
 func (s *Server) volunteerPole(r *http.Request) (*poleView, error) {
 	ctx := r.Context()
-	a := act(r)
 
 	e, err := s.store.GetEventBySlug(ctx, r.PathValue("event"))
 	if err != nil {
@@ -217,17 +216,7 @@ func (s *Server) volunteerPole(r *http.Request) (*poleView, error) {
 		return nil, err
 	}
 
-	v := &poleView{Event: e, Pole: p, Locked: e.SignupsLocked(p.FreezeAt, time.Now()), Manage: a.ManagesPole(p), Fiche: ficheBase(a, e)}
-
-	if v.Member, err = s.store.IsPoleMember(ctx, p.ID, rc(r).Person.ID); err != nil {
-		return nil, err
-	}
-
-	if !a.SeesPole(e, p, v.Member) {
-		return nil, errNotFound
-	}
-
-	return v, nil
+	return s.poleViewOf(ctx, act(r), e, p)
 }
 
 // currentVolunteerEvent is the edition the volunteer space opens on: the
@@ -817,7 +806,7 @@ func (s *Server) volunteerLeave(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		if p, err := s.store.GetPole(ctx, sl.PoleID); err == nil {
-			s.announceFreePlace(r, p, sl.ID)
+			s.announceFreePlace(r.Context(), p, sl.ID)
 		}
 	}
 
