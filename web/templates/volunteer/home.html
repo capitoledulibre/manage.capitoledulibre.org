@@ -124,11 +124,14 @@
 </div>
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {{range $d.Poles}}
-  <article class="pole-card pole-c{{.Pole.Color}} flex flex-col">
+  {{/* The whole card opens the pole, for those it is open to: its title is
+       a link stretched over it, the buttons staying above. */}}
+  {{$open := or .Member .Pole.IsDefault .Pole.IsOpen .Manage}}
+  <article class="pole-card pole-c{{.Pole.Color}} relative flex flex-col {{if $open}}transition hover:shadow-md has-[a[data-card-link]:focus-visible]:ring-2 has-[a[data-card-link]:focus-visible]:ring-brand-600{{end}}">
     <div class="flex items-start gap-3">
       {{template "pole_icon" (dict "Pole" .Pole)}}
       <div class="min-w-0">
-        <h3 class="font-semibold text-gray-900">{{.Pole.Name}}</h3>
+        <h3 class="font-semibold text-gray-900">{{if $open}}<a href="{{.Pole.URL}}" class="after:absolute after:inset-0 after:content-[''] hover:underline focus:outline-none" data-card-link>{{.Pole.Name}}</a>{{else}}{{.Pole.Name}}{{end}}</h3>
         <div class="mt-1 flex flex-wrap gap-1">
           {{if .Pole.IsDefault}}<span class="badge bg-gray-100 text-gray-700">{{t $l "vol.pole.everyone"}}</span>
           {{/* Private and invitation poles differ for managers (a link or
@@ -149,7 +152,7 @@
     {{else}}
     <p class="help">{{t $l "vol.pole.no_slots"}}</p>
     {{end}}
-    <div class="mt-4 flex flex-wrap items-center gap-2">
+    <div class="relative z-10 mt-4 flex flex-wrap items-center gap-2">
       {{/* The default pole is everyone's: there is nothing to join, a
            sign-up on one of its slots is enough. */}}
       {{if or .Member .Pole.IsDefault}}

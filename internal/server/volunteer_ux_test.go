@@ -185,6 +185,9 @@ func TestDayOfEventNavigation(t *testing.T) {
 	_, body = e.get(nina, "/"+f.event.Slug)
 	mustContain(t, body, "Ajouter mes créneaux à mon agenda")
 
+	// Her poles' cards open the pole.
+	mustContain(t, body, `<a href="`+f.buvette.URL()+`" class="after:absolute`)
+
 	_, body = e.get(nina, planning+"?view=mine&calendar=1")
 	mustContain(t, body, `id="calendar" class="card mt-8" open`, `href="webcal://`)
 
