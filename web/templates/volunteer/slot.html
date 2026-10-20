@@ -21,11 +21,15 @@
     {{if $d.ShowPeople}}
     {{with $d.Volunteers}}
     <ul class="space-y-2">
-      {{range .}}<li class="flex items-center gap-2 text-sm">{{template "person_avatar" .}}<span>{{template "person_name" (dict "Lang" $l "Person" . "Manage" $v.Manage "Fiche" $v.Fiche)}}{{if and $v.Manage .Phone}} <span class="text-gray-500">· {{phone .Phone}}</span>{{end}}</span></li>{{end}}
+      {{range .}}<li class="flex items-center gap-2 text-sm">{{template "person_avatar" .}}<span>{{template "person_name" (dict "Lang" $l "Person" . "Manage" $v.Manage "Fiche" $v.Fiche)}}{{if and $v.Manage .Phone}} <span class="text-gray-500">· {{phone .Phone}}</span>{{end}}</span>
+        {{/* Whoever runs the pole takes someone off from here too. */}}
+        {{if $v.Manage}}<form method="post" action="{{$s.ManageURL}}/volunteers/{{.UID}}/delete" data-confirm="{{t $l "vol.slot_form.remove_confirm" .Label}}"><input type="hidden" name="back" value="{{$s.URL}}"><button class="rounded px-1 text-gray-400 hover:bg-red-50 hover:text-red-700" aria-label="{{t $l "vol.card.remove" .Label}}">×</button></form>{{end}}
+      </li>{{end}}
     </ul>
     {{else}}<p class="text-sm text-gray-500">{{t $l "vol.slot.nobody"}}</p>{{end}}
     {{end}}
     {{if gt $s.Missing 0}}<p class="help mt-2">{{tn $l "vol.slot.places_left" $s.Missing}}</p>{{end}}
+    {{if and $v.Manage (not (slotOver $s))}}{{template "sign_up_someone" (dict "Lang" $l "Slot" $s "Back" $s.URL "Class" "mt-4 text-sm")}}{{end}}
   </section>
   <section>
     <h2 class="mb-3 text-lg font-semibold">{{t $l "vol.tasks.title"}}</h2>

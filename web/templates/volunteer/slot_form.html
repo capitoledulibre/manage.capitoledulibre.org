@@ -73,14 +73,10 @@
     {{/* Two intents, two fields. A single "name or e-mail" box turned every
          typo into an account. */}}
     {{if $d.Available}}
-    <form method="post" action="{{$s.ManageURL}}/volunteers" class="flex flex-wrap gap-2">
-      <label for="add-member" class="sr-only">{{t $l "vol.slot_form.pick_member"}}</label>
-      {{/* Nobody preselected: one click on the button used to sign up
-           whoever came first in the list. */}}
-      <select id="add-member" class="input max-w-xs" name="person" required>
-        <option value="" disabled selected>{{t $l "vol.slot_form.pick_member"}}</option>
-        {{range $d.Available}}<option value="{{.Person.UID}}">{{.Person.Label}}{{if eq .SlotCount 0}} — {{t $l "vol.manage.no_slot"}}{{end}}</option>{{end}}
-      </select>
+    {{/* Nobody preselected: one click on the button used to sign up
+         whoever came first in the list. */}}
+    <form method="post" action="{{$s.ManageURL}}/volunteers" class="max-w-md space-y-2">
+      {{template "member_pick" (dict "Lang" $l "ID" "add-member" "Members" $d.Available "Slot" $s)}}
       <button class="btn-secondary btn-sm">{{t $l "vol.slot_form.sign_up_member"}}</button>
     </form>
     <p class="help">{{t $l "vol.slot_form.force_help"}}</p>

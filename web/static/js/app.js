@@ -582,3 +582,62 @@
     if (count) count.textContent = (shown === 1 ? input.dataset.single : input.dataset.other).replace("%d", shown);
   });
 })();
+
+// The member picker: typing filters the people by name or address, case
+// and accents aside, those ticked staying in sight; Enter ticks the only one
+// left and clears the search for the next. A count says how many are
+// ticked, and when that goes beyond the places left.
+(() => {
+  const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  const rows = (pick) => [...pick.querySelectorAll("[data-member]")];
+
+  const filter = (pick, value) => {
+    const needle = fold(value.trim());
+    let shown = 0;
+
+    rows(pick).forEach((row) => {
+      row.hidden = !row.querySelector("input").checked && !fold(row.dataset.member).includes(needle);
+      if (!row.hidden) shown++;
+    });
+
+    pick.querySelector("[data-member-none]").hidden = shown > 0;
+  };
+
+  const count = (pick) => {
+    const n = rows(pick).filter((row) => row.querySelector("input").checked).length;
+    const missing = Number(pick.dataset.missing);
+    let text = n ? (n === 1 ? pick.dataset.single : pick.dataset.other).replace("%d", n) : "";
+    if (n > missing) text += " · " + pick.dataset.over.replace("%d", missing);
+
+    const out = pick.querySelector("[data-member-count]");
+    out.textContent = text;
+    out.classList.toggle("text-amber-800", n > missing);
+  };
+
+  document.addEventListener("input", (event) => {
+    const input = event.target;
+    if (!input.matches || !input.closest("[data-member-pick]")) return;
+
+    const pick = input.closest("[data-member-pick]");
+    if (input.matches("[data-member-filter]")) filter(pick, input.value);
+    else count(pick);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    const input = event.target;
+    if (event.key !== "Enter" || !input.matches || !input.matches("[data-member-filter]")) return;
+
+    // Enter in the field never submits a guess.
+    event.preventDefault();
+
+    const pick = input.closest("[data-member-pick]");
+    const left = rows(pick).filter((row) => !row.hidden && !row.querySelector("input").checked);
+    if (left.length === 1) {
+      left[0].querySelector("input").checked = true;
+      input.value = "";
+      filter(pick, "");
+      count(pick);
+    }
+  });
+})();

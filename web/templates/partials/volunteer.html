@@ -267,15 +267,7 @@
     </ul>
     {{else}}<p class="text-sm text-gray-500">{{t $l "vol.planning.nobody"}}</p>{{end}}
     {{if .Manage}}<span class="flex flex-wrap items-start gap-3">
-      {{/* The form loads when opened: the members of the pole, for every
-           card of a long planning, would weigh for nothing. Without
-           script, the slot's page has the same. */}}
-      {{if not (slotOver .Slot)}}
-      <details class="text-xs" hx-get="{{.Slot.ManageURL}}/picker?back={{queryValue .Back}}" hx-trigger="toggle once" hx-target="find [data-picker]">
-        <summary class="link cursor-pointer list-none">+ {{t $l "vol.card.sign_up_someone"}}</summary>
-        <div data-picker class="mt-2"><a class="link" href="{{.Slot.ManageURL}}#volunteers">{{t $l "vol.planning.edit_slot"}}</a></div>
-      </details>
-      {{end}}
+      {{if not (slotOver .Slot)}}{{template "sign_up_someone" (dict "Lang" $l "Slot" .Slot "Back" .Back "Class" "text-xs")}}{{end}}
       <a class="link text-xs" href="{{.Slot.ManageURL}}">{{t $l "vol.planning.edit_slot"}}</a>
     </span>{{end}}
   </div>
@@ -404,6 +396,43 @@
 {{end}}
 {{end}}
 
+{{/* member_pick chooses members of the pole: a search field filters the
+     list (app.js), each one with their picture to tell them apart. Check
+     boxes, so it works without script; the count says when the slot will
+     be overbooked, which whoever runs the pole may do. Expects Lang, ID,
+     Members and Slot. */}}
+{{define "member_pick"}}
+{{$l := .Lang}}
+<div class="space-y-2" data-member-pick data-missing="{{.Slot.Missing}}"
+     data-single="{{t $l "vol.pick.selected.one"}}" data-other="{{t $l "vol.pick.selected.other"}}" data-over="{{t $l "vol.pick.over"}}">
+  <input type="search" id="{{.ID}}-q" class="input" autocomplete="off" placeholder="{{t $l "vol.pick.search"}}" aria-label="{{t $l "vol.pick.search"}}" aria-controls="{{.ID}}" data-member-filter>
+  <fieldset id="{{.ID}}" class="max-h-60 divide-y divide-gray-100 overflow-y-auto rounded-md ring-1 ring-gray-200">
+    <legend class="sr-only">{{t $l "vol.slot_form.pick_member"}}</legend>
+    {{range .Members}}
+    <label class="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm hover:bg-gray-50 has-checked:bg-brand-50" data-member="{{.Person.Label}} {{.Person.Email}}">
+      <input type="checkbox" name="person" value="{{.Person.UID}}" class="accent-brand-600">
+      {{template "person_avatar" .Person}}
+      <span class="min-w-0 flex-1 truncate">{{.Person.Label}}</span>
+      <span class="shrink-0 text-xs text-gray-500">{{if eq .SlotCount 0}}{{t $l "vol.manage.no_slot"}}{{else}}{{tn $l "vol.pole.slots" .SlotCount}}{{end}}</span>
+    </label>
+    {{end}}
+    <p class="px-2 py-1.5 text-sm text-gray-500" hidden data-member-none>{{t $l "vol.pick.none"}}</p>
+  </fieldset>
+  <p class="text-xs text-gray-600" aria-live="polite" data-member-count></p>
+</div>
+{{end}}
+
+{{/* sign_up_someone opens the slot_picker of a slot, fetched when opened:
+     the members of the pole, for every card of a long planning, would
+     weigh for nothing. Without script, the slot's page has the same.
+     Expects Lang, Slot, Back and Class. */}}
+{{define "sign_up_someone"}}
+<details class="{{.Class}}" hx-get="{{.Slot.ManageURL}}/picker?back={{queryValue .Back}}" hx-trigger="toggle once" hx-target="find [data-picker]">
+  <summary class="link cursor-pointer list-none">+ {{t .Lang "vol.card.sign_up_someone"}}</summary>
+  <div data-picker class="mt-2"><a class="link" href="{{.Slot.ManageURL}}#volunteers">{{t .Lang "vol.planning.edit_slot"}}</a></div>
+</details>
+{{end}}
+
 {{/* slot_picker signs someone up on a slot from its card: a member of the
      pole, or an address. Expects Lang, Slot, Back, Available and
      CanAddMembers. */}}
@@ -413,11 +442,7 @@
   {{if .Available}}
   <form method="post" action="{{$s.ManageURL}}/volunteers" class="space-y-2">
     <input type="hidden" name="back" value="{{.Back}}">
-    <label for="pick-{{$s.UID}}" class="sr-only">{{t $l "vol.slot_form.pick_member"}}</label>
-    <select id="pick-{{$s.UID}}" class="input" name="person" required>
-      <option value="" disabled selected>{{t $l "vol.slot_form.pick_member"}}</option>
-      {{range .Available}}<option value="{{.Person.UID}}">{{.Person.Label}}{{if eq .SlotCount 0}} — {{t $l "vol.manage.no_slot"}}{{end}}</option>{{end}}
-    </select>
+    {{template "member_pick" (dict "Lang" $l "ID" (printf "pick-%s" $s.UID) "Members" .Available "Slot" $s)}}
     <button class="btn btn-sm">{{t $l "vol.slot_form.sign_up_member"}}</button>
   </form>
   {{else}}<p class="help">{{t $l "vol.slot_form.all_on"}}</p>{{end}}

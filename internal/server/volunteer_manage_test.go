@@ -130,9 +130,9 @@ func TestPoleManagement(t *testing.T) {
 	ninaP, _ := e.st.PersonByEmail(ctx, "nina@example.org")
 
 	_, body = e.get(lead, f.morning.ManageURL())
-	mustContain(t, body, `<option value="`+omarP.UID+`">Omar`, "Allumer la machine")
+	mustContain(t, body, `name="person" value="`+omarP.UID+`"`, `data-member="Omar`, "Rechercher un bénévole…", "Allumer la machine")
 
-	if strings.Contains(body, `<option value="`+ninaP.UID+`"`) {
+	if strings.Contains(body, `name="person" value="`+ninaP.UID+`"`) {
 		t.Error("a volunteer on the slot is offered again")
 	}
 
@@ -401,9 +401,9 @@ func TestSignUpFromSlotCard(t *testing.T) {
 
 	// The form, fetched when opened: the members not on the slot.
 	_, body = e.get(lead, f.overlap.ManageURL()+"/picker?back="+url.QueryEscape(planning))
-	mustContain(t, body, `<option value="`+nina.UID+`">Nina`, `name="back" value="`+strings.ReplaceAll(planning, "&", "&amp;")+`"`)
+	mustContain(t, body, `name="person" value="`+nina.UID+`"`, `data-member="Nina`, `name="back" value="`+strings.ReplaceAll(planning, "&", "&amp;")+`"`)
 
-	if strings.Contains(body, `<option value="`+omar.UID+`"`) {
+	if strings.Contains(body, `name="person" value="`+omar.UID+`"`) {
 		t.Error("someone on the slot is offered again")
 	}
 
@@ -442,4 +442,58 @@ func TestSignUpFromSlotCard(t *testing.T) {
 	if strings.Contains(body, "/picker?") || strings.Contains(body, "/volunteers/"+omar.UID+"/delete") {
 		t.Error("a volunteer gets the lead's buttons")
 	}
+}
+
+// TestSignUpSeveral: whoever runs the pole ticks several members at once,
+// beyond the places left if need be, from the slot's page too; a volunteer
+// cannot.
+func TestSignUpSeveral(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.volFixture()
+	lead := e.loginAs(f.leadEmail)
+
+	var people []*store.Person
+
+	for _, name := range []string{"Nina", "Omar"} {
+		p, err := e.st.EnsureVolunteer(ctx, strings.ToLower(name)+"@example.org", name, "", "fr")
+		mustOK(t, err)
+		mustOK(t, e.st.JoinPole(ctx, f.buvette.ID, p.ID))
+		people = append(people, p)
+	}
+
+	// The slot's page offers the lead the picker and the removal.
+	_, body := e.get(lead, f.morning.URL())
+	mustContain(t, body, f.morning.ManageURL()+"/picker?back="+url.QueryEscape(f.morning.URL()))
+
+	_, body = e.get(lead, f.morning.ManageURL()+"/picker?back="+url.QueryEscape(f.morning.URL()))
+	mustContain(t, body, `type="checkbox" name="person" value="`+people[0].UID+`"`, `data-missing="1"`, `data-single="%d sélectionné·e"`)
+
+	// A volunteer may not sign others up.
+	nina := e.loginAs("nina@example.org")
+	if code, _ := e.post(nina, f.morning.ManageURL()+"/volunteers", url.Values{"person": {people[1].UID}}); code != http.StatusForbidden {
+		t.Errorf("a volunteer signs someone up: %d", code)
+	}
+
+	_, body = e.get(nina, f.morning.URL())
+	if strings.Contains(body, "/picker?") {
+		t.Error("a volunteer gets the picker")
+	}
+
+	// Nothing ticked: said, nothing done.
+	_, body = e.post(lead, f.morning.ManageURL()+"/volunteers", url.Values{"back": {f.morning.URL()}})
+	mustContain(t, body, "Cochez au moins un bénévole")
+
+	// Two on a slot of one: both on, overbooked.
+	_, body = e.post(lead, f.morning.ManageURL()+"/volunteers", url.Values{"person": {people[0].UID, people[1].UID}, "back": {f.morning.URL()}})
+	mustContain(t, body, "Nina, Omar ont été inscrit·es", "×")
+
+	sl, err := e.st.GetSlot(ctx, f.morning.ID, 0)
+	mustOK(t, err)
+
+	if sl.Filled != 2 {
+		t.Errorf("filled: %d", sl.Filled)
+	}
+
+	e.mailed("omar@example.org")
 }

@@ -1160,10 +1160,10 @@ func (s *Server) manageSlotPicker(w http.ResponseWriter, r *http.Request) error 
 	return s.fragment(w, "slot_picker", d)
 }
 
-// manageSlotAddVolunteer puts someone on a slot, even a full one. Two
-// intents, two fields: picking a member of the pole (the common case), or
-// deliberately inviting someone by address. A single "name or e-mail" box
-// turned every typo into an account.
+// manageSlotAddVolunteer puts people on a slot, even a full one: whoever
+// runs the pole decides. Two intents, two fields: picking members of the
+// pole (the common case), or deliberately inviting someone by address. A
+// single "name or e-mail" box turned every typo into an account.
 func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
@@ -1172,13 +1172,11 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	var who *store.Person
+	back := safeRedirect(r.FormValue("back"), sl.ManageURL()+"#volunteers")
 
-	if uid := r.FormValue("person"); uid != "" {
-		if who, err = s.store.GetPersonByUID(ctx, uid); err != nil {
-			return err
-		}
-	} else {
+	var people []*store.Person
+
+	if _, invite := r.PostForm["email"]; invite {
 		email := store.NormalizeEmail(r.FormValue("email"))
 		if !validEmail(email) {
 			http.Redirect(w, r, sl.ManageURL()+"?error=vol.err.invite_email#volunteers", http.StatusSeeOther)
@@ -1186,40 +1184,102 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 			return nil
 		}
 
-		if who, err = s.store.EnsureVolunteer(ctx, email, strings.TrimSpace(r.FormValue("name")), "", rc(r).Lang); err != nil {
-			return err
-		}
-	}
-
-	// Signing someone up makes them a member: on a restricted pole, only the
-	// coordination brings in new people, as in the members tab.
-	member, err := s.store.IsPoleMember(ctx, v.Pole.ID, who.ID)
-	if err != nil {
-		return err
-	}
-
-	if !member {
-		coordinator, err := s.coordinates(r, v.Event.ID)
+		who, err := s.store.EnsureVolunteer(ctx, email, strings.TrimSpace(r.FormValue("name")), "", rc(r).Lang)
 		if err != nil {
 			return err
 		}
 
-		if !coordinator && !v.Pole.ManagersCanAdd() {
-			return errForbidden
-		}
+		people = append(people, who)
+	} else {
+		seen := map[string]bool{}
 
-		if err := s.store.JoinPole(ctx, v.Pole.ID, who.ID); err != nil {
+		for _, uid := range r.PostForm["person"] {
+			if uid == "" || seen[uid] {
+				continue
+			}
+
+			seen[uid] = true
+
+			who, err := s.store.GetPersonByUID(ctx, uid)
+			if err != nil {
+				return err
+			}
+
+			people = append(people, who)
+		}
+	}
+
+	if len(people) == 0 {
+		s.flash(w, "vol.err.pick_member")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+
+		return nil
+	}
+
+	// Signing someone up makes them a member: on a restricted pole, only the
+	// coordination brings in new people, as in the members tab.
+	for _, who := range people {
+		if err := s.ensurePoleMember(r, v, who); err != nil {
 			return err
 		}
 	}
 
-	if err := s.signUpByLead(w, r, v, sl, who); err != nil {
+	if len(people) == 1 {
+		if err := s.signUpByLead(w, r, v, sl, people[0]); err != nil {
+			return err
+		}
+
+		http.Redirect(w, r, back, http.StatusSeeOther)
+
+		return nil
+	}
+
+	var names, also []string
+
+	for _, who := range people {
+		overlaps, err := s.leadSignup(r, v, sl, who)
+		if err != nil {
+			return err
+		}
+
+		names = append(names, who.Label())
+
+		if overlaps != "" {
+			also = append(also, who.Label()+" : "+overlaps)
+		}
+	}
+
+	if len(also) > 0 {
+		s.flash(w, "flash.vol.volunteers_added_overlap", strings.Join(names, ", "), strings.Join(also, " ; "))
+	} else {
+		s.flash(w, "flash.vol.volunteers_added", strings.Join(names, ", "))
+	}
+
+	http.Redirect(w, r, back, http.StatusSeeOther)
+
+	return nil
+}
+
+// ensurePoleMember makes someone signed up by whoever runs the pole one of
+// its members, if allowed.
+func (s *Server) ensurePoleMember(r *http.Request, v *poleView, who *store.Person) error {
+	ctx := r.Context()
+
+	member, err := s.store.IsPoleMember(ctx, v.Pole.ID, who.ID)
+	if err != nil || member {
 		return err
 	}
 
-	http.Redirect(w, r, safeRedirect(r.FormValue("back"), sl.ManageURL()+"#volunteers"), http.StatusSeeOther)
+	coordinator, err := s.coordinates(r, v.Event.ID)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	if !coordinator && !v.Pole.ManagersCanAdd() {
+		return errForbidden
+	}
+
+	return s.store.JoinPole(ctx, v.Pole.ID, who.ID)
 }
 
 // signUpByLead puts a member of the pole on a slot, even a full one, tells
@@ -1227,32 +1287,43 @@ func (s *Server) manageSlotAddVolunteer(w http.ResponseWriter, r *http.Request) 
 // already on at that time, if any, as a volunteer signing up is told; the
 // lead decides, so it only warns.
 func (s *Server) signUpByLead(w http.ResponseWriter, r *http.Request, v *poleView, sl *store.Slot, who *store.Person) error {
-	ctx := r.Context()
-
-	overlaps, err := s.store.OverlappingSlots(ctx, who.ID, v.Pole.ID, sl.ID, sl.StartsAt, sl.EndsAt)
+	also, err := s.leadSignup(r, v, sl, who)
 	if err != nil {
 		return err
 	}
 
-	if err := s.store.ForceSignup(ctx, sl.ID, who.ID); err != nil {
-		return err
-	}
-
-	s.logVol(r, logSlot(store.LogSignupAdded, v.Pole, sl, who))
-	s.notifySignupAdded(who, v.Pole, sl)
-
-	if len(overlaps) > 0 {
-		var also []string
-		for _, o := range overlaps {
-			also = append(also, o.PoleName+" ("+clock(o.StartsAt)+"–"+clock(o.EndsAt)+")")
-		}
-
-		s.flash(w, "flash.vol.volunteer_added_overlap", who.Label(), strings.Join(also, ", "))
+	if also != "" {
+		s.flash(w, "flash.vol.volunteer_added_overlap", who.Label(), also)
 	} else {
 		s.flash(w, "flash.vol.volunteer_added", who.Label(), v.Pole.Name)
 	}
 
 	return nil
+}
+
+// leadSignup does the sign-up of signUpByLead, and tells the other slots
+// the person is on at that time, if any.
+func (s *Server) leadSignup(r *http.Request, v *poleView, sl *store.Slot, who *store.Person) (string, error) {
+	ctx := r.Context()
+
+	overlaps, err := s.store.OverlappingSlots(ctx, who.ID, v.Pole.ID, sl.ID, sl.StartsAt, sl.EndsAt)
+	if err != nil {
+		return "", err
+	}
+
+	if err := s.store.ForceSignup(ctx, sl.ID, who.ID); err != nil {
+		return "", err
+	}
+
+	s.logVol(r, logSlot(store.LogSignupAdded, v.Pole, sl, who))
+	s.notifySignupAdded(who, v.Pole, sl)
+
+	var also []string
+	for _, o := range overlaps {
+		also = append(also, o.PoleName+" ("+clock(o.StartsAt)+"–"+clock(o.EndsAt)+")")
+	}
+
+	return strings.Join(also, ", "), nil
 }
 
 // upcomingPoleSlots are the slots of a pole still to come, the ones a
