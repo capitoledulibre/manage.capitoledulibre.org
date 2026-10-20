@@ -82,6 +82,14 @@ func (s *Server) requireAPIToken(h http.Handler) http.Handler {
 			return
 		}
 
+		// A staff token works while its owner may still log in as staff,
+		// as far as the configuration tells.
+		if t.Staff && !s.staffEmailAllowed(person.Email) {
+			s.unauthorized(w)
+
+			return
+		}
+
 		a, err := access.Load(ctx, s.store, person, t.Staff)
 		if err != nil {
 			slog.Error("api actor", "err", err)

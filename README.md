@@ -271,8 +271,12 @@ the site's cookies never count there. An assistant that supports OAuth
 (`/oauth/register`), and sends the person to `/oauth/authorize`, where they
 log in as usual and agree, read only or with changes; it then trades the
 code (PKCE, S256) for an access token, valid an hour, and a refresh token,
-renewed with it and valid 90 days. The grant shows with the personal
-tokens, on the profile it was made from, and is revoked there.
+renewed with it; a grant lasts 90 days in all, refreshed or not, and a
+code used twice revokes it. The grant shows with the personal tokens, on
+the profile it was made from, and is revoked there. A staff token, made
+by hand or granted, stops working as soon as its owner is no longer in
+`MANAGE_ADMIN_EMAILS` (when staff access is not given by a group, which
+only the identity provider knows at login).
 
 Otherwise, a person makes a personal token by hand. The staff
 make theirs on their staff profile (`/admin/profile`), and these carry the

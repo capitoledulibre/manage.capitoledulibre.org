@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -9,6 +10,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
+
+	"manage/internal/config"
 )
 
 // noRedirect stops at a redirect, to read where it goes.
@@ -71,9 +75,12 @@ func TestOAuthFlow(t *testing.T) {
 	}
 
 	// Registration: an unsafe address is refused.
-	code, body := jsonOf(t)(http.Post(base+"/oauth/register", "application/json", strings.NewReader(`{"redirect_uris":["http://evil.example/cb"]}`)))
-	if code != http.StatusBadRequest || body["error"] != "invalid_redirect_uri" {
-		t.Errorf("unsafe redirect: %d %v", code, body)
+	for _, unsafe := range []string{"http://evil.example/cb", "https://a.example;sandbox/cb", "https://*/cb", "https://a.example%20x/cb",
+		"https://user@a.example/cb", "javascript://a.example/x"} {
+		code, body := jsonOf(t)(http.Post(base+"/oauth/register", "application/json", strings.NewReader(`{"redirect_uris":["`+unsafe+`"]}`)))
+		if code != http.StatusBadRequest || body["error"] != "invalid_redirect_uri" {
+			t.Errorf("unsafe redirect %s: %d %v", unsafe, code, body)
+		}
 	}
 
 	code, client := jsonOf(t)(http.Post(base+"/oauth/register", "application/json",
@@ -178,9 +185,30 @@ func TestOAuthFlow(t *testing.T) {
 		t.Fatalf("token: %d %v", code, tokens)
 	}
 
-	// A code is used once.
+	// A code is used once: used again, as by someone who stole it, it
+	// revokes what it gave.
 	if code, _ := jsonOf(t)(http.PostForm(base+"/oauth/token", exchange)); code != http.StatusBadRequest {
 		t.Errorf("a code used twice: %d", code)
+	}
+
+	resp, err = (&http.Client{Transport: bearer{tokens["access_token"].(string)}}).Post(base+"/mcp", "application/json", strings.NewReader(`{}`))
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("the grant of a reused code: %d", resp.StatusCode)
+	}
+
+	// Once more, for good.
+	resp, err = noRedirect(lead).PostForm(base+"/oauth/authorize", form)
+	mustOK(t, err)
+	resp.Body.Close()
+
+	back, _ = url.Parse(resp.Header.Get("Location"))
+	exchange.Set("code", back.Query().Get("code"))
+
+	if code, tokens = jsonOf(t)(http.PostForm(base+"/oauth/token", exchange)); code != http.StatusOK {
+		t.Fatalf("token: %d %v", code, tokens)
 	}
 
 	// The token reads, and changes, as the lead.
@@ -238,5 +266,31 @@ func TestStaffLoginComesBack(t *testing.T) {
 		if got := resp.Header.Get("Location"); got != want {
 			t.Errorf("next %s: back to %q, want %q", next, got, want)
 		}
+	}
+}
+
+// TestStaffTokenFollowsTheList: a staff token stops working as soon as its
+// owner is taken off the staff addresses.
+func TestStaffTokenFollowsTheList(t *testing.T) {
+	e := newEnv(t, func(c *config.Config) { c.AdminEmails = []string{"sam@conf.test"} })
+
+	admin, err := e.st.UpsertAdmin(context.Background(), "sam@conf.test", "Sam")
+	mustOK(t, err)
+
+	token, _, err := e.st.CreateAPIToken(context.Background(), admin.PersonID, &admin.ID, "Claude", false, time.Hour)
+	mustOK(t, err)
+
+	if out, ok := call(t, e.mcpClient(token), "list_editions", nil); !ok {
+		t.Fatalf("staff token: %s", out)
+	}
+
+	e.app.cfg.AdminEmails = []string{"other@conf.test"}
+
+	resp, err := (&http.Client{Transport: bearer{token}}).Post(e.srv.URL+"/mcp", "application/json", strings.NewReader(`{}`))
+	mustOK(t, err)
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("a former staff member's token: %d", resp.StatusCode)
 	}
 }

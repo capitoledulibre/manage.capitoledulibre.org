@@ -158,7 +158,8 @@ func (s *Store) Cleanup(ctx context.Context) error {
 		return err
 	}
 
-	_, err := s.db.ExecContext(ctx, `DELETE FROM oauth_codes WHERE expires_at <= ?`, now())
+	// A used code is kept an hour past its end, to tell a second use.
+	_, err := s.db.ExecContext(ctx, `DELETE FROM oauth_codes WHERE expires_at <= ?`, now().Add(-time.Hour))
 
 	return err
 }

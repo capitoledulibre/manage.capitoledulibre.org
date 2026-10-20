@@ -150,6 +150,18 @@ func (s *Server) adminCallback(w http.ResponseWriter, r *http.Request) error {
 	return s.startAdminSession(w, r, email, claims.Name)
 }
 
+// staffEmailAllowed tells whether someone may still be staff, when the
+// configuration alone tells: a list of addresses, and no group (a group
+// is only known at login, from the identity provider). A token of someone
+// taken off the list stops working at once; otherwise, at its end.
+func (s *Server) staffEmailAllowed(email string) bool {
+	if s.cfg.AdminGroup != "" || len(s.cfg.AdminEmails) == 0 {
+		return true
+	}
+
+	return slices.Contains(s.cfg.AdminEmails, store.NormalizeEmail(email))
+}
+
 func (s *Server) adminAllowed(email string, groups []string) bool {
 	if slices.Contains(s.cfg.AdminEmails, email) {
 		return true

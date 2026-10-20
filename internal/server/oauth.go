@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -28,16 +29,18 @@ import (
 //   - /oauth/authorize has the person log in as usual and agree, read only
 //     or with changes, then sends a one-time code back to the assistant;
 //   - /oauth/token trades the code for an access token (an hour) and a
-//     refresh token (90 days), renewed together on each refresh.
+//     refresh token, renewed together on each refresh; a grant lasts 90 days
+//     in all, refreshed or not. A code used twice revokes its grant.
 //
 // A grant is an API token (store.APIToken) carrying the client's name: it
 // shows with the personal tokens, on the profile it was granted from, and
 // is revoked there the same way.
 
 const (
-	oauthCodeTTL    = 10 * time.Minute
-	oauthAccessTTL  = time.Hour
-	oauthRefreshTTL = 90 * 24 * time.Hour
+	oauthCodeTTL   = 10 * time.Minute
+	oauthAccessTTL = time.Hour
+	// oauthGrantTTL is how long a grant lasts in all, refreshed or not.
+	oauthGrantTTL = 90 * 24 * time.Hour
 )
 
 func (s *Server) oauthRoutes(mux *router) {
@@ -113,12 +116,19 @@ func (s *Server) oauthMetadata(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+// redirectHost is a host an assistant may be sent back to: a domain name or
+// an address, with a port; nothing that could mean more in a header (the
+// consent page's policy names it).
+var redirectHost = regexp.MustCompile(`^([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*|\[[0-9A-Fa-f:.]+\])(:[0-9]{1,5})?$`)
+
 // validRedirectURI tells whether a client may be sent back to an address:
 // https, the machine itself over http (a desktop assistant), or an app's
-// own scheme (reverse domain, RFC 8252); never with a fragment.
+// own scheme (reverse domain, RFC 8252); never with a fragment, nor a host
+// that is not a plain name or address.
 func validRedirectURI(raw string) bool {
 	u, err := url.Parse(raw)
-	if err != nil || len(raw) > 500 || u.Fragment != "" || u.Scheme == "" {
+	if err != nil || len(raw) > 500 || u.Fragment != "" || u.Scheme == "" || u.User != nil ||
+		u.Host != "" && !redirectHost.MatchString(u.Host) {
 		return false
 	}
 
@@ -339,13 +349,16 @@ func (s *Server) oauthAuthorize(w http.ResponseWriter, r *http.Request) error {
 		d["Host"] = u.Host
 
 		// Agreeing sends the browser on to the assistant: its address is a
-		// destination the consent form may lead to.
+		// destination the consent form may lead to. Registration only takes
+		// plain hosts; checked again, as it goes in a header.
 		origin := u.Scheme + ":"
 		if u.Host != "" {
 			origin = u.Scheme + "://" + u.Host
 		}
 
-		w.Header().Set("Content-Security-Policy", contentSecurityPolicy(origin))
+		if validRedirectURI(req.RedirectURI) {
+			w.Header().Set("Content-Security-Policy", contentSecurityPolicy(origin))
+		}
 	}
 
 	switch {
@@ -450,6 +463,10 @@ func (s *Server) oauthToken(w http.ResponseWriter, r *http.Request) {
 	switch r.PostForm.Get("grant_type") {
 	case "authorization_code":
 		g, err := s.store.ConsumeOAuthCode(ctx, r.PostForm.Get("code"))
+		if errors.Is(err, store.ErrCodeReused) {
+			slog.Warn("oauth code used twice: its grant is revoked", "client", client.Name)
+		}
+
 		if err != nil || g.ClientID != client.ID || g.RedirectURI != r.PostForm.Get("redirect_uri") ||
 			!pkceMatches(r.PostForm.Get("code_verifier"), g.Challenge) {
 			oauthError(w, http.StatusBadRequest, "invalid_grant", "the code is invalid, expired or already used")
@@ -457,7 +474,7 @@ func (s *Server) oauthToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if access, refresh, err = s.store.IssueOAuthTokens(ctx, client, g, oauthAccessTTL, oauthRefreshTTL); err != nil {
+		if access, refresh, err = s.store.IssueOAuthTokens(ctx, client, g, oauthAccessTTL, oauthGrantTTL); err != nil {
 			slog.Error("oauth token", "err", err)
 			oauthError(w, http.StatusInternalServerError, "server_error", "")
 
@@ -466,7 +483,7 @@ func (s *Server) oauthToken(w http.ResponseWriter, r *http.Request) {
 
 		writes = g.Writes
 	case "refresh_token":
-		if access, refresh, writes, err = s.store.RefreshOAuthTokens(ctx, client, r.PostForm.Get("refresh_token"), oauthAccessTTL, oauthRefreshTTL); err != nil {
+		if access, refresh, writes, err = s.store.RefreshOAuthTokens(ctx, client, r.PostForm.Get("refresh_token"), oauthAccessTTL); err != nil {
 			oauthError(w, http.StatusBadRequest, "invalid_grant", "the refresh token is invalid, expired or revoked")
 
 			return

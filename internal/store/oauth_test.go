@@ -39,7 +39,7 @@ func TestOAuth(t *testing.T) {
 		t.Fatalf("code: %v %+v", err, g)
 	}
 
-	if _, err := s.ConsumeOAuthCode(ctx, code); !errors.Is(err, ErrNotFound) {
+	if _, err := s.ConsumeOAuthCode(ctx, code); !errors.Is(err, ErrCodeReused) {
 		t.Errorf("a code used twice: %v", err)
 	}
 
@@ -69,12 +69,12 @@ func TestOAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, _, _, err := s.RefreshOAuthTokens(ctx, other, refresh, time.Hour, 24*time.Hour); !errors.Is(err, ErrNotFound) {
+	if _, _, _, err := s.RefreshOAuthTokens(ctx, other, refresh, time.Hour); !errors.Is(err, ErrNotFound) {
 		t.Errorf("a refresh by another client: %v", err)
 	}
 
 	// Refreshing renews both; the former ones stop working.
-	access2, refresh2, writes, err := s.RefreshOAuthTokens(ctx, client, refresh, time.Hour, 24*time.Hour)
+	access2, refresh2, writes, err := s.RefreshOAuthTokens(ctx, client, refresh, time.Hour)
 	if err != nil || !writes {
 		t.Fatalf("refresh: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestOAuth(t *testing.T) {
 		t.Errorf("the former access token works: %v", err)
 	}
 
-	if _, _, _, err := s.RefreshOAuthTokens(ctx, client, refresh, time.Hour, 24*time.Hour); !errors.Is(err, ErrNotFound) {
+	if _, _, _, err := s.RefreshOAuthTokens(ctx, client, refresh, time.Hour); !errors.Is(err, ErrNotFound) {
 		t.Errorf("the former refresh token works: %v", err)
 	}
 
@@ -91,9 +91,44 @@ func TestOAuth(t *testing.T) {
 		t.Errorf("the new access token: %v", err)
 	}
 
+	// Refreshing renews the tokens, never the grant's end.
+	renewed, err := s.APITokenFor(ctx, access2)
+	if err != nil || !renewed.RenewsUntil.Equal(*tok.RenewsUntil) {
+		t.Errorf("the grant's end moved: %v → %v", tok.RenewsUntil, renewed.RenewsUntil)
+	}
+
+	// Nor beyond it: an access token never outlives its grant.
+	short, err := s.CreateOAuthCode(ctx, grant, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sg, err := s.ConsumeOAuthCode(ctx, short)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	shortAccess, _, err := s.IssueOAuthTokens(ctx, client, sg, time.Hour, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if st, err := s.APITokenFor(ctx, shortAccess); err != nil || st.ExpiresAt.After(*st.RenewsUntil) {
+		t.Errorf("an access token outlives its grant: %v %+v", err, st)
+	}
+
+	// A code used again revokes the grant it was traded for.
+	if _, err := s.ConsumeOAuthCode(ctx, short); !errors.Is(err, ErrCodeReused) {
+		t.Errorf("reuse: %v", err)
+	}
+
+	if _, err := s.APITokenFor(ctx, shortAccess); !errors.Is(err, ErrNotFound) {
+		t.Errorf("the grant of a reused code works: %v", err)
+	}
+
 	// Revoking the grant ends both.
 	list, err := s.ListAPITokens(ctx, p.ID)
-	if err != nil || len(list) != 1 {
+	if err != nil || len(list) != 1 || list[0].Client != "Claude" {
 		t.Fatalf("grants: %v %d", err, len(list))
 	}
 
@@ -101,7 +136,7 @@ func TestOAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, _, _, err := s.RefreshOAuthTokens(ctx, client, refresh2, time.Hour, 24*time.Hour); !errors.Is(err, ErrNotFound) {
+	if _, _, _, err := s.RefreshOAuthTokens(ctx, client, refresh2, time.Hour); !errors.Is(err, ErrNotFound) {
 		t.Errorf("a revoked grant renews: %v", err)
 	}
 }
