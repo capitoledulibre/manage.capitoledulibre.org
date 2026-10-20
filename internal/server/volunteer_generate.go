@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -452,7 +453,7 @@ func (s *Server) plan(r *http.Request, v *poleView, f *genForm, locations []*sto
 
 	// What already exists is not created twice: the generator can run again
 	// after a change without doubling the planning.
-	have, err := s.existingSlots(r, v)
+	have, err := s.existingSlots(r.Context(), v)
 	if err != nil {
 		return nil, err
 	}
@@ -551,8 +552,8 @@ func slotKey(locationID int64, start, end time.Time) string {
 	return fmt.Sprintf("%d|%d|%d", locationID, start.Unix(), end.Unix())
 }
 
-func (s *Server) existingSlots(r *http.Request, v *poleView) (map[string]bool, error) {
-	slots, err := s.store.ListSlots(r.Context(), v.Pole.ID, 0)
+func (s *Server) existingSlots(ctx context.Context, v *poleView) (map[string]bool, error) {
+	slots, err := s.store.ListSlots(ctx, v.Pole.ID, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -589,45 +590,9 @@ func (s *Server) generateSubmit(w http.ResponseWriter, r *http.Request) error {
 		return s.renderGenerate(w, r, v, f, locations, plan)
 	}
 
-	// The new places first, then the slots.
-	byName := map[string]int64{}
-	for _, l := range locations {
-		byName[l.Name] = l.ID
-	}
-
-	for _, name := range plan.NewPlaces {
-		l, err := s.store.CreateLocation(ctx, v.Pole.ID, name)
-		if err != nil {
-			return err
-		}
-
-		byName[name] = l.ID
-	}
-
-	have, err := s.existingSlots(r, v)
-	if err != nil {
-		return err
-	}
-
-	var labels []string
-
-	for line := range strings.SplitSeq(f.Tasks, "\n") {
-		if l := strings.TrimSpace(line); l != "" {
-			labels = append(labels, l)
-		}
-	}
-
-	places := []int64{0}
-	if len(plan.Places) > 0 {
-		places = places[:0]
-		for _, name := range plan.Places {
-			places = append(places, byName[name])
-		}
-	}
-
-	created := 0
-
 	// The timetable of the preview, as ticked and typed.
+	var planned []plannedSlot
+
 	for _, d := range plan.Days {
 		for i, row := range d.Grid {
 			g := d.Ranges[i]
@@ -637,30 +602,22 @@ func (s *Server) generateSubmit(w http.ResponseWriter, r *http.Request) error {
 					continue
 				}
 
-				locID := places[j]
+				place := ""
+				if len(plan.Places) > 0 {
+					place = plan.Places[j]
+				}
+
 				start, end := genTimes(d.Day, g)
-
-				if have[slotKey(locID, start, end)] {
-					continue
-				}
-
-				sl := &store.Slot{PoleID: v.Pole.ID, LocationID: locID, Title: f.Title, Capacity: cell.Capacity, StartsAt: start, EndsAt: end}
-				if err := s.store.CreateSlot(ctx, sl); err != nil {
-					return err
-				}
-
-				for _, label := range labels {
-					if _, err := s.store.CreateTask(ctx, sl.ID, label); err != nil {
-						return err
-					}
-				}
-
-				created++
+				planned = append(planned, plannedSlot{Place: place, StartsAt: start, EndsAt: end, Capacity: cell.Capacity, Title: f.Title})
 			}
 		}
 	}
 
-	s.logSlotsCreated(r, v.Pole, created)
+	created, err := s.createPlanned(ctx, act(r), v, plan.NewPlaces, planned, nonBlankLines(f.Tasks))
+	if err != nil {
+		return err
+	}
+
 	s.flashCount(w, "flash.vol.slots_created", created)
 
 	return s.redirectTab(w, r, v.Pole, "")

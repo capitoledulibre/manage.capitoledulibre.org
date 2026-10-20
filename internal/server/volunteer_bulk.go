@@ -3,7 +3,6 @@ package server
 import (
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"manage/internal/i18n"
@@ -132,13 +131,6 @@ func (s *Server) manageSlotsBulkDelete(w http.ResponseWriter, r *http.Request) e
 		return errBadInput
 	}
 
-	var (
-		lost    = map[int64][]*store.Slot{}
-		people  []*store.Person
-		deleted int
-		told    = map[int64]bool{}
-	)
-
 	// Every slot ticked is checked before any goes: a bad one stops all.
 	var slots []*store.Slot
 
@@ -155,51 +147,13 @@ func (s *Server) manageSlotsBulkDelete(w http.ResponseWriter, r *http.Request) e
 		slots = append(slots, sl)
 	}
 
-	for _, sl := range slots {
-		// Read who is on it before the cascade removes the sign-ups.
-		volunteers, err := s.store.ListSlotVolunteers(ctx, sl.ID)
-		if err != nil {
-			return err
-		}
-
-		waiting, err := s.store.ListWaitlist(ctx, sl.ID)
-		if err != nil {
-			return err
-		}
-
-		if err := s.store.DeleteSlot(ctx, sl.ID); err != nil {
-			return err
-		}
-
-		entry := logSlot(store.LogSlotDeleted, v.Pole, sl, nil)
-		entry.Count = len(volunteers)
-		s.logVol(r, entry)
-
-		for _, p := range append(volunteers, waiting...) {
-			if !told[p.ID] {
-				told[p.ID] = true
-				people = append(people, p)
-			}
-
-			lost[p.ID] = append(lost[p.ID], sl)
-		}
-
-		deleted++
+	done, err := s.deleteSlots(ctx, act(r), v, slots)
+	if err != nil {
+		return err
 	}
 
-	pole := v.Pole
-	s.notifyPeople(people, func(lang string) string { return volSubject(lang, "mail.vol.slots_deleted.subject", pole.Name) },
-		func(p *store.Person) string {
-			var lines []string
-			for _, sl := range lost[p.ID] {
-				lines = append(lines, "  "+slotLine(p.Lang, pole, sl))
-			}
-
-			return s.volMail(p, pole.EventSlug, plural(p.Lang, "mail.vol.slots_deleted.body", len(lines), strings.Join(lines, "\n")))
-		})
-
-	s.flashCount(w, "flash.vol.slots_deleted", deleted, strconv.Itoa(len(people)))
-	http.Redirect(w, r, pole.ManageURL()+"/slots/bulk", http.StatusSeeOther)
+	s.flashCount(w, "flash.vol.slots_deleted", done.Slots, strconv.Itoa(done.Told))
+	http.Redirect(w, r, v.Pole.ManageURL()+"/slots/bulk", http.StatusSeeOther)
 
 	return nil
 }

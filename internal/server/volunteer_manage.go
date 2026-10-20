@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/mail"
@@ -656,129 +657,69 @@ func (s *Server) manageSlotNew(w http.ResponseWriter, r *http.Request) error {
 		Slot: &store.Slot{StartsAt: start, EndsAt: start.Add(2 * time.Hour), Capacity: 1}}, nil)
 }
 
-// slotFromForm reads the fields of the slot form into sl.
-func (s *Server) slotFromForm(r *http.Request, v *poleView, sl *store.Slot) (string, error) {
-	sl.Title = strings.TrimSpace(r.FormValue("title"))
-	sl.Capacity = formInt(r, "capacity")
-	sl.LocationID = 0
+// slotDraftFromForm reads the fields of the slot form.
+func slotDraftFromForm(r *http.Request) slotDraft {
+	d := slotDraft{Title: r.FormValue("title"), Capacity: formInt(r, "capacity"), Location: r.FormValue("location")}
 
-	if uid := r.FormValue("location"); uid != "" {
-		l, err := s.store.GetLocationByUID(r.Context(), v.Pole.ID, uid)
-		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			return "", err
-		}
+	start, okStart := formTime(r, "starts_at")
+	end, okEnd := formTime(r, "ends_at")
 
-		if l != nil {
-			sl.LocationID, sl.LocationName = l.ID, l.Name
-		}
+	if okStart && okEnd {
+		d.StartsAt, d.EndsAt = start, end
 	}
 
-	var okStart, okEnd bool
+	return d
+}
 
-	sl.StartsAt, okStart = formTime(r, "starts_at")
-	sl.EndsAt, okEnd = formTime(r, "ends_at")
-
-	switch {
-	case !okStart || !okEnd || !sl.EndsAt.After(sl.StartsAt):
-		return "vol.err.slot_times", nil
-	case sl.Capacity < 1 || sl.Capacity > 500:
-		return "vol.err.slot_capacity", nil
+// slotRefusal is the error and confirmation a slot form shows again after
+// a refusal.
+func slotRefusal(rf *refusal) (msg string, outside bool) {
+	if rf.Key == outsideKey {
+		return "", true
 	}
 
-	return "", nil
+	return rf.Key, false
 }
 
 // manageSlotCreate creates a slot, or a series of them: consecutive slots
 // of the same length up to a time, for one location or for each of them.
 func (s *Server) manageSlotCreate(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, err := s.managedPole(r)
 	if err != nil {
 		return err
 	}
 
-	sl := &store.Slot{PoleID: v.Pole.ID}
+	series := slotSeries{AllLocations: r.FormValue("all_locations") == "1", Tasks: nonBlankLines(r.FormValue("tasks"))}
+	if until, ok := formTime(r, "repeat_until"); ok {
+		series.Until = until
+	}
 
-	msg, err := s.slotFromForm(r, v, sl)
+	created, typed, err := s.createSlots(r.Context(), act(r), v, slotDraftFromForm(r), series, r.FormValue("outside_ok") == "yes")
+	if rf, ok := refused(err); ok {
+		msg, outside := slotRefusal(rf)
+
+		return s.renderSlotForm(w, r, &slotForm{V: v, New: true, Slot: typed, Error: msg, Outside: outside, Tasks: r.FormValue("tasks"),
+			RepeatUntil: r.FormValue("repeat_until"), AllLocations: series.AllLocations}, nil)
+	}
+
 	if err != nil {
 		return err
 	}
 
-	outside := msg == "" && outsideEdition(v.Event, sl) && r.FormValue("outside_ok") != "yes"
-
-	if msg != "" || outside {
-		return s.renderSlotForm(w, r, &slotForm{V: v, New: true, Slot: sl, Error: msg, Outside: outside, Tasks: r.FormValue("tasks"),
-			RepeatUntil: r.FormValue("repeat_until"), AllLocations: r.FormValue("all_locations") == "1"}, nil)
-	}
-
-	length := sl.EndsAt.Sub(sl.StartsAt)
-	starts := []time.Time{sl.StartsAt}
-
-	if until, ok := formTime(r, "repeat_until"); ok {
-		for t := sl.StartsAt.Add(length); !t.Add(length).After(until) && len(starts) < 200; t = t.Add(length) {
-			starts = append(starts, t)
-		}
-	}
-
-	locIDs := []int64{sl.LocationID}
-
-	if r.FormValue("all_locations") == "1" {
-		locations, err := s.store.ListLocations(ctx, v.Pole.ID)
-		if err != nil {
-			return err
-		}
-
-		if len(locations) > 0 {
-			locIDs = locIDs[:0]
-			for _, l := range locations {
-				locIDs = append(locIDs, l.ID)
-			}
-		}
-	}
-
-	var labels []string
-
-	for line := range strings.SplitSeq(r.FormValue("tasks"), "\n") {
-		if l := strings.TrimSpace(line); l != "" {
-			labels = append(labels, l)
-		}
-	}
-
-	created := 0
-
-	for _, locID := range locIDs {
-		for _, start := range starts {
-			n := &store.Slot{PoleID: v.Pole.ID, LocationID: locID, Title: sl.Title, Capacity: sl.Capacity, StartsAt: start, EndsAt: start.Add(length)}
-			if err := s.store.CreateSlot(ctx, n); err != nil {
-				return err
-			}
-
-			for _, label := range labels {
-				if _, err := s.store.CreateTask(ctx, n.ID, label); err != nil {
-					return err
-				}
-			}
-
-			created++
-		}
-	}
-
-	s.logSlotsCreated(r, v.Pole, created)
 	s.flashCount(w, "flash.vol.slots_created", created)
 
 	return s.redirectTab(w, r, v.Pole, "")
 }
 
 // logSlotsCreated records slots created in a pole, by hand or generated.
-func (s *Server) logSlotsCreated(r *http.Request, p *store.Pole, n int) {
+func (s *Server) logSlotsCreated(ctx context.Context, actor *store.Person, p *store.Pole, n int) {
 	if n == 0 {
 		return
 	}
 
 	e := logPole(store.LogSlotsCreated, p, nil)
 	e.Count = n
-	s.logVol(r, e)
+	s.logAs(ctx, actor, e)
 }
 
 func (s *Server) manageSlotEdit(w http.ResponseWriter, r *http.Request) error {
@@ -851,63 +792,26 @@ func (s *Server) slotEditExtras(r *http.Request, v *poleView, sl *store.Slot) (m
 }
 
 func (s *Server) manageSlotSave(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, sl, err := s.managedSlot(r)
 	if err != nil {
 		return err
 	}
 
-	before := *sl
+	notified, typed, err := s.updateSlot(r.Context(), act(r), v, sl, slotDraftFromForm(r), r.FormValue("outside_ok") == "yes")
+	if rf, ok := refused(err); ok {
+		msg, outside := slotRefusal(rf)
 
-	msg, err := s.slotFromForm(r, v, sl)
-	if err != nil {
-		return err
-	}
-
-	outside := msg == "" && outsideEdition(v.Event, sl) && !outsideEdition(v.Event, &before) && r.FormValue("outside_ok") != "yes"
-
-	if msg != "" || outside {
 		// The form comes back with what was typed.
-		extra, err := s.slotEditExtras(r, v, &before)
+		extra, err := s.slotEditExtras(r, v, sl)
 		if err != nil {
 			return err
 		}
 
-		return s.renderSlotForm(w, r, &slotForm{V: v, Slot: sl, Error: msg, Outside: outside}, extra)
+		return s.renderSlotForm(w, r, &slotForm{V: v, Slot: typed, Error: msg, Outside: outside}, extra)
 	}
 
-	if err := s.store.UpdateSlot(ctx, sl); err != nil {
-		return err
-	}
-
-	after, err := s.store.GetSlot(ctx, sl.ID, 0)
 	if err != nil {
 		return err
-	}
-
-	notified := 0
-	moved := !before.StartsAt.Equal(after.StartsAt) || !before.EndsAt.Equal(after.EndsAt) || before.LocationID != after.LocationID
-
-	if moved {
-		s.logVol(r, logSlot(store.LogSlotMoved, v.Pole, after, nil))
-	} else {
-		s.logVol(r, logSlot(store.LogSlotUpdated, v.Pole, after, nil))
-	}
-
-	if moved {
-		volunteers, err := s.store.ListSlotVolunteers(ctx, sl.ID)
-		if err != nil {
-			return err
-		}
-
-		s.notifySlotChanged(volunteers, v.Pole, &before, after)
-		notified = len(volunteers)
-	}
-
-	// More places on a slot that was full: the waiting list wants to know.
-	if before.IsFull() && !after.IsFull() {
-		s.announceFreePlace(r.Context(), v.Pole, sl.ID)
 	}
 
 	s.flashCount(w, "flash.vol.slot_saved", notified)
@@ -916,101 +820,42 @@ func (s *Server) manageSlotSave(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) manageSlotDelete(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, sl, err := s.managedSlot(r)
 	if err != nil {
 		return err
 	}
 
-	// Read who is on it before the cascade removes the sign-ups.
-	volunteers, err := s.store.ListSlotVolunteers(ctx, sl.ID)
+	done, err := s.deleteSlots(r.Context(), act(r), v, []*store.Slot{sl})
 	if err != nil {
 		return err
 	}
 
-	waiting, err := s.store.ListWaitlist(ctx, sl.ID)
-	if err != nil {
-		return err
-	}
-
-	if err := s.store.DeleteSlot(ctx, sl.ID); err != nil {
-		return err
-	}
-
-	deleted := logSlot(store.LogSlotDeleted, v.Pole, sl, nil)
-	deleted.Count = len(volunteers)
-	s.logVol(r, deleted)
-
-	s.notifySlotDeleted(append(volunteers, waiting...), v.Pole, sl)
-	s.flashCount(w, "flash.vol.slot_deleted", len(volunteers))
+	s.flashCount(w, "flash.vol.slot_deleted", done.Signups)
 
 	return s.redirectTab(w, r, v.Pole, "")
 }
 
-// manageDayCopy copies the slots of a day of the pole to another day: same
-// hours, places, titles, places wanted and tasks, nobody signed up. A
+// manageDayCopy copies the slots of a day of the pole to another day: a
 // two-day event is often the same day twice.
 func (s *Server) manageDayCopy(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, err := s.managedPole(r)
 	if err != nil {
 		return err
 	}
 
-	from, err1 := time.ParseInLocation(time.DateOnly, r.FormValue("from"), paris)
-	to, err2 := time.ParseInLocation(time.DateOnly, r.FormValue("to"), paris)
+	from, _ := time.ParseInLocation(time.DateOnly, r.FormValue("from"), paris)
+	to, _ := time.ParseInLocation(time.DateOnly, r.FormValue("to"), paris)
 
-	if err1 != nil || err2 != nil || from.Equal(to) {
-		s.flash(w, "vol.err.day_copy")
+	created, skipped, err := s.copyDay(r.Context(), act(r), v, from, to)
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
 
 		return s.redirectTab(w, r, v.Pole, "")
 	}
 
-	slots, err := s.store.ListSlots(ctx, v.Pole.ID, 0)
 	if err != nil {
 		return err
 	}
-
-	// As the generator does, a slot already there (same place and times)
-	// is skipped: copying twice, or after a slow page, makes no doubles.
-	have, err := s.existingSlots(r, v)
-	if err != nil {
-		return err
-	}
-
-	created, skipped := 0, 0
-
-	for _, sl := range slots {
-		if dayKey(sl.StartsAt) != from.Format(time.DateOnly) {
-			continue
-		}
-
-		// The clock time is kept across a change of daylight saving time.
-		start := sl.StartsAt.In(paris)
-		at := time.Date(to.Year(), to.Month(), to.Day(), start.Hour(), start.Minute(), 0, 0, paris)
-
-		n := &store.Slot{PoleID: v.Pole.ID, LocationID: sl.LocationID, Title: sl.Title, Capacity: sl.Capacity,
-			StartsAt: at, EndsAt: at.Add(sl.EndsAt.Sub(sl.StartsAt))}
-		if have[slotKey(n.LocationID, n.StartsAt, n.EndsAt)] {
-			skipped++
-
-			continue
-		}
-
-		if err := s.store.CreateSlot(ctx, n); err != nil {
-			return err
-		}
-
-		if err := s.store.CopyTasks(ctx, sl.ID, n.ID); err != nil {
-			return err
-		}
-
-		created++
-	}
-
-	s.logSlotsCreated(r, v.Pole, created)
 
 	if skipped > 0 {
 		s.flashCount(w, "flash.vol.day_copied_skip", created, dayName(rc(r).Lang, to), strconv.Itoa(skipped))
@@ -1024,17 +869,13 @@ func (s *Server) manageDayCopy(w http.ResponseWriter, r *http.Request) error {
 // --- tasks ------------------------------------------------------------------
 
 func (s *Server) manageTaskAdd(w http.ResponseWriter, r *http.Request) error {
-	_, sl, err := s.managedSlot(r)
+	v, sl, err := s.managedSlot(r)
 	if err != nil {
 		return err
 	}
 
-	for line := range strings.SplitSeq(r.FormValue("labels"), "\n") {
-		if l := strings.TrimSpace(line); l != "" {
-			if _, err := s.store.CreateTask(r.Context(), sl.ID, l); err != nil {
-				return err
-			}
-		}
+	if err := s.addTasks(r.Context(), act(r), v, sl, nonBlankLines(r.FormValue("labels"))); err != nil {
+		return err
 	}
 
 	http.Redirect(w, r, sl.ManageURL()+"#tasks", http.StatusSeeOther)
@@ -1043,28 +884,13 @@ func (s *Server) manageTaskAdd(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) manageTaskDelete(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-
 	v, err := s.managedPole(r)
 	if err != nil {
 		return err
 	}
 
-	task, err := s.store.GetTaskByUID(ctx, r.PathValue("task"))
+	sl, err := s.deleteTask(r.Context(), act(r), v, r.PathValue("task"))
 	if err != nil {
-		return err
-	}
-
-	sl, err := s.store.GetSlot(ctx, task.SlotID, 0)
-	if err != nil {
-		return err
-	}
-
-	if sl.PoleID != v.Pole.ID {
-		return errNotFound
-	}
-
-	if err := s.store.DeleteTask(ctx, task.ID); err != nil {
 		return err
 	}
 
