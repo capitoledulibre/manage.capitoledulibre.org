@@ -257,6 +257,37 @@ The format is pinned by `internal/export/testdata/export.golden.json`. After
 an intentional change, run `go test ./internal/export -update` and review the
 diff.
 
+## MCP server for AI assistants
+
+The volunteer side can be read by an AI assistant that speaks the
+[Model Context Protocol](https://modelcontextprotocol.io) (Claude, for
+instance), at `$MANAGE_BASE_URL/mcp` (streamable HTTP, no session).
+
+Each person authenticates with a personal token, sent as
+`Authorization: Bearer`; the site's cookies never count there. The staff
+make theirs on their staff profile (`/admin/profile`), and these carry the
+staff's rights; coordinators and pole managers make theirs on "My profile"
+(`/me`), and these carry their roles. A token is shown once, lasts 90 days
+and can be revoked; only its hash is stored, and a staff token goes with
+its owner's staff access.
+
+The assistant reads what the person sees on the site, through the same
+rules (`internal/access`), and changes nothing:
+
+| Tool | What it reads |
+|---|---|
+| `list_editions` | the editions the person may see, their dates, status and the person's roles |
+| `pole_coverage` | per pole: members, slots, places wanted and filled, slots short of people |
+| `planning` | the slots day by day with who is on them (`view`: all, mine, open, late; `pole`, `day`) |
+| `pole_members` | the members of a pole the person runs, with their contact details |
+| `volunteer` | one volunteer by address, for the coordination: poles, slots, t-shirt, meals |
+| `logistics` | t-shirts and meals counted, answers missing, for the coordination |
+
+Contact details only go to whoever runs the pole, as on the pages. Dietary
+needs are counted, never quoted: what a volunteer wrote stays on the site.
+Whatever the assistant reads is sent to its provider; mind it before making
+a token.
+
 ## Deployment
 
 ```sh
@@ -296,7 +327,9 @@ docker exec manage /manage backup /data/backup-$(date +%F).db
 cmd/manage/          entry point: serve, export, backup
 internal/config/     environment configuration
 internal/store/      SQLite schema (migrations/), models and queries
-internal/server/     HTTP handlers: public, partner, volunteer, admin, OIDC, reminders
+internal/access/     who may do what with the volunteers (pure rules, no HTTP)
+internal/server/     HTTP handlers (public, partner, volunteer, admin, OIDC, reminders),
+                     the services they call, and the MCP server
 internal/export/     JSON export
 internal/files/      uploaded file storage and validation
 internal/gravatar/   server-side Gravatar lookup for profile pictures

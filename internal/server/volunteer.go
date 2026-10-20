@@ -31,6 +31,8 @@ func (s *Server) volunteerRoutes(mux *router) {
 	vol("GET /welcome", s.volunteerWelcome)
 	vol("GET /me", s.volunteerProfile)
 	vol("POST /me", s.volunteerProfileSave)
+	vol("POST /me/tokens", s.meTokenCreate)
+	vol("POST /me/tokens/{token}/delete", s.meTokenDelete)
 	vol("POST /me/delete", s.volunteerLeave)
 	vol("POST /me/photo", s.profilePhoto)
 	vol("POST /me/photo/delete", s.profilePhotoDelete)
@@ -615,6 +617,12 @@ func (s *Server) volunteerWelcome(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *Server) volunteerProfile(w http.ResponseWriter, r *http.Request) error {
+	return s.renderVolunteerProfile(w, r, "")
+}
+
+// renderVolunteerProfile shows "My profile", with the token just made, if
+// any: the only time it is shown.
+func (s *Server) renderVolunteerProfile(w http.ResponseWriter, r *http.Request, newToken string) error {
 	ctx := r.Context()
 	c := rc(r)
 
@@ -633,6 +641,14 @@ func (s *Server) volunteerProfile(w http.ResponseWriter, r *http.Request) error 
 	p := s.page(r, "vol.profile.title")
 	p.D = map[string]any{"Next": r.URL.Query().Get("next"), "PoleManager": manager, "OtherRoles": len(contacts) > 0 || c.Admin != nil,
 		"Gravatar": s.gravatar.Enabled(), "MaxAvatar": maxAvatarSize}
+
+	// API tokens are for those who run something; the staff's are on their
+	// staff profile.
+	if a := act(r); a.HasRoles() && !a.Staff {
+		if p.D.(map[string]any)["API"], err = s.apiTokensOf(r, c.Person.ID, "/me/tokens", newToken); err != nil {
+			return err
+		}
+	}
 
 	return s.render(w, r, "volunteer/profile", p)
 }

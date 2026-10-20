@@ -54,6 +54,7 @@
     {{if ne .Person.AvatarSource "upload"}}{{t .Lang "vol.profile.gravatar_private"}}{{end}}</p>
   {{end}}
 </section>
+{{with $d.API}}<div class="mx-auto mt-8 max-w-lg">{{template "api_tokens" (dict "Lang" $.Lang "API" .)}}</div>{{end}}
 <details class="mx-auto mt-8 max-w-lg">
   <summary class="cursor-pointer text-sm text-gray-500">{{t .Lang "vol.profile.leave_title"}}</summary>
   <div class="mt-3 rounded-lg p-4 ring-1 ring-red-200">

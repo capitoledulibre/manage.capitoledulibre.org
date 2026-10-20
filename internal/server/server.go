@@ -158,6 +158,9 @@ func (s *Server) wrap(h handlerFunc) http.Handler {
 // Handler returns the root HTTP handler.
 func (s *Server) Handler() http.Handler {
 	protection := http.NewCrossOriginProtection()
+	// The API takes a token, never the site's cookies: a request from
+	// another origin cannot act on anyone's behalf there.
+	protection.AddInsecureBypassPattern("/mcp")
 
 	var h http.Handler = s.routes()
 	h = limitBodies(h)
@@ -230,6 +233,7 @@ func (s *Server) routes() *router {
 	s.partnerRoutes(mux)
 	s.volunteerRoutes(mux)
 	s.adminRoutes(mux)
+	s.mcpRoutes(mux)
 
 	return mux
 }

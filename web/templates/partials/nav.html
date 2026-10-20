@@ -433,3 +433,48 @@
   "Accept" ".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" "Formats" "PNG, JPEG, WebP" "MaxBytes" (uploadLimit "avatar")
   "Title" (printf "Photo de %s" $p.Label) "Image" true "NoButton" true "Hidden" (dict "back" .Back))}}
 {{end}}
+
+{{/* api_tokens is the personal tokens section of a profile: what they are
+     for, the address of the MCP server, the token just made (shown once),
+     the tokens and their revocation. Expects Lang and API. */}}
+{{define "api_tokens"}}
+{{$l := .Lang}}{{$api := .API}}
+<section id="api" class="card">
+  <h2 class="card-title">{{t $l "api.title"}}</h2>
+  <p class="text-sm text-gray-700">{{t $l "api.intro"}}</p>
+  <div class="mt-4">
+    <label class="label" for="mcp-url">{{t $l "api.url"}}</label>
+    <div class="flex gap-2">
+      <input id="mcp-url" class="input font-mono text-xs" type="text" readonly value="{{$api.MCPURL}}" data-select-on-focus>
+      <button type="button" class="btn-secondary btn-sm shrink-0" data-copy="#mcp-url" data-copied="{{t $l "vol.copied"}}">{{t $l "vol.copy"}}</button>
+    </div>
+  </div>
+  {{with $api.NewToken}}
+  <div class="mt-4 rounded-md bg-green-50 p-4 text-sm text-green-900 ring-1 ring-green-200" role="status">
+    <p class="font-medium">{{t $l "api.new"}}</p>
+    <div class="mt-2 flex gap-2">
+      <label for="new-token" class="sr-only">{{t $l "api.token"}}</label>
+      <input id="new-token" class="input font-mono text-xs" type="text" readonly value="{{.}}" data-select-on-focus>
+      <button type="button" class="btn-secondary btn-sm shrink-0" data-copy="#new-token" data-copied="{{t $l "vol.copied"}}">{{t $l "vol.copy"}}</button>
+    </div>
+  </div>
+  {{end}}
+  <ul class="mt-4 divide-y divide-gray-100 text-sm">
+    {{range $api.Tokens}}
+    <li class="flex flex-wrap items-center justify-between gap-2 py-2">
+      <span><strong>{{.Name}}</strong>{{if .Staff}} <span class="badge bg-brand-50 text-brand-800">staff</span>{{end}}
+        <span class="text-gray-500">· {{t $l "api.expires" (date $l .ExpiresAt)}} · {{with .LastUsedAt}}{{t $l "api.used" (date $l .)}}{{else}}{{t $l "api.never_used"}}{{end}}</span></span>
+      <form method="post" action="{{$api.Base}}/{{.UID}}/delete" data-confirm="{{t $l "api.revoke_confirm" .Name}}"><button class="btn-danger btn-sm">{{t $l "api.revoke"}}</button></form>
+    </li>
+    {{else}}<li class="py-2 text-gray-500">{{t $l "api.none"}}</li>{{end}}
+  </ul>
+  <form method="post" action="{{$api.Base}}" class="mt-4 flex flex-wrap items-end gap-2">
+    <div class="flex-1">
+      <label class="label" for="token-name">{{t $l "api.name"}}</label>
+      <input id="token-name" class="input" name="name" maxlength="60" placeholder="Claude">
+    </div>
+    <button class="btn">{{t $l "api.create"}}</button>
+  </form>
+  <p class="help mt-3">{{t $l "api.help"}}</p>
+</section>
+{{end}}

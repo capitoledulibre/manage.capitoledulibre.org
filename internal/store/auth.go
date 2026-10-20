@@ -148,7 +148,13 @@ func (s *Store) Cleanup(ctx context.Context) error {
 		return err
 	}
 
-	_, err := s.db.ExecContext(ctx, `DELETE FROM magic_tokens WHERE expires_at <= ?`, now().Add(-24*time.Hour))
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM magic_tokens WHERE expires_at <= ?`, now().Add(-24*time.Hour)); err != nil {
+		return err
+	}
+
+	// An expired API token stays listed a month, for its owner to see why
+	// their assistant lost access.
+	_, err := s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE expires_at <= ?`, now().Add(-30*24*time.Hour))
 
 	return err
 }

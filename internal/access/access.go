@@ -162,3 +162,9 @@ func (a *Actor) CanAppointManagers(p *store.Pole) bool {
 func (a *Actor) CanAppointCoordinators() bool {
 	return a.Staff
 }
+
+// HasRoles tells whether the actor runs anything: the staff, a
+// coordinator, a pole's manager. Personal API tokens are theirs.
+func (a *Actor) HasRoles() bool {
+	return a.Staff || len(a.coordinated) > 0 || len(a.led) > 0
+}

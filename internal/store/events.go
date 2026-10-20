@@ -135,7 +135,7 @@ func (s *Store) CurrentEvent(ctx context.Context) (*Event, error) {
 var reservedSlugs = map[string]bool{
 	"admin": true, "api": true, "auth": true, "avatars": true, "brand": true, "calendar": true, "choose": true,
 	"healthz": true, "jobs": true, "jwks": true, "lang": true, "login": true, "logos": true, "logout": true,
-	"me": true, "new": true, "partners": true, "privacy": true, "static": true, "theme": true, "token": true,
+	"mcp": true, "me": true, "new": true, "partners": true, "privacy": true, "static": true, "theme": true, "token": true,
 	"volunteer-images": true, "volunteers": true, "welcome": true,
 }
 

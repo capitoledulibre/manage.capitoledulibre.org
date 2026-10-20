@@ -86,6 +86,8 @@ func (s *Server) adminRoutes(mux *router) {
 	h("POST /admin/profile", s.adminProfileSave)
 	h("POST /admin/profile/avatar", s.adminAvatarUpload)
 	h("POST /admin/profile/avatar/delete", s.adminAvatarDelete)
+	h("POST /admin/profile/tokens", s.adminTokenCreate)
+	h("POST /admin/profile/tokens/{token}/delete", s.adminTokenDelete)
 	h("POST /admin/stop-impersonate", s.adminStopImpersonate)
 	h("GET /admin/files/{file}", s.adminFile)
 }
@@ -1834,7 +1836,21 @@ func (s *Server) adminPartnershipDelete(w http.ResponseWriter, r *http.Request) 
 const maxAvatarSize = 2 << 20
 
 func (s *Server) adminProfile(w http.ResponseWriter, r *http.Request) error {
-	return s.render(w, r, "admin/profile", s.page(r, "Mon profil"))
+	return s.renderAdminProfile(w, r, "")
+}
+
+// renderAdminProfile shows the staff profile, with the API token just made,
+// if any: the only time it is shown.
+func (s *Server) renderAdminProfile(w http.ResponseWriter, r *http.Request, newToken string) error {
+	api, err := s.apiTokensOf(r, rc(r).Admin.PersonID, "/admin/profile/tokens", newToken)
+	if err != nil {
+		return err
+	}
+
+	p := s.page(r, "Mon profil")
+	p.D = map[string]any{"API": api}
+
+	return s.render(w, r, "admin/profile", p)
 }
 
 func (s *Server) adminProfileSave(w http.ResponseWriter, r *http.Request) error {

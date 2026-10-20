@@ -371,6 +371,23 @@ var messages = map[string][2]string{
 
 	"profile.title": {"Mon profil", "My profile"},
 
+	// Personal tokens of the API (MCP).
+	"api.title":          {"Accès pour un assistant IA (MCP)", "Access for an AI assistant (MCP)"},
+	"api.intro":          {"Un jeton personnel permet à un assistant IA compatible MCP, comme Claude, de lire en votre nom ce que vous voyez ici : pôles, créneaux, inscrits. Il ne peut rien modifier.", "A personal token lets an AI assistant that speaks MCP, such as Claude, read on your behalf what you see here: teams, slots, who signed up. It cannot change anything."},
+	"api.url":            {"Adresse du serveur MCP", "MCP server address"},
+	"api.token":          {"Jeton", "Token"},
+	"api.new":            {"Votre jeton. Copiez-le maintenant : il ne sera plus affiché.", "Your token. Copy it now: it will not be shown again."},
+	"api.none":           {"Aucun jeton.", "No token."},
+	"api.name":           {"Nom du jeton", "Token name"},
+	"api.create":         {"Créer un jeton", "Create a token"},
+	"api.expires":        {"expire le %s", "expires on %s"},
+	"api.used":           {"utilisé le %s", "used on %s"},
+	"api.never_used":     {"jamais utilisé", "never used"},
+	"api.revoke":         {"Révoquer", "Revoke"},
+	"api.revoke_confirm": {"Révoquer le jeton « %s » ? L'assistant qui l'utilise perdra l'accès.", "Revoke the token “%s”? The assistant using it will lose access."},
+	"api.help":           {"Gardez vos jetons secrets : qui en a un lit ce que vous lisez. Un jeton dure 90 jours ; révoquez celui que vous n'utilisez plus.", "Keep your tokens secret: whoever has one reads what you read. A token lasts 90 days; revoke the one you no longer use."},
+	"flash.api.revoked":  {"Jeton révoqué.", "Token revoked."},
+
 	// The navigation of the whole site: sections of an edition, the
 	// administration, and the tabs of a section.
 	"nav.label":               {"Navigation principale", "Main navigation"},
