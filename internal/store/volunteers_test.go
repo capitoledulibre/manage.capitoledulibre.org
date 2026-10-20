@@ -252,6 +252,11 @@ func TestCopyVolunteerSide(t *testing.T) {
 		t.Fatal("managers are copied")
 	}
 
+	// Their roles, as the rights load them: each pole with its edition.
+	if led, _ := s.LedPoles(ctx, carol.ID); led[copied.ID] != dst.ID || len(led) != 2 {
+		t.Fatalf("led poles: %v", led)
+	}
+
 	def, _ := s.DefaultPole(ctx, dst.ID)
 	if ok, _ := s.IsPoleMember(ctx, def.ID, carol.ID); !ok {
 		t.Fatal("a copied manager joins the default pole")
@@ -259,6 +264,10 @@ func TestCopyVolunteerSide(t *testing.T) {
 
 	if ok, _ := s.IsEventCoordinator(ctx, dst.ID, dave.ID); !ok {
 		t.Fatal("coordinators carry over")
+	}
+
+	if ids, _ := s.CoordinatedEventIDs(ctx, dave.ID); !ids[dst.ID] {
+		t.Fatalf("coordinated editions: %v", ids)
 	}
 
 	if ok, _ := s.IsPoleMember(ctx, def.ID, dave.ID); !ok {

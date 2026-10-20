@@ -366,6 +366,11 @@ func (s *Store) IsVolunteer(ctx context.Context, personID int64) (bool, error) {
 		UNION ALL SELECT 1 FROM event_coordinators WHERE person_id = ?1`, personID)
 }
 
+// CoordinatedEventIDs returns the editions the person coordinates.
+func (s *Store) CoordinatedEventIDs(ctx context.Context, personID int64) (map[int64]bool, error) {
+	return s.idSet(ctx, `SELECT event_id FROM event_coordinators WHERE person_id = ?`, personID)
+}
+
 // ListCoordinatedEvents returns the editions the person coordinates, the
 // most recent first.
 func (s *Store) ListCoordinatedEvents(ctx context.Context, personID int64) ([]*Event, error) {

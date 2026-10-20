@@ -70,18 +70,13 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		coordinator, err := s.coordinates(r, v.Event.ID)
-		if err != nil {
-			return err
-		}
-
 		slots, err := s.upcomingPoleSlots(r, v.Pole.ID)
 		if err != nil {
 			return err
 		}
 
-		d["Members"], d["Coordinator"], d["Slots"] = members, coordinator, slots
-		d["CanAddMembers"] = coordinator || v.Pole.ManagersCanAdd()
+		d["Members"], d["CanAppoint"], d["Slots"] = members, act(r).CanAppointManagers(v.Pole), slots
+		d["CanAddMembers"] = act(r).CanAddMembers(v.Pole)
 		d["InviteURL"] = s.cfg.BaseURL + v.Pole.URL() + "/join?key=" + url.QueryEscape(v.Pole.AccessKey)
 	case "messages":
 		members, err := s.store.ListPoleMembers(ctx, v.Pole.ID)
@@ -91,12 +86,7 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 
 		d["Recipients"] = len(members)
 	case "settings":
-		coordinator, err := s.coordinates(r, v.Event.ID)
-		if err != nil {
-			return err
-		}
-
-		d["Coordinator"], d["Modes"], d["MaxImage"] = coordinator, store.PoleModes, maxPoleImageSize
+		d["CanRestrict"], d["Modes"], d["MaxImage"] = act(r).CanRestrict(v.Pole), store.PoleModes, maxPoleImageSize
 	case "history":
 		lp := logPage(r)
 

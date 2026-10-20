@@ -168,10 +168,8 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	coordinator, err := s.coordinates(r, e.ID)
-	if err != nil {
-		return err
-	}
+	a := act(r)
+	coordinator := a.Coordinates(e.ID)
 
 	poles, err := s.store.ListPoles(ctx, e.ID)
 	if err != nil {
@@ -183,10 +181,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	managed, err := s.store.ManagedPoleIDs(ctx, e.ID, person.ID)
-	if err != nil {
-		return err
-	}
+	managed := a.LedPoles(e.ID)
 
 	// The poles shown: every one for the coordination; else those the
 	// person belongs to or runs, and the open ones they may join.
@@ -195,7 +190,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	visible := map[int64]bool{}
 
 	for _, p := range poles {
-		if coordinator || members[p.ID] || managed[p.ID] || p.IsOpen() {
+		if a.PlansPole(p, members[p.ID]) {
 			visible[p.ID] = true
 			shown = append(shown, p)
 		}
@@ -279,14 +274,11 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	now := time.Now()
 	lang := rc(r).Lang
 
-	fiche, err := s.ficheBase(r, e)
-	if err != nil {
-		return err
-	}
+	fiche := ficheBase(a, e)
 
 	for _, d := range days {
 		for _, pp := range d.Poles {
-			pp.Manage = coordinator || managed[pp.Pole.ID]
+			pp.Manage = a.ManagesPole(pp.Pole)
 
 			for _, ps := range pp.Slots {
 				ps.Card = &slotCardData{

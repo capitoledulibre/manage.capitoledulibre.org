@@ -458,10 +458,28 @@ func (s *Store) ListManagedPoles(ctx context.Context, eventID, personID int64) (
 	return s.queryPoles(ctx, `p.event_id = ? AND p.id IN (SELECT pole_id FROM pole_managers WHERE person_id = ?)`, eventID, personID)
 }
 
-// ManagedPoleIDs returns the set of poles of an edition the person manages.
-func (s *Store) ManagedPoleIDs(ctx context.Context, eventID, personID int64) (map[int64]bool, error) {
-	return s.idSet(ctx, `SELECT pm.pole_id FROM pole_managers pm JOIN poles p ON p.id = pm.pole_id
-		WHERE p.event_id = ? AND pm.person_id = ?`, eventID, personID)
+// LedPoles returns the poles a person manages, in every edition, with the
+// edition of each: what they may run, loaded once for their rights.
+func (s *Store) LedPoles(ctx context.Context, personID int64) (map[int64]int64, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT p.id, p.event_id FROM pole_managers pm JOIN poles p ON p.id = pm.pole_id
+		WHERE pm.person_id = ?`, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[int64]int64{}
+
+	for rows.Next() {
+		var pole, event int64
+		if err := rows.Scan(&pole, &event); err != nil {
+			return nil, err
+		}
+
+		out[pole] = event
+	}
+
+	return out, rows.Err()
 }
 
 // ManagesAnyPole tells whether the person manages a pole of any edition:

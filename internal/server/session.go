@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"manage/internal/access"
 	"manage/internal/store"
 )
 
@@ -55,6 +56,9 @@ type reqCtx struct {
 	// ("admin", "partner", "volunteer"): the URLs alone no longer tell, an
 	// edition's pages of every kind sitting below its slug.
 	area string
+
+	// actor is who acts, with their roles, once loaded (Server.actor).
+	actor *access.Actor
 }
 
 type ctxKey struct{}

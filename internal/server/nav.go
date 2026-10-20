@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"manage/internal/access"
 	"manage/internal/store"
 )
 
@@ -40,6 +41,7 @@ type siteNav struct {
 // roles is what the person is, for the navigation.
 type roles struct {
 	staff, contact, volunteer bool
+	actor                     *access.Actor
 }
 
 func (s *Server) siteNav(r *http.Request) *siteNav {
@@ -51,6 +53,13 @@ func (s *Server) siteNav(r *http.Request) *siteNav {
 	ctx := r.Context()
 	nav := &siteNav{}
 	ro := roles{staff: c.Admin != nil, contact: c.Org != nil}
+
+	var err error
+	if ro.actor, err = s.actor(r); err != nil {
+		slog.Error("navigation", "err", err)
+
+		ro.actor = &access.Actor{}
+	}
 
 	if !ro.contact && c.Person != nil {
 		managers, err := s.store.ManagersByEmail(ctx, c.Person.Email)
@@ -182,13 +191,10 @@ func (s *Server) navSections(r *http.Request, nav *siteNav, ro roles, section st
 		return
 	}
 
-	coordinator, err := s.coordinates(r, e.ID)
-	if err != nil {
-		slog.Error("navigation", "err", err)
-	}
+	coordinator := ro.actor.Coordinates(e.ID)
 
-	// An edition whose volunteering is not open is the coordination's only.
-	if !coordinator && !e.VisibleToVolunteers() {
+	// An edition whose volunteering is not open is for those preparing it.
+	if !ro.actor.SeesEvent(e) {
 		return
 	}
 
@@ -232,10 +238,7 @@ func (s *Server) navEditions(r *http.Request, current *store.Event, ro roles) []
 	var out []navLink
 
 	for _, e := range all {
-		volunteering := ro.staff || ro.volunteer && e.VisibleToVolunteers()
-		if !volunteering && c.Person != nil {
-			volunteering, _ = s.store.IsEventCoordinator(ctx, e.ID, c.Person.ID)
-		}
+		volunteering := ro.staff || ro.volunteer && e.VisibleToVolunteers() || ro.actor.Prepares(e.ID)
 
 		if !volunteering && !partnered[e.ID] {
 			continue

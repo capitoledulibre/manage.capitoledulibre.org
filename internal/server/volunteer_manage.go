@@ -151,12 +151,7 @@ func (s *Server) managePoleSave(w http.ResponseWriter, r *http.Request) error {
 	if mode := r.FormValue("access_mode"); mode != "" && !p.IsDefault && store.ValidPoleMode(mode) {
 		// Only the coordination makes a pole restricted: it hides the pole
 		// from everyone else.
-		coordinator, err := s.coordinates(r, v.Event.ID)
-		if err != nil {
-			return err
-		}
-
-		if mode != store.PoleRestricted || coordinator || p.AccessMode == store.PoleRestricted {
+		if mode != store.PoleRestricted || act(r).CanRestrict(p) || p.AccessMode == store.PoleRestricted {
 			p.AccessMode = mode
 		}
 	}
@@ -284,12 +279,7 @@ func (s *Server) manageMemberAdd(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	coordinator, err := s.coordinates(r, v.Event.ID)
-	if err != nil {
-		return err
-	}
-
-	if !v.Pole.ManagersCanAdd() && !coordinator {
+	if !act(r).CanAddMembers(v.Pole) {
 		return errForbidden
 	}
 
@@ -405,8 +395,8 @@ func (s *Server) manageManagerAdd(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if ok, err := s.coordinates(r, v.Event.ID); err != nil || !ok {
-		return cmpErr(err, errForbidden)
+	if !act(r).CanAppointManagers(v.Pole) {
+		return errForbidden
 	}
 
 	email := store.NormalizeEmail(r.FormValue("email"))
@@ -437,8 +427,8 @@ func (s *Server) manageManagerRemove(w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	if ok, err := s.coordinates(r, v.Event.ID); err != nil || !ok {
-		return cmpErr(err, errForbidden)
+	if !act(r).CanAppointManagers(v.Pole) {
+		return errForbidden
 	}
 
 	who, err := s.pathPerson(r)
@@ -905,14 +895,9 @@ func (s *Server) slotEditExtras(r *http.Request, v *poleView, sl *store.Slot) (m
 		}
 	}
 
-	coordinator, err := s.coordinates(r, v.Event.ID)
-	if err != nil {
-		return nil, err
-	}
-
 	return map[string]any{
 		"Tasks": tasks, "Volunteers": volunteers, "Messages": messages, "Available": available, "Waiting": waiting,
-		"CanAddMembers": coordinator || v.Pole.ManagersCanAdd(),
+		"CanAddMembers": act(r).CanAddMembers(v.Pole),
 	}, nil
 }
 
@@ -1270,12 +1255,7 @@ func (s *Server) ensurePoleMember(r *http.Request, v *poleView, who *store.Perso
 		return err
 	}
 
-	coordinator, err := s.coordinates(r, v.Event.ID)
-	if err != nil {
-		return err
-	}
-
-	if !coordinator && !v.Pole.ManagersCanAdd() {
+	if !act(r).CanAddMembers(v.Pole) {
 		return errForbidden
 	}
 

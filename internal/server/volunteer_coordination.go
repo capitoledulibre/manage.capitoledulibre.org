@@ -59,12 +59,7 @@ func (s *Server) requireCoordination(h handlerFunc) handlerFunc {
 			return err
 		}
 
-		ok, err := s.coordinates(r, e.ID)
-		if err != nil {
-			return err
-		}
-
-		if !ok {
+		if !act(r).Coordinates(e.ID) {
 			return errForbidden
 		}
 
@@ -97,7 +92,7 @@ func (s *Server) redirectCoordination(w http.ResponseWriter, r *http.Request, e 
 
 // staffOnly refuses anyone but the staff.
 func staffOnly(r *http.Request) error {
-	if rc(r).Admin == nil {
+	if !act(r).Staff {
 		return errForbidden
 	}
 
@@ -141,11 +136,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 	var targets, others []*store.Event
 
 	for _, x := range all {
-		ok, err := s.coordinates(r, x.ID)
-		if err != nil {
-			return err
-		}
-
+		ok := act(r).Coordinates(x.ID)
 		if ok {
 			targets = append(targets, x)
 		}
@@ -185,7 +176,7 @@ func (s *Server) coordination(w http.ResponseWriter, r *http.Request) error {
 		"Event": e, "Tab": tab, "Coverage": coverage, "Stats": stats, "Messages": messages,
 		"PastFreeze":   e.VolunteerStatus == store.VolunteersOpen && e.SignupsLocked(nil, time.Now()),
 		"CanCopy":      onlyDefaultPole(coverage),
-		"Coordinators": coordinators, "Targets": targets, "Others": others, "Staff": rc(r).Admin != nil,
+		"Coordinators": coordinators, "Targets": targets, "Others": others, "Staff": act(r).Staff,
 		"Modes": store.PoleModes, "Statuses": []string{store.VolunteersDraft, store.VolunteersOpen, store.VolunteersFrozen, store.VolunteersArchived},
 		"MaxImage": maxPoleImageSize, "History": history, "Logistics": logi,
 		"Log": logView{Page: lp, More: logMore, Base: editionURL(e) + "?tab=history"},
@@ -284,9 +275,7 @@ func (s *Server) coordinationCopy(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if ok, err := s.coordinates(r, src.ID); err != nil {
-		return err
-	} else if !ok {
+	if !act(r).Coordinates(src.ID) {
 		return errForbidden
 	}
 
@@ -518,8 +507,8 @@ func (s *Server) coordinationPoleCopy(w http.ResponseWriter, r *http.Request) er
 			return err
 		}
 
-		if ok, err := s.coordinates(r, target.ID); err != nil || !ok {
-			return cmpErr(err, errForbidden)
+		if !act(r).Coordinates(target.ID) {
+			return errForbidden
 		}
 	}
 
@@ -848,7 +837,7 @@ func (s *Server) coordinationVolunteer(w http.ResponseWriter, r *http.Request) e
 	p := s.page(r, "vol.coord.volunteers")
 	p.TitleText = who.Label()
 	p.D = map[string]any{"Event": e, "V": v, "Slots": slots, "Waiting": waiting, "History": history, "Poles": poles, "Details": details,
-		"Staff": rc(r).Admin != nil}
+		"Staff": act(r).Staff}
 
 	return s.render(w, r, "volunteer/volunteer", p)
 }

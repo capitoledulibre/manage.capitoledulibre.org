@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"manage/internal/access"
 	"manage/internal/files"
 	"manage/internal/store"
 )
@@ -81,6 +82,11 @@ func (s *Server) requireVolunteer(h handlerFunc) handlerFunc {
 		if c.Person != nil {
 			// Fills in a missing profile picture, in the background.
 			s.gravatar.Refresh(c.Person)
+
+			// The rights of the pages below.
+			if _, err := s.actor(r); err != nil {
+				return err
+			}
 		}
 
 		if c.Person == nil {
@@ -125,37 +131,43 @@ func loginNext(r *http.Request) string {
 
 // --- rights ---------------------------------------------------------------
 
-// coordinates tells whether the person runs the volunteers of an edition:
-// the staff, and the edition's coordinators.
-func (s *Server) coordinates(r *http.Request, eventID int64) (bool, error) {
+// actor is who the request acts as, with their roles (package access),
+// loaded once.
+func (s *Server) actor(r *http.Request) (*access.Actor, error) {
 	c := rc(r)
-	if c.Admin != nil {
-		return true, nil
+	if c.actor != nil && c.actor.Person == c.Person {
+		return c.actor, nil
 	}
 
-	return s.store.IsEventCoordinator(r.Context(), eventID, c.Person.ID)
+	a, err := access.Load(r.Context(), s.store, c.Person, c.Admin != nil)
+	if err != nil {
+		return nil, err
+	}
+
+	c.actor = a
+
+	return a, nil
+}
+
+// act is the actor of a request whose access check loaded it, as
+// requireVolunteer does; anywhere else, one who may do nothing.
+func act(r *http.Request) *access.Actor {
+	if a := rc(r).actor; a != nil {
+		return a
+	}
+
+	return &access.Actor{}
 }
 
 // ficheBase is the start of the volunteers' pages of an edition, their
 // UID to follow, for its coordination (and the staff): everywhere a name is
 // cited, it leads there. Empty for anyone else.
-func (s *Server) ficheBase(r *http.Request, e *store.Event) (string, error) {
-	ok, err := s.coordinates(r, e.ID)
-	if err != nil || !ok {
-		return "", err
+func ficheBase(a *access.Actor, e *store.Event) string {
+	if !a.SeesFiches(e.ID) {
+		return ""
 	}
 
-	return editionURL(e) + "/", nil
-}
-
-// managesPole tells whether the person runs a pole: its managers, and
-// whoever coordinates its edition.
-func (s *Server) managesPole(r *http.Request, p *store.Pole) (bool, error) {
-	if ok, err := s.coordinates(r, p.EventID); ok || err != nil {
-		return ok, err
-	}
-
-	return s.store.IsPoleManager(r.Context(), p.ID, rc(r).Person.ID)
+	return editionURL(e) + "/"
 }
 
 // --- loading what a path names ---------------------------------------------
@@ -164,27 +176,12 @@ func (s *Server) managesPole(r *http.Request, p *store.Pole) (bool, error) {
 // edition is only shown to the people preparing it: its coordinators and
 // pole managers, and the staff.
 func (s *Server) volunteerEvent(r *http.Request) (*store.Event, error) {
-	ctx := r.Context()
-
-	e, err := s.store.GetEventBySlug(ctx, r.PathValue("event"))
+	e, err := s.store.GetEventBySlug(r.Context(), r.PathValue("event"))
 	if err != nil {
 		return nil, err
 	}
 
-	if e.VisibleToVolunteers() {
-		return e, nil
-	}
-
-	if ok, err := s.coordinates(r, e.ID); ok || err != nil {
-		return e, err
-	}
-
-	managed, err := s.store.ManagedPoleIDs(ctx, e.ID, rc(r).Person.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(managed) == 0 {
+	if !act(r).SeesEvent(e) {
 		return nil, errNotFound
 	}
 
@@ -208,6 +205,7 @@ type poleView struct {
 // it, and a restricted pole only to its members and to whoever runs it.
 func (s *Server) volunteerPole(r *http.Request) (*poleView, error) {
 	ctx := r.Context()
+	a := act(r)
 
 	e, err := s.store.GetEventBySlug(ctx, r.PathValue("event"))
 	if err != nil {
@@ -219,21 +217,13 @@ func (s *Server) volunteerPole(r *http.Request) (*poleView, error) {
 		return nil, err
 	}
 
-	v := &poleView{Event: e, Pole: p, Locked: e.SignupsLocked(p.FreezeAt, time.Now())}
-
-	if v.Manage, err = s.managesPole(r, p); err != nil {
-		return nil, err
-	}
-
-	if v.Fiche, err = s.ficheBase(r, e); err != nil {
-		return nil, err
-	}
+	v := &poleView{Event: e, Pole: p, Locked: e.SignupsLocked(p.FreezeAt, time.Now()), Manage: a.ManagesPole(p), Fiche: ficheBase(a, e)}
 
 	if v.Member, err = s.store.IsPoleMember(ctx, p.ID, rc(r).Person.ID); err != nil {
 		return nil, err
 	}
 
-	if !v.Manage && (!e.VisibleToVolunteers() || (p.AccessMode == store.PoleRestricted && !v.Member)) {
+	if !a.SeesPole(e, p, v.Member) {
 		return nil, errNotFound
 	}
 
@@ -313,26 +303,19 @@ func (s *Server) eventHome(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	managed, err := s.store.ManagedPoleIDs(ctx, e.ID, person.ID)
-	if err != nil {
-		return err
-	}
-
-	coordinator, err := s.coordinates(r, e.ID)
-	if err != nil {
-		return err
-	}
+	a := act(r)
+	coordinator := a.Coordinates(e.ID)
 
 	var cards []*poleCard
 
 	for _, c := range coverage {
 		id := c.Pole.ID
 		// Restricted poles stay invisible to the people who are not in them.
-		if c.Pole.AccessMode == store.PoleRestricted && !members[id] && !managed[id] && !coordinator {
+		if !a.ListsPole(c.Pole, members[id]) {
 			continue
 		}
 
-		manage := coordinator || managed[id]
+		manage := a.ManagesPole(c.Pole)
 
 		// The default pole only shows once it holds something: an empty card
 		// at the head of the list said nothing to a volunteer.
@@ -981,9 +964,7 @@ func (s *Server) volunteerNav(r *http.Request) *volunteerNav {
 		slog.Error("volunteer menu", "err", err)
 	}
 
-	if nav.Coordinator, err = s.coordinates(r, nav.Event.ID); err != nil {
-		slog.Error("volunteer menu", "err", err)
-	}
+	nav.Coordinator = act(r).Coordinates(nav.Event.ID)
 
 	return nav
 }
