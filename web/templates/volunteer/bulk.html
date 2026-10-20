@@ -27,13 +27,13 @@
     <div class="overflow-x-auto rounded-md ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{dayName $l .Day}}">
       <table class="w-full bg-surface text-sm">
         <thead class="bg-gray-50"><tr>
-          <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500">{{t $l "vol.gen.hours"}}</th>
+          <th class="sticky left-0 bg-gray-50 px-3 py-2 text-left text-xs font-semibold text-gray-500">{{t $l "vol.gen.hours"}}</th>
           {{range $g.Columns}}<th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">{{or . (t $l "vol.slot_form.whole_pole")}}</th>{{end}}
         </tr></thead>
         <tbody>
         {{range .Rows}}
         <tr class="border-t border-gray-100">
-          <th scope="row" class="px-3 py-1.5 text-left font-medium whitespace-nowrap tabular-nums">{{clock .Start}} – {{clock .End}}</th>
+          <th scope="row" class="sticky left-0 bg-surface px-3 py-1.5 text-left font-medium whitespace-nowrap tabular-nums">{{clock .Start}} – {{clock .End}}</th>
           {{range .Cells}}
           <td class="p-1 align-top">
             {{range .}}

@@ -4,8 +4,10 @@
 <h1 class="text-2xl font-bold tracking-tight">{{t $l "vol.gen.title"}}</h1>
 <p class="mt-1 max-w-2xl text-sm text-gray-600">{{t $l "vol.gen.intro"}}</p>
 
-<form method="post" action="{{$pole.ManageURL}}/generate" class="mt-6 max-w-3xl space-y-6">
-  <fieldset class="card space-y-3">
+{{/* The settings keep a reading width; the preview below takes the page's,
+     so that a timetable of several places fits without scrolling. */}}
+<form method="post" action="{{$pole.ManageURL}}/generate" class="mt-6 space-y-6">
+  <fieldset class="card max-w-3xl space-y-3">
     <legend class="card-title float-left w-full">1. {{t $l "vol.gen.days"}}</legend>
     <div class="clear-both grid gap-3 sm:grid-cols-2">
       <div><label class="label" for="g-from">{{t $l "vol.gen.from"}}</label><input id="g-from" class="input" type="date" name="from" value="{{$f.From}}" required></div>
@@ -15,7 +17,7 @@
 
   {{/* The common hours, or each day its own: a CSS switch, so the hours
        typed on either side survive a change of mind. */}}
-  <fieldset class="group card space-y-3">
+  <fieldset class="group card max-w-3xl space-y-3">
     <legend class="card-title float-left w-full">2. {{t $l "vol.gen.hours"}}</legend>
     <label class="clear-both flex cursor-pointer items-center gap-2 text-sm">
       <input id="g-per-day" type="checkbox" name="per_day" value="1" class="accent-brand-600" {{if $f.PerDay}}checked{{end}}>
@@ -45,7 +47,7 @@
     </div>
   </fieldset>
 
-  <fieldset class="card space-y-3">
+  <fieldset class="card max-w-3xl space-y-3">
     <legend class="card-title float-left w-full">3. {{t $l "vol.gen.places"}}</legend>
     <div class="clear-both">
     {{if $d.Locations}}
@@ -63,7 +65,7 @@
     </div>
   </fieldset>
 
-  <fieldset class="card space-y-3">
+  <fieldset class="card max-w-3xl space-y-3">
     <legend class="card-title float-left w-full">4. {{t $l "vol.gen.details"}}</legend>
     <div class="clear-both grid gap-3 sm:grid-cols-2">
       <div><label class="label" for="g-cap">{{t $l "vol.slot_form.capacity"}}</label><input id="g-cap" class="input" type="number" name="capacity" min="1" max="500" value="{{$f.Capacity}}" required></div>
@@ -85,6 +87,7 @@
     {{if gt (len .Places) 1}}<p class="text-sm text-gray-600">{{t $l "vol.gen.total_detail" .RangeCount (len .Places)}}</p>{{end}}
     {{if .Skipped}}<p class="text-sm text-gray-600">{{tn $l "vol.gen.skipped" .Skipped}}</p>{{end}}
     {{with .Warnings}}<ul class="list-disc space-y-1 rounded-md bg-amber-50 py-3 pr-3 pl-8 text-sm text-amber-900">{{range .}}<li>{{template "gen_msg" dict "L" $l "M" .}}</li>{{end}}</ul>{{end}}
+    <p class="help">{{t $l "vol.gen.preview_help"}}</p>
     {{/* A timetable per day: the hours down, the places across, a cell
          per slot, so that what multiplies what shows. */}}
     {{range $day := .Days}}
@@ -99,13 +102,14 @@
       <div class="overflow-x-auto rounded-md ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{dayName $l .Day}}">
         <table class="w-full text-sm">
           <thead class="bg-gray-50"><tr>
-            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500">{{t $l "vol.gen.hours"}}</th>
-            {{range $p.Places}}<th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">{{.}}{{if in $p.NewPlaces .}} <span class="badge bg-green-100 font-normal text-green-800">{{t $l "vol.gen.new"}}</span>{{end}}</th>{{else}}<th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">{{t $l "vol.slot_form.whole_pole"}}</th>{{end}}
+            <th class="sticky left-0 bg-gray-50 px-3 py-2 text-left text-xs font-semibold text-gray-500">{{t $l "vol.gen.hours"}}</th>
+            {{range $p.Places}}<th class="min-w-20 px-2 py-2 text-left text-xs font-semibold text-gray-700">{{.}}{{if in $p.NewPlaces .}} <span class="badge bg-green-100 font-normal text-green-800">{{t $l "vol.gen.new"}}</span>{{end}}</th>{{else}}<th class="px-2 py-2 text-left text-xs font-semibold text-gray-700">{{t $l "vol.slot_form.whole_pole"}}</th>{{end}}
           </tr></thead>
           <tbody>
           {{range $i, $row := .Grid}}
           <tr class="border-t border-gray-100">
-            <th scope="row" class="px-3 py-1.5 text-left font-medium whitespace-nowrap tabular-nums">{{(index $day.Ranges $i).Label}}</th>
+            {{/* The hours stay in sight when many places scroll by. */}}
+            <th scope="row" class="sticky left-0 bg-surface px-3 py-1.5 text-left font-medium whitespace-nowrap tabular-nums">{{(index $day.Ranges $i).Label}}</th>
             {{range $row}}
             <td class="p-1">
               {{if .Exists}}<span class="block rounded bg-gray-100 px-2 py-1.5 text-xs whitespace-nowrap text-gray-500">{{t $l "vol.gen.exists"}}</span>
@@ -113,11 +117,10 @@
               {{/* A slot to create: untick it to leave it out, change the
                    volunteers it needs. "seen" tells the server the cell was
                    shown, so that an unticked one stays out. */}}
-              <span class="flex items-center gap-1.5 rounded bg-brand-50 px-2 py-1 text-xs font-medium whitespace-nowrap text-brand-800 ring-1 ring-brand-200 has-[input[name=keep]:not(:checked)]:bg-white has-[input[name=keep]:not(:checked)]:text-gray-400 has-[input[name=keep]:not(:checked)]:ring-gray-200">
+              <span class="inline-flex items-center gap-1.5 rounded bg-brand-50 px-2 py-1 text-xs font-medium whitespace-nowrap text-brand-800 ring-1 ring-brand-200 has-[input[name=keep]:not(:checked)]:bg-white has-[input[name=keep]:not(:checked)]:text-gray-400 has-[input[name=keep]:not(:checked)]:ring-gray-200">
                 <input type="hidden" name="seen" value="{{.Key}}">
                 <input type="checkbox" name="keep" value="{{.Key}}" class="h-4 w-4 accent-brand-600" {{if not .Skip}}checked{{end}} aria-label="{{t $l "vol.gen.cell_keep"}}" data-gen-cell>
-                <input type="number" name="cap.{{.Key}}" value="{{.Capacity}}" min="1" max="500" class="w-12 rounded border-0 bg-transparent p-0 text-right text-xs tabular-nums ring-1 ring-brand-200 focus:ring-2 focus:ring-brand-600" aria-label="{{t $l "vol.slot_form.capacity"}}" data-gen-cap>
-                <span>{{t $l "vol.gen.cell_unit"}}</span>
+                <input type="number" name="cap.{{.Key}}" value="{{.Capacity}}" min="1" max="500" class="w-8 [appearance:textfield] rounded border-0 bg-transparent p-0 text-center text-xs tabular-nums ring-1 ring-brand-200 focus:ring-2 focus:ring-brand-600 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" aria-label="{{t $l "vol.slot_form.capacity"}}" data-gen-cap>
               </span>
               {{end}}
             </td>
@@ -130,7 +133,6 @@
       {{end}}
     </div>
     {{end}}
-    <p class="help">{{t $l "vol.gen.preview_help"}}</p>
     {{end}}
   </section>
   {{end}}
