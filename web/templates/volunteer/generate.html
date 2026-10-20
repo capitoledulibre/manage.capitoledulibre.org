@@ -81,22 +81,44 @@
     {{with .Errors}}<ul class="alert list-disc space-y-1 bg-red-50 pl-8 text-red-800" role="alert">{{range .}}<li>{{template "gen_msg" dict "L" $l "M" .}}</li>{{end}}</ul>{{end}}
     {{if not .Errors}}
     <p class="text-lg font-semibold">{{tn $l "vol.gen.total" .Slots .Seats}}</p>
+    {{if gt (len .Places) 1}}<p class="text-sm text-gray-600">{{t $l "vol.gen.total_detail" .RangeCount (len .Places)}}</p>{{end}}
     {{if .Skipped}}<p class="text-sm text-gray-600">{{tn $l "vol.gen.skipped" .Skipped}}</p>{{end}}
     {{with .Warnings}}<ul class="list-disc space-y-1 rounded-md bg-amber-50 py-3 pr-3 pl-8 text-sm text-amber-900">{{range .}}<li>{{template "gen_msg" dict "L" $l "M" .}}</li>{{end}}</ul>{{end}}
-    <p class="text-sm text-gray-700"><strong>{{t $l "vol.gen.places"}}</strong>&nbsp;: {{range $i, $n := .Places}}{{if $i}}, {{end}}{{$n}}{{if in $p.NewPlaces $n}} <span class="badge bg-green-100 text-green-800">{{t $l "vol.gen.new"}}</span>{{end}}{{else}}{{t $l "vol.slot_form.whole_pole"}}{{end}}</p>
-    <div class="overflow-x-auto rounded-md ring-1 ring-gray-200">
-      <table class="table">
-        <thead><tr><th>{{t $l "vol.gen.day"}}</th><th>{{t $l "vol.gen.hours"}}</th></tr></thead>
-        <tbody>
-        {{range .Days}}
-        <tr>
-          <td class="whitespace-nowrap align-top"><span class="inline-block first-letter:uppercase">{{dayName $l .Day}}</span>{{if .Outside}} <span class="badge bg-amber-100 text-amber-800">{{t $l "vol.gen.outside"}}</span>{{end}}</td>
-          <td>{{if .Off}}<span class="text-sm text-gray-500">{{t $l "vol.gen.off"}}</span>{{end}}<div class="flex flex-wrap gap-1.5">{{range .Ranges}}<span class="badge bg-gray-100 py-1 text-gray-800 tabular-nums">{{.Label}} · {{.Capacity}}</span>{{end}}</div></td>
-        </tr>
-        {{end}}
-        </tbody>
-      </table>
+    {{/* A timetable per day: the hours down, the places across, a cell
+         per slot, so that what multiplies what shows. */}}
+    {{range $day := .Days}}
+    <div>
+      <h3 class="mb-2 flex flex-wrap items-baseline gap-2 text-sm font-semibold">
+        <span class="first-letter:uppercase">{{dayName $l .Day}}</span>
+        {{if .Outside}}<span class="badge bg-amber-100 text-amber-800">{{t $l "vol.gen.outside"}}</span>{{end}}
+        {{if .Slots}}<span class="font-normal text-gray-500">{{tn $l "vol.gen.total" .Slots .Seats}}</span>{{end}}
+      </h3>
+      {{if or .Off (not .Grid)}}<p class="text-sm text-gray-500">{{t $l "vol.gen.off"}}</p>
+      {{else}}
+      <div class="overflow-x-auto rounded-md ring-1 ring-gray-200" tabindex="0" role="region" aria-label="{{dayName $l .Day}}">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50"><tr>
+            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500">{{t $l "vol.gen.hours"}}</th>
+            {{range $p.Places}}<th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">{{.}}{{if in $p.NewPlaces .}} <span class="badge bg-green-100 font-normal text-green-800">{{t $l "vol.gen.new"}}</span>{{end}}</th>{{else}}<th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">{{t $l "vol.slot_form.whole_pole"}}</th>{{end}}
+          </tr></thead>
+          <tbody>
+          {{range $i, $row := .Grid}}
+          <tr class="border-t border-gray-100">
+            <th scope="row" class="px-3 py-1.5 text-left font-medium whitespace-nowrap tabular-nums">{{(index $day.Ranges $i).Label}}</th>
+            {{range $row}}
+            <td class="p-1">
+              {{if .Exists}}<span class="block rounded bg-gray-100 px-2 py-1.5 text-xs whitespace-nowrap text-gray-500">{{t $l "vol.gen.exists"}}</span>
+              {{else if .Capacity}}<span class="block rounded bg-brand-50 px-2 py-1.5 text-xs font-medium whitespace-nowrap text-brand-800 ring-1 ring-brand-200">{{tn $l "vol.gen.cell" .Capacity}}</span>{{end}}
+            </td>
+            {{end}}
+          </tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{end}}
     </div>
+    {{end}}
     <p class="help">{{t $l "vol.gen.preview_help"}}</p>
     {{end}}
   </section>

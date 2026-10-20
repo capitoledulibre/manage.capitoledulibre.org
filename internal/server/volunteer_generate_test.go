@@ -56,7 +56,13 @@ func TestSlotGenerator(t *testing.T) {
 	}
 
 	_, body = e.post(lead, gen, form)
-	mustContain(t, body, "48 créneaux, 96 places à pourvoir", "Créer les 48 créneaux", "Salle 8", "09:00 – 12:00 · 2", "samedi 14 novembre")
+	mustContain(t, body, "48 créneaux, 96 places à pourvoir", "Créer les 48 créneaux", "samedi 14 novembre",
+		"6 horaires × 8 emplacements, un créneau par case.", ">Salle 8 <span class=\"badge bg-green-100 font-normal text-green-800\">nouveau</span></th>", ">09:00 – 12:00</th>", ">2 bénévoles</span>")
+
+	// A timetable per day: three ranges down, eight rooms across.
+	if n := strings.Count(body, ">2 bénévoles</span>"); n != 48 {
+		t.Errorf("cells: %d", n)
+	}
 
 	if slots, _ := e.st.ListSlots(ctx, salles.ID, 0); len(slots) != 0 {
 		t.Fatal("the preview created slots")
@@ -87,7 +93,7 @@ func TestSlotGenerator(t *testing.T) {
 	}
 
 	_, body = e.post(lead, gen, form)
-	mustContain(t, body, "48 créneaux existent déjà")
+	mustContain(t, body, "48 créneaux existent déjà", ">existe déjà</span>")
 
 	if strings.Contains(body, "Créer les") {
 		t.Error("a create button with nothing to create")
@@ -141,7 +147,7 @@ func TestSlotGenerator(t *testing.T) {
 	}
 
 	_, body = e.post(lead, gen, perDay)
-	mustContain(t, body, "3 créneaux, 5 places", "19:00 – 20:00 · 1", "07:00 – 08:00 · 3", "Pas de créneau ce jour-là", `name="d2026-11-15.mode" value="off" class="mt-1 accent-brand-600" checked`)
+	mustContain(t, body, "3 créneaux, 5 places", ">19:00 – 20:00</th>", ">1 bénévole</span>", ">07:00 – 08:00</th>", ">3 bénévoles</span>", "Pas de créneau ce jour-là", `name="d2026-11-15.mode" value="off" class="mt-1 accent-brand-600" checked`)
 
 	perDay.Set("d2026-11-16.list", "le matin")
 

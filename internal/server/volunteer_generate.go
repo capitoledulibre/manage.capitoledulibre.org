@@ -67,6 +67,18 @@ type genDay struct {
 	Outside bool
 	Off     bool
 	Ranges  []genRange
+	// Grid is the day as a timetable: a row per range, a cell per place
+	// (one for the whole pole without places).
+	Grid [][]genCell
+	// Slots and Seats count what the day creates.
+	Slots, Seats int
+}
+
+// genCell is a slot of the timetable: the volunteers it wants, or Exists
+// when it is there already and will not be created again.
+type genCell struct {
+	Capacity int
+	Exists   bool
 }
 
 // genMsg is an error or a warning of the preview, about one day when the
@@ -86,6 +98,17 @@ type genPlan struct {
 	Skipped   int
 	Errors    []genMsg
 	Warnings  []genMsg
+}
+
+// RangeCount counts the hour ranges of every day, each giving a slot per
+// place.
+func (p *genPlan) RangeCount() int {
+	n := 0
+	for _, d := range p.Days {
+		n += len(d.Ranges)
+	}
+
+	return n
 }
 
 func (p *genPlan) fail(key string, day *time.Time) { p.Errors = appendMsg(p.Errors, genMsg{key, day}) }
@@ -424,6 +447,9 @@ days:
 		d := day.Day
 
 		for _, g := range day.Ranges {
+			row := make([]genCell, places)
+			day.Grid = append(day.Grid, row)
+
 			for i := range places {
 				if tried++; tried > limit {
 					p.Slots = max(p.Slots, maxGenerated+1)
@@ -440,13 +466,17 @@ days:
 				if locID != 0 || len(p.Places) == 0 {
 					if have[slotKey(locID, start, end)] {
 						p.Skipped++
+						row[i] = genCell{Capacity: g.Capacity, Exists: true}
 
 						continue
 					}
 				}
 
+				row[i] = genCell{Capacity: g.Capacity}
 				p.Slots++
 				p.Seats += g.Capacity
+				day.Slots++
+				day.Seats += g.Capacity
 			}
 		}
 	}
