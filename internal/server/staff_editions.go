@@ -65,6 +65,10 @@ func (s *Server) saveEdition(ctx context.Context, a *access.Actor, e *store.Even
 	return true, nil
 }
 
+// editionDocuments are the kinds of documents of an edition: the handler
+// checks one before taking the file in, so that a wrong kind stores none.
+var editionDocuments = []string{"brochure_fr", "brochure_en", "guide_fr", "guide_en"}
+
 // setEditionDocument sets a document of an edition partners download:
 // kind is the brochure or the sponsor guide, and its language
 // ("brochure_fr", "guide_en"…).

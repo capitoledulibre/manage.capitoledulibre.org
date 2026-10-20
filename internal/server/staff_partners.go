@@ -57,8 +57,9 @@ type newOrganization struct {
 	SendInvite   bool
 }
 
-// createOrganization creates an organization. An invalid contact address
-// is refused once the organization exists: it returns it with the refusal.
+// createOrganization creates an organization. Everything is checked
+// before anything is created: a wrong edition or contact address leaves no
+// organization behind.
 func (s *Server) createOrganization(ctx context.Context, a *access.Actor, n newOrganization) (*store.Organization, error) {
 	if err := staffOnly(a); err != nil {
 		return nil, err
@@ -69,17 +70,26 @@ func (s *Server) createOrganization(ctx context.Context, a *access.Actor, n newO
 		return nil, errBadInput
 	}
 
+	var e *store.Event
+
+	if n.Event != "" {
+		var err error
+		if e, err = s.store.GetEventBySlug(ctx, n.Event); err != nil {
+			return nil, errBadInput
+		}
+	}
+
+	email := store.NormalizeEmail(n.ManagerEmail)
+	if email != "" && !validEmail(email) {
+		return nil, refuse("flash.invalid_email")
+	}
+
 	org := &store.Organization{Name: name}
 	if err := s.store.CreateOrganization(ctx, org); err != nil {
 		return nil, err
 	}
 
-	if n.Event != "" {
-		e, err := s.store.GetEventBySlug(ctx, n.Event)
-		if err != nil {
-			return nil, errBadInput
-		}
-
+	if e != nil {
 		p := &store.Partnership{OrgID: org.ID, EventID: e.ID, Status: n.Status}
 		if !store.ValidStatus(p.Status) {
 			p.Status = store.StatusProspect
@@ -90,11 +100,7 @@ func (s *Server) createOrganization(ctx context.Context, a *access.Actor, n newO
 		}
 	}
 
-	if email := store.NormalizeEmail(n.ManagerEmail); email != "" {
-		if !validEmail(email) {
-			return org, refuse("flash.invalid_email")
-		}
-
+	if email != "" {
 		m := &store.Manager{
 			OrgID: org.ID, Email: email, Name: strings.TrimSpace(n.ManagerName),
 			Lang: firstNonEmpty(n.Lang, "fr"), InvitedBy: activityActor(a),
@@ -171,7 +177,18 @@ func (s *Server) toggleJob(ctx context.Context, a *access.Actor, org *store.Orga
 
 	j.Hidden = !j.Hidden
 
-	return s.store.SaveJobOffer(ctx, j)
+	if err := s.store.SaveJobOffer(ctx, j); err != nil {
+		return err
+	}
+
+	action := "job.shown"
+	if j.Hidden {
+		action = "job.hidden"
+	}
+
+	s.recordAs(ctx, a, org, nil, action, j.Title)
+
+	return nil
 }
 
 // --- contacts ---------------------------------------------------------------------
@@ -301,7 +318,13 @@ func (s *Server) sendManagerLink(ctx context.Context, a *access.Actor, org *stor
 		return errNotFound
 	}
 
-	return s.sendInvite(ctx, m, org, s.cfg.SiteName)
+	if err := s.sendInvite(ctx, m, org, s.cfg.SiteName); err != nil {
+		return err
+	}
+
+	s.recordAs(ctx, a, org, nil, "manager.link_sent", m.Email)
+
+	return nil
 }
 
 // --- partnerships -------------------------------------------------------------------
@@ -467,6 +490,10 @@ func (s *Server) markPartnership(ctx context.Context, a *access.Actor, org *stor
 	return nil
 }
 
+// partnershipDocuments are the kinds of documents of a partnership: the
+// handler checks one before taking the file in.
+var partnershipDocuments = []string{"quote", "invoice"}
+
 // setPartnershipDocument sets the quote or the invoice (kind) of a
 // partnership, sent today unless a date was set. With notify, the contacts
 // hear of it, once the partnership is shown to them.
@@ -541,8 +568,14 @@ func (s *Server) setDonePerks(ctx context.Context, a *access.Actor, org *store.O
 	return nil
 }
 
+// orgOf is the organization of a partnership, for its activity.
+func (s *Server) orgOf(ctx context.Context, p *store.Partnership) (*store.Organization, error) {
+	return s.store.GetOrganization(ctx, p.OrgID)
+}
+
 // staffAddAttendee adds an attendee to a partnership, whatever its level
-// allows and after the deadline: the staff settles the exceptions.
+// allows and after the deadline: the staff settles the exceptions. The
+// name and the address are checked as for the partner.
 func (s *Server) staffAddAttendee(ctx context.Context, a *access.Actor, p *store.Partnership, at *store.Attendee) error {
 	if err := staffOnly(a); err != nil {
 		return err
@@ -551,11 +584,22 @@ func (s *Server) staffAddAttendee(ctx context.Context, a *access.Actor, p *store
 	at.PartnershipID = p.ID
 	cleanAttendee(at)
 
-	if at.FirstName == "" || at.LastName == "" {
-		return errBadInput
+	if err := checkAttendee(at); err != nil {
+		return err
 	}
 
-	return s.store.AddAttendee(ctx, at)
+	org, err := s.orgOf(ctx, p)
+	if err != nil {
+		return err
+	}
+
+	if err := s.store.AddAttendee(ctx, at); err != nil {
+		return err
+	}
+
+	s.recordAs(ctx, a, org, &p.ID, "attendee.added", at.FirstName+" "+at.LastName)
+
+	return nil
 }
 
 // staffDeleteAttendee takes an attendee off a partnership.
@@ -564,7 +608,18 @@ func (s *Server) staffDeleteAttendee(ctx context.Context, a *access.Actor, p *st
 		return err
 	}
 
-	return s.store.DeleteAttendee(ctx, p.ID, uid)
+	org, err := s.orgOf(ctx, p)
+	if err != nil {
+		return err
+	}
+
+	if err := s.store.DeleteAttendee(ctx, p.ID, uid); err != nil {
+		return err
+	}
+
+	s.recordAs(ctx, a, org, &p.ID, "attendee.deleted", "")
+
+	return nil
 }
 
 // socialPostEdit is a social network post as the staff plans it.
@@ -618,14 +673,42 @@ func (s *Server) deleteSocialPost(ctx context.Context, a *access.Actor, p *store
 		return err
 	}
 
-	return s.store.DeleteSocialPost(ctx, p.ID, uid)
+	org, err := s.orgOf(ctx, p)
+	if err != nil {
+		return err
+	}
+
+	if err := s.store.DeleteSocialPost(ctx, p.ID, uid); err != nil {
+		return err
+	}
+
+	s.recordAs(ctx, a, org, &p.ID, "social.deleted", "")
+
+	return nil
 }
 
-// deletePartnership deletes a partnership and all it has.
+// deletePartnership deletes a partnership and all it has. The
+// organization's activity keeps a trace, naming the edition.
 func (s *Server) deletePartnership(ctx context.Context, a *access.Actor, p *store.Partnership) error {
 	if err := staffOnly(a); err != nil {
 		return err
 	}
 
-	return s.store.DeletePartnership(ctx, p.ID)
+	org, err := s.orgOf(ctx, p)
+	if err != nil {
+		return err
+	}
+
+	e, err := s.store.GetEvent(ctx, p.EventID)
+	if err != nil {
+		return err
+	}
+
+	if err := s.store.DeletePartnership(ctx, p.ID); err != nil {
+		return err
+	}
+
+	s.recordAs(ctx, a, org, nil, "partnership.deleted", e.Name)
+
+	return nil
 }

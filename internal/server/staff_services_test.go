@@ -3,6 +3,9 @@ package server
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -120,10 +123,19 @@ func TestStaffServicePartners(t *testing.T) {
 
 	e.mailed("hank@globex.test", "Globex", "/auth/")
 
-	// A bad address is refused once the organization exists.
+	// A bad address, or a wrong edition, is refused before anything is
+	// created: no organization is left behind.
 	org2, err := app.createOrganization(ctx, staff, newOrganization{Name: "Initech", ManagerEmail: "nope"})
-	if rf, ok := refused(err); !ok || rf.Key != "flash.invalid_email" || org2 == nil || org2.ID == 0 {
+	if rf, ok := refused(err); !ok || rf.Key != "flash.invalid_email" || org2 != nil {
 		t.Errorf("a bad first contact: %v, %+v", err, org2)
+	}
+
+	if _, err := app.createOrganization(ctx, staff, newOrganization{Name: "Initech", Event: "no-such-edition"}); !errors.Is(err, errBadInput) {
+		t.Errorf("a wrong edition: %v", err)
+	}
+
+	if _, err := e.st.GetOrganizationBySlug(ctx, "initech"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("a refused organization was created: %v", err)
 	}
 
 	// Contacts.
@@ -385,5 +397,67 @@ func TestStaffServicePeople(t *testing.T) {
 
 	if _, err := e.st.GetPerson(ctx, nina.ID); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("person still there: %v", err)
+	}
+}
+
+// TestStaffLeavesNothingBehind: what the staff does is in the
+// organization's activity, a wrong document kind stores no file, and an
+// attendee added by the staff is checked as a partner's.
+func TestStaffLeavesNothingBehind(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	f := e.fixture(nil)
+	admin := e.adminClient()
+	who := "staff:staff@conf.test"
+
+	files := func() int {
+		entries, err := os.ReadDir(e.app.files.Dir())
+		mustOK(t, err)
+
+		return len(entries)
+	}
+
+	before := files()
+	pdf := []byte("%PDF-1.4\n%%EOF\n")
+
+	if code, _ := e.upload(admin, "/admin/editions/"+f.event.Slug+"/documents", map[string]string{"kind": "bogus"}, "file", "a.pdf", pdf); code != http.StatusBadRequest {
+		t.Errorf("an edition document of a wrong kind: %d", code)
+	}
+
+	if code, _ := e.upload(admin, partnershipURL(f.acme, f.event)+"/documents", map[string]string{"kind": "bogus"}, "file", "a.pdf", pdf); code != http.StatusBadRequest {
+		t.Errorf("a partnership document of a wrong kind: %d", code)
+	}
+
+	if files() != before {
+		t.Error("a document of a wrong kind left its file behind")
+	}
+
+	// An attendee with an address that is none is refused, as for partners.
+	_, body := e.post(admin, partnershipURL(f.acme, f.event)+"/attendees", url.Values{"first_name": {"Ada"}, "last_name": {"L"}, "email": {"nope"}})
+	mustContain(t, body, "Adresse e-mail invalide")
+
+	// What the staff does shows in the activity.
+	e.post(admin, partnershipURL(f.acme, f.event)+"/attendees", url.Values{"first_name": {"Ada"}, "last_name": {"Lovelace"}})
+
+	attendees, err := e.st.ListAttendees(ctx, f.acmeP.ID)
+	mustOK(t, err)
+
+	e.post(admin, partnershipURL(f.acme, f.event)+"/attendees/"+attendees[0].UID+"/delete", nil)
+	e.post(admin, "/admin/organizations/"+f.acme.Slug+"/managers/"+f.alice.UID+"/send-link", nil)
+
+	for _, action := range []string{"attendee.added", "attendee.deleted", "manager.link_sent"} {
+		if !e.logged(f.acme, action, who) {
+			t.Errorf("no %s in the activity", action)
+		}
+	}
+
+	// A deleted partnership takes its own entries along; the
+	// organization's keeps a trace of it.
+	e.post(admin, partnershipURL(f.acme, f.event)+"/delete", url.Values{"confirm": {f.acme.Name}})
+
+	for _, action := range []string{"manager.link_sent", "partnership.deleted"} {
+		if !e.logged(f.acme, action, who) {
+			t.Errorf("no %s in the activity", action)
+		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -333,6 +334,11 @@ func (s *Server) adminEventDocument(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	back := editionAdminURL(e)
+
+	// A wrong kind before the file is stored: none is left behind.
+	if !slices.Contains(editionDocuments, r.FormValue("kind")) {
+		return errBadInput
+	}
 
 	name, err := s.upload(w, r, "file", files.KindPDF, maxPDFSize)
 	if err != nil {
@@ -790,7 +796,7 @@ func (s *Server) adminOrganizationCreate(w http.ResponseWriter, r *http.Request)
 	})
 	if rf, ok := refused(err); ok {
 		s.flash(w, rf.Key, rf.Args...)
-		http.Redirect(w, r, orgURL(org), http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/organizations", http.StatusSeeOther)
 
 		return nil
 	}
@@ -1303,6 +1309,11 @@ func (s *Server) adminPartnershipDocument(w http.ResponseWriter, r *http.Request
 
 	back := partnershipURLFromPath(r)
 
+	// A wrong kind before the file is stored: none is left behind.
+	if !slices.Contains(partnershipDocuments, r.FormValue("kind")) {
+		return errBadInput
+	}
+
 	name, err := s.upload(w, r, "file", files.KindPDF, maxPDFSize)
 	if err != nil {
 		var ue uploadError
@@ -1353,7 +1364,15 @@ func (s *Server) adminAttendeeAdd(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	if err := s.staffAddAttendee(r.Context(), act(r), p, readAttendee(r)); err != nil {
+	err = s.staffAddAttendee(r.Context(), act(r), p, readAttendee(r))
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+		http.Redirect(w, r, partnershipURLFromPath(r), http.StatusSeeOther)
+
+		return nil
+	}
+
+	if err != nil {
 		return err
 	}
 

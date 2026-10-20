@@ -71,6 +71,11 @@ var actionLabels = map[string]string{
 	"perks.updated":         "Contreparties mises à jour",
 	"reminder.sent":         "Relance envoyée",
 	"social.saved":          "Post réseaux sociaux enregistré",
+	"social.deleted":        "Post réseaux sociaux supprimé",
+	"partnership.deleted":   "Partenariat supprimé",
+	"job.hidden":            "Offre d'emploi masquée",
+	"job.shown":             "Offre d'emploi réaffichée",
+	"manager.link_sent":     "Lien de connexion renvoyé",
 }
 
 // networkName returns the display name of a social network; "other" is
