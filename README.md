@@ -263,8 +263,18 @@ The volunteer side can be read by an AI assistant that speaks the
 [Model Context Protocol](https://modelcontextprotocol.io) (Claude, for
 instance), at `$MANAGE_BASE_URL/mcp` (streamable HTTP, no session).
 
-Each person authenticates with a personal token, sent as
-`Authorization: Bearer`; the site's cookies never count there. The staff
+Each person authenticates with a token, sent as `Authorization: Bearer`;
+the site's cookies never count there. An assistant that supports OAuth
+(claude.ai's connectors, say) gets one by itself: it finds the server
+(`/.well-known/oauth-protected-resource`, then
+`/.well-known/oauth-authorization-server`), registers as a public client
+(`/oauth/register`), and sends the person to `/oauth/authorize`, where they
+log in as usual and agree, read only or with changes; it then trades the
+code (PKCE, S256) for an access token, valid an hour, and a refresh token,
+renewed with it and valid 90 days. The grant shows with the personal
+tokens, on the profile it was made from, and is revoked there.
+
+Otherwise, a person makes a personal token by hand. The staff
 make theirs on their staff profile (`/admin/profile`), and these carry the
 staff's rights; coordinators and pole managers make theirs on "My profile"
 (`/me`), and these carry their roles. A token is shown once, lasts 90 days

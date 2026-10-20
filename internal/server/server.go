@@ -34,8 +34,10 @@ type Server struct {
 	site   Site
 	// gravatar fills in missing profile pictures.
 	gravatar *gravatar.Fetcher
-	// loginByIP limits the login links one client asks for.
-	loginByIP *ratelimit.Limiter
+	// loginByIP limits the login links one client asks for;
+	// registerByIP, the OAuth clients it registers.
+	loginByIP    *ratelimit.Limiter
+	registerByIP *ratelimit.Limiter
 	// bg tracks the work done off the request (e-mails, reminders), which a
 	// shutdown waits for before the database closes.
 	bg sync.WaitGroup
@@ -87,6 +89,7 @@ func New(ctx context.Context, cfg *config.Config, st *store.Store, fs *files.Sto
 
 	s.gravatar = gravatar.New(st, fs, cfg.Gravatar, gravatarURL)
 	s.loginByIP = ratelimit.New(loginsPerIP, 15*time.Minute)
+	s.registerByIP = ratelimit.New(20, time.Hour)
 
 	if cfg.OIDCEnabled() {
 		s.oidc, err = newOIDCClient(ctx, cfg)
@@ -161,6 +164,8 @@ func (s *Server) Handler() http.Handler {
 	// The API takes a token, never the site's cookies: a request from
 	// another origin cannot act on anyone's behalf there.
 	protection.AddInsecureBypassPattern("/mcp")
+	protection.AddInsecureBypassPattern("/oauth/register")
+	protection.AddInsecureBypassPattern("/oauth/token")
 
 	var h http.Handler = s.routes()
 	h = limitBodies(h)
@@ -234,6 +239,7 @@ func (s *Server) routes() *router {
 	s.volunteerRoutes(mux)
 	s.adminRoutes(mux)
 	s.mcpRoutes(mux)
+	s.oauthRoutes(mux)
 
 	return mux
 }
@@ -262,6 +268,14 @@ func limitBodies(h http.Handler) http.Handler {
 	})
 }
 
+// contentSecurityPolicy is the browser policy of the pages. Their forms
+// lead to the site only, but for the sources given: an assistant's
+// address, where agreeing to its authorization sends the browser.
+func contentSecurityPolicy(formSources ...string) string {
+	return "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; " +
+		"form-action " + strings.Join(append([]string{"'self'"}, formSources...), " ") + "; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+}
+
 // securityHeaders sets the browser security policy. HSTS is only sent when
 // the application is served over HTTPS.
 func securityHeaders(h http.Handler, https bool) http.Handler {
@@ -270,8 +284,7 @@ func securityHeaders(h http.Handler, https bool) http.Handler {
 		hd.Set("X-Content-Type-Options", "nosniff")
 		hd.Set("X-Frame-Options", "DENY")
 		hd.Set("Referrer-Policy", "same-origin")
-		hd.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; "+
-			"form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
+		hd.Set("Content-Security-Policy", contentSecurityPolicy())
 		hd.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()")
 		hd.Set("Cross-Origin-Opener-Policy", "same-origin")
 

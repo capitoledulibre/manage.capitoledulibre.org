@@ -19,21 +19,37 @@ type APIToken struct {
 	ExpiresAt  time.Time
 	LastUsedAt *time.Time
 	CreatedAt  time.Time
+	// Client is the OAuth client a grant was made to, "" for a personal
+	// token; such a grant renews itself until RenewsUntil.
+	Client      string
+	RenewsUntil *time.Time
 }
 
-const apiTokenCols = `id, uid, person_id, admin_id IS NOT NULL, writes, name, expires_at, last_used_at, created_at`
+// Until is when the token stops working for good: its own expiry, or for
+// an OAuth grant, its refresh token's.
+func (t *APIToken) Until() time.Time {
+	if t.RenewsUntil != nil {
+		return *t.RenewsUntil
+	}
+
+	return t.ExpiresAt
+}
+
+const apiTokenCols = `id, uid, person_id, admin_id IS NOT NULL, writes, name, expires_at, last_used_at, created_at,
+	COALESCE((SELECT c.name FROM oauth_clients c WHERE c.id = api_tokens.client_id), ''), refresh_expires_at`
 
 func scanAPIToken(row interface{ Scan(...any) error }) (*APIToken, error) {
 	var (
-		t    APIToken
-		used sql.NullTime
+		t       APIToken
+		used    sql.NullTime
+		renewal sql.NullTime
 	)
 
-	if err := row.Scan(&t.ID, &t.UID, &t.PersonID, &t.Staff, &t.Writes, &t.Name, &t.ExpiresAt, &used, &t.CreatedAt); err != nil {
+	if err := row.Scan(&t.ID, &t.UID, &t.PersonID, &t.Staff, &t.Writes, &t.Name, &t.ExpiresAt, &used, &t.CreatedAt, &t.Client, &renewal); err != nil {
 		return nil, notFound(err)
 	}
 
-	t.LastUsedAt = timePtr(used)
+	t.LastUsedAt, t.RenewsUntil = timePtr(used), timePtr(renewal)
 
 	return &t, nil
 }

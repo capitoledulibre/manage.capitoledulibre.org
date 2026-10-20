@@ -20,6 +20,10 @@ import (
 
 const oidcStateCookie = "manage_oidc"
 
+// adminNextCookie keeps where a staff login comes back to: the page that
+// asked for it (an assistant's authorization, say).
+const adminNextCookie = "manage_admin_next"
+
 type oidcClient struct {
 	verifier *oidc.IDTokenVerifier
 	oauth    oauth2.Config
@@ -51,6 +55,10 @@ func newOIDCClient(ctx context.Context, cfg *config.Config) (*oidcClient, error)
 // adminLogin starts the OIDC authorization code flow (with PKCE), or shows
 // the development login form when OIDC is disabled.
 func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) error {
+	if next := r.URL.Query().Get("next"); next != "" {
+		s.setCookie(w, adminNextCookie, safeRedirect(next, "/admin/"), 15*time.Minute)
+	}
+
 	if s.oidc == nil {
 		if !s.devAdminLogin(r) {
 			return errNotFound
@@ -199,7 +207,14 @@ func (s *Server) startAdminSession(w http.ResponseWriter, r *http.Request, email
 	}
 
 	s.setCookie(w, adminCookie, token, adminSessionTTL)
-	http.Redirect(w, r, "/admin/", http.StatusSeeOther)
+
+	to := "/admin/"
+	if ck, err := r.Cookie(adminNextCookie); err == nil {
+		to = safeRedirect(ck.Value, to)
+		s.clearCookie(w, adminNextCookie)
+	}
+
+	http.Redirect(w, r, to, http.StatusSeeOther)
 
 	return nil
 }

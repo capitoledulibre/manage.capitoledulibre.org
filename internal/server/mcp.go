@@ -48,7 +48,7 @@ func (s *Server) mcpRoutes(mux *router) {
 		return s.mcpServer(c)
 	}, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
 
-	mux.Handle("/mcp", s.requireAPIToken(h))
+	mux.Handle("/mcp", cors(s.requireAPIToken(h)))
 }
 
 // requireAPIToken lets in a request with a valid personal token, as its
@@ -59,7 +59,7 @@ func (s *Server) requireAPIToken(h http.Handler) http.Handler {
 
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok {
-			unauthorized(w)
+			s.unauthorized(w)
 
 			return
 		}
@@ -70,14 +70,14 @@ func (s *Server) requireAPIToken(h http.Handler) http.Handler {
 				slog.Error("api token", "err", err)
 			}
 
-			unauthorized(w)
+			s.unauthorized(w)
 
 			return
 		}
 
 		person, err := s.store.GetPerson(ctx, t.PersonID)
 		if err != nil {
-			unauthorized(w)
+			s.unauthorized(w)
 
 			return
 		}
@@ -94,8 +94,9 @@ func (s *Server) requireAPIToken(h http.Handler) http.Handler {
 	})
 }
 
-func unauthorized(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", `Bearer realm="manage"`)
+// unauthorized asks for a token, and tells where to get one (RFC 9728).
+func (s *Server) unauthorized(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", `Bearer realm="manage", resource_metadata="`+s.resourceMetadataURL()+`"`)
 	http.Error(w, "a valid personal token is required", http.StatusUnauthorized)
 }
 
