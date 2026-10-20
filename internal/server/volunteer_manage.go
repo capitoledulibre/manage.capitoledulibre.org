@@ -134,36 +134,21 @@ func (s *Server) managePoleSave(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	p := v.Pole
+	set := poleSettings{Name: r.FormValue("name"), Description: r.FormValue("description"), Icon: r.FormValue("icon"),
+		DefaultTasks: r.FormValue("default_tasks"), FreezeAt: formTimePtr(r, "freeze_at"), AccessMode: r.FormValue("access_mode")}
 
-	if name := strings.TrimSpace(r.FormValue("name")); name != "" {
-		p.Name = name
+	if r.Form.Has("slug") {
+		slug := r.FormValue("slug")
+		set.Slug = &slug
 	}
 
-	if r.Form.Has("slug") && !p.IsDefault {
-		p.Slug = strings.TrimSpace(r.FormValue("slug"))
-	}
-
-	p.Description = strings.TrimSpace(r.FormValue("description"))
-	p.Icon = strings.TrimSpace(r.FormValue("icon"))
-	p.DefaultTasks = strings.TrimSpace(r.FormValue("default_tasks"))
-	p.FreezeAt = formTimePtr(r, "freeze_at")
-
-	if mode := r.FormValue("access_mode"); mode != "" && !p.IsDefault && store.ValidPoleMode(mode) {
-		// Only the coordination makes a pole restricted: it hides the pole
-		// from everyone else.
-		if mode != store.PoleRestricted || act(r).CanRestrict(p) || p.AccessMode == store.PoleRestricted {
-			p.AccessMode = mode
-		}
-	}
-
-	if err := s.store.UpdatePole(r.Context(), p); err != nil {
+	if err := s.savePole(r.Context(), act(r), v, set); err != nil {
 		return err
 	}
 
 	s.flash(w, "flash.vol.pole_saved")
 
-	return s.redirectTab(w, r, p, "settings")
+	return s.redirectTab(w, r, v.Pole, "settings")
 }
 
 func (s *Server) managePoleKey(w http.ResponseWriter, r *http.Request) error {
@@ -172,7 +157,7 @@ func (s *Server) managePoleKey(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if _, err := s.store.RegenerateAccessKey(r.Context(), v.Pole.ID); err != nil {
+	if err := s.regenerateKey(r.Context(), act(r), v); err != nil {
 		return err
 	}
 
@@ -199,11 +184,10 @@ func (s *Server) managePoleImage(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if err := s.store.SetPoleImage(r.Context(), v.Pole.ID, name); err != nil {
+	if err := s.setPoleImage(r.Context(), act(r), v, name); err != nil {
 		return err
 	}
 
-	s.dropFile(r.Context(), v.Pole.ImageFile)
 	s.flash(w, "flash.vol.image_saved")
 
 	return s.redirectTab(w, r, v.Pole, "settings")
@@ -215,11 +199,9 @@ func (s *Server) managePoleImageDelete(w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	if err := s.store.SetPoleImage(r.Context(), v.Pole.ID, ""); err != nil {
+	if err := s.setPoleImage(r.Context(), act(r), v, ""); err != nil {
 		return err
 	}
-
-	s.dropFile(r.Context(), v.Pole.ImageFile)
 
 	return s.redirectTab(w, r, v.Pole, "settings")
 }
@@ -430,12 +412,8 @@ func (s *Server) manageLocationAdd(w http.ResponseWriter, r *http.Request) error
 	}
 
 	// Several names at once, one per line.
-	for line := range strings.SplitSeq(r.FormValue("names"), "\n") {
-		if name := strings.TrimSpace(line); name != "" {
-			if _, err := s.store.CreateLocation(r.Context(), v.Pole.ID, name); err != nil {
-				return err
-			}
-		}
+	if err := s.addPlaces(r.Context(), act(r), v, nonBlankLines(r.FormValue("names"))); err != nil {
+		return err
 	}
 
 	return s.redirectTab(w, r, v.Pole, "settings")
@@ -447,12 +425,7 @@ func (s *Server) manageLocationDelete(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	l, err := s.store.GetLocationByUID(r.Context(), v.Pole.ID, r.PathValue("location"))
-	if err != nil {
-		return err
-	}
-
-	if err := s.store.DeleteLocation(r.Context(), l.ID); err != nil {
+	if err := s.deletePlace(r.Context(), act(r), v, r.PathValue("location")); err != nil {
 		return err
 	}
 
