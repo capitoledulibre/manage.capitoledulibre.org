@@ -20,6 +20,12 @@ type bulkGrid struct {
 	// none (an empty name).
 	Columns []string
 	Days    []*bulkDay
+	// People are who is on each slot, by slot ID, when the planning shows
+	// them; Fiche leads their names to their pages, for the coordination,
+	// and Manage names those who gave none, for whoever runs the pole.
+	People map[int64][]*store.Person
+	Fiche  string
+	Manage bool
 }
 
 type bulkDay struct {

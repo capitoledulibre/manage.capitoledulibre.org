@@ -55,8 +55,10 @@ type planQuery struct {
 	Pole     *store.Pole    // a single pole, nil for every visible one
 	View     string         // "mine", "open" or "all"
 	Day      string         // a single day, empty for all of them
-	// Grid lays each pole's day out as a timetable instead of cards.
-	Grid bool
+	// Layout is "grid" for each pole's day as a timetable instead of
+	// cards, "names" for that timetable with who is on each slot, empty
+	// for the cards.
+	Layout string
 }
 
 // planning gathers the slots of an edition, day by day and pole by pole.
@@ -206,7 +208,10 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		views = append(slices.Clone(planViews), leadViews...)
 	}
 
-	q := planQuery{PersonID: person.ID, Visible: visible, View: query.Get("view"), Grid: query.Get("layout") == "grid"}
+	q := planQuery{PersonID: person.ID, Visible: visible, View: query.Get("view"), Layout: query.Get("layout")}
+	if q.Layout != "grid" && q.Layout != "names" {
+		q.Layout = ""
+	}
 	if !slices.Contains(views, q.View) {
 		q.View = "all"
 
@@ -269,7 +274,7 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Actions on a card come back to the planning as it was filtered.
-	back := planningURL(e) + "?" + planURLQuery(q.View, q.Pole, dayParam(day, all), q.Grid)
+	back := planningURL(e) + "?" + planURLQuery(q.View, q.Pole, dayParam(day, all), q.Layout)
 
 	now := time.Now()
 	lang := rc(r).Lang
@@ -294,9 +299,9 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	// The grid layout: each pole's day as a timetable, hours down and
-	// places across.
-	if q.Grid {
+	// The grid layouts: each pole's day as a timetable, hours down and
+	// places across, with or without who is on each slot.
+	if q.Layout != "" {
 		locations := map[int64][]*store.Location{}
 
 		for _, d := range days {
@@ -308,11 +313,17 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 				}
 
 				slots := make([]*store.Slot, 0, len(pp.Slots))
+				people := map[int64][]*store.Person{}
+
 				for _, ps := range pp.Slots {
 					slots = append(slots, ps.Slot)
+					people[ps.Slot.ID] = ps.People
 				}
 
 				pp.Grid = newBulkGrid(slots, locations[pp.Pole.ID])
+				if q.Layout == "names" {
+					pp.Grid.People, pp.Grid.Fiche, pp.Grid.Manage = people, fiche, pp.Manage
+				}
 			}
 		}
 	}
@@ -321,29 +332,30 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 	base := planningURL(e) + "?"
 	dp := dayParam(day, all)
 	layouts := []planLink{
-		{Label: "vol.planning.layout_list", URL: base + planURLQuery(q.View, q.Pole, dp, false), On: !q.Grid},
-		{Label: "vol.planning.layout_grid", URL: base + planURLQuery(q.View, q.Pole, dp, true), On: q.Grid},
+		{Label: "vol.planning.layout_list", URL: base + planURLQuery(q.View, q.Pole, dp, ""), On: q.Layout == ""},
+		{Label: "vol.planning.layout_grid", URL: base + planURLQuery(q.View, q.Pole, dp, "grid"), On: q.Layout == "grid"},
+		{Label: "vol.planning.layout_names", URL: base + planURLQuery(q.View, q.Pole, dp, "names"), On: q.Layout == "names"},
 	}
 
 	var viewLinks, poleLinks, dayLinks []planLink
 
 	for _, v := range views {
-		viewLinks = append(viewLinks, planLink{Label: "vol.planning.view_" + v, URL: base + planURLQuery(v, q.Pole, dp, q.Grid), On: v == q.View})
+		viewLinks = append(viewLinks, planLink{Label: "vol.planning.view_" + v, URL: base + planURLQuery(v, q.Pole, dp, q.Layout), On: v == q.View})
 	}
 
 	if len(shown) > 1 {
-		poleLinks = append(poleLinks, planLink{Label: "vol.planning.all_poles", URL: base + planURLQuery(q.View, nil, dp, q.Grid), On: q.Pole == nil})
+		poleLinks = append(poleLinks, planLink{Label: "vol.planning.all_poles", URL: base + planURLQuery(q.View, nil, dp, q.Layout), On: q.Pole == nil})
 
 		for _, p := range shown {
-			poleLinks = append(poleLinks, planLink{Name: p.Name, Pole: p, URL: base + planURLQuery(q.View, p, dp, q.Grid), On: q.Pole == p})
+			poleLinks = append(poleLinks, planLink{Name: p.Name, Pole: p, URL: base + planURLQuery(q.View, p, dp, q.Layout), On: q.Pole == p})
 		}
 	}
 
 	if len(all) > 1 {
-		dayLinks = append(dayLinks, planLink{Label: "vol.planning.all_days", URL: base + planURLQuery(q.View, q.Pole, dayParam("", all), q.Grid), On: day == ""})
+		dayLinks = append(dayLinks, planLink{Label: "vol.planning.all_days", URL: base + planURLQuery(q.View, q.Pole, dayParam("", all), q.Layout), On: day == ""})
 
 		for _, d := range all {
-			dayLinks = append(dayLinks, planLink{Day: d, URL: base + planURLQuery(q.View, q.Pole, d, q.Grid), On: d == day})
+			dayLinks = append(dayLinks, planLink{Day: d, URL: base + planURLQuery(q.View, q.Pole, d, q.Layout), On: d == day})
 		}
 	}
 
@@ -360,8 +372,8 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 
 	data := map[string]any{
 		"Event": e, "Days": days, "View": q.View, "Pole": q.Pole, "Today": dayKey(now), "Printed": now,
-		"Views": viewLinks, "PoleLinks": poleLinks, "DayLinks": dayLinks, "CSV": csvURL, "Layouts": layouts, "Grid": q.Grid,
-		"OpenURL": base + planURLQuery("open", q.Pole, dp, q.Grid),
+		"Views": viewLinks, "PoleLinks": poleLinks, "DayLinks": dayLinks, "CSV": csvURL, "Layouts": layouts, "Grid": q.Layout != "",
+		"OpenURL": base + planURLQuery("open", q.Pole, dp, q.Layout),
 	}
 
 	// My slots: the waiting list and the calendar subscription go with
@@ -415,19 +427,18 @@ func dayParam(day string, all []string) string {
 	return day
 }
 
-// planURLQuery is the query string of a planning link.
 // planURLQuery is the query of a planning link. The view always goes in:
 // without one, the page picks a default (a volunteer's own slots), and the
 // "everything" link would not lead to everything.
-func planURLQuery(view string, pole *store.Pole, day string, grid bool) string {
+func planURLQuery(view string, pole *store.Pole, day, layout string) string {
 	v := url.Values{}
 
 	if view != "" {
 		v.Set("view", view)
 	}
 
-	if grid {
-		v.Set("layout", "grid")
+	if layout != "" {
+		v.Set("layout", layout)
 	}
 
 	if pole != nil {

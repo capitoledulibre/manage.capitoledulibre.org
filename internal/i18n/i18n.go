@@ -954,6 +954,7 @@ var messages = map[string][2]string{
 	"vol.planning.layout":       {"Présentation", "Layout"},
 	"vol.planning.layout_list":  {"Liste", "List"},
 	"vol.planning.layout_grid":  {"Grille", "Grid"},
+	"vol.planning.layout_names": {"Grille + noms", "Grid + names"},
 	"vol.planning.grid_mine":    {"moi", "me"},
 	"vol.pick.search":           {"Rechercher un bénévole…", "Search a volunteer…"},
 	"vol.pick.selected.one":     {"%d sélectionné·e", "%d selected"},

@@ -360,8 +360,9 @@
 
 {{/* slot_grid is a pole's day of the planning as a timetable: the hours
      down, the places across, each slot a link with how full it is, in
-     red while nobody is on it, amber while short, green once full. Expects
-     Lang, Grid (one day) and Label (the pole, for screen readers). */}}
+     red while nobody is on it, amber while short, green once full, and
+     under it who is on it when the grid has People. Expects Lang, Grid
+     (one day) and Label (the pole, for screen readers). */}}
 {{define "slot_grid"}}
 {{$l := .Lang}}{{$g := .Grid}}
 {{range $g.Days}}
@@ -369,7 +370,7 @@
   <table class="w-full bg-surface text-sm">
     <thead class="bg-gray-50"><tr>
       <th class="sticky left-0 bg-gray-50 px-3 py-2 text-left text-xs font-semibold text-gray-500">{{t $l "vol.gen.hours"}}</th>
-      {{range $g.Columns}}<th class="min-w-20 px-2 py-2 text-left text-xs font-semibold text-gray-700">{{or . (t $l "vol.slot_form.whole_pole")}}</th>{{end}}
+      {{range $g.Columns}}<th class="{{if $g.People}}min-w-40{{else}}min-w-20{{end}} px-2 py-2 text-left text-xs font-semibold text-gray-700">{{or . (t $l "vol.slot_form.whole_pole")}}</th>{{end}}
     </tr></thead>
     <tbody>
     {{range .Rows}}
@@ -377,7 +378,7 @@
       <th scope="row" class="sticky left-0 bg-surface px-3 py-1.5 text-left font-medium whitespace-nowrap tabular-nums">{{clock .Start}} – {{clock .End}}</th>
       {{range .Cells}}
       <td class="p-1 align-top">
-        {{range .}}
+        {{range $sl := .}}
         <a href="{{.URL}}" class="mb-1 flex items-center gap-1.5 rounded px-2 py-1 text-xs whitespace-nowrap ring-1 last:mb-0 hover:underline
           {{if slotOver .}}bg-gray-50 text-gray-500 ring-gray-200{{else if .IsFull}}bg-green-50 text-green-800 ring-green-200{{else if eq .Filled 0}}bg-red-50 text-red-800 ring-red-200{{else}}bg-amber-50 text-amber-900 ring-amber-200{{end}}">
           <span class="font-medium tabular-nums" aria-hidden="true">{{.Filled}}/{{.Capacity}}</span>
@@ -385,6 +386,11 @@
           {{if .Mine}}<span class="badge bg-brand-100 text-brand-800">{{t $l "vol.planning.grid_mine"}}</span>{{end}}
           {{with .Title}}<span class="max-w-32 truncate opacity-80">{{.}}</span>{{end}}
         </a>
+        {{with $g.People}}{{with index . $sl.ID}}
+        <ul class="mb-2 space-y-1 px-1 pt-1 text-xs last:mb-0">
+          {{range .}}<li class="flex items-center gap-1.5 whitespace-nowrap">{{if .AvatarFile}}<img src="/avatars/{{.AvatarFile}}" alt="" loading="lazy" class="h-5 w-5 shrink-0 rounded-full object-cover ring-1 ring-gray-200">{{else}}<span class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[9px] font-semibold text-brand-800" aria-hidden="true">{{.Initials}}</span>{{end}}<span class="text-gray-800">{{template "person_name" (dict "Lang" $l "Person" . "Fiche" $g.Fiche "Manage" $g.Manage)}}</span></li>{{end}}
+        </ul>
+        {{end}}{{end}}
         {{end}}
       </td>
       {{end}}
