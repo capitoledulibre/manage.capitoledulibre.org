@@ -380,10 +380,13 @@ func dayParam(day string, all []string) string {
 }
 
 // planURLQuery is the query string of a planning link.
+// planURLQuery is the query of a planning link. The view always goes in:
+// without one, the page picks a default (a volunteer's own slots), and the
+// "everything" link would not lead to everything.
 func planURLQuery(view string, pole *store.Pole, day string) string {
 	v := url.Values{}
 
-	if view != "" && view != "all" {
+	if view != "" {
 		v.Set("view", view)
 	}
 

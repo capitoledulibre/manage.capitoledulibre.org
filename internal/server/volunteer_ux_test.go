@@ -164,6 +164,12 @@ func TestDayOfEventNavigation(t *testing.T) {
 	_, body = e.get(nina, planning)
 	mustContain(t, body, `aria-current="page">Mes créneaux`)
 
+	// "Everything" still leads to everything: the links carry their view.
+	mustContain(t, body, `href="`+planning+`?view=all"`)
+
+	_, body = e.get(nina, planning+"?view=all")
+	mustContain(t, body, `aria-current="page">Tout`)
+
 	// Her calendar: one tap from the home page.
 	_, body = e.get(nina, "/volunteers/"+f.event.Slug)
 	mustContain(t, body, "Ajouter mes créneaux à mon agenda")
