@@ -1,20 +1,3 @@
-{{define "partner_nav"}}
-  {{$p := .Path}}{{$s := .PartnerSpace}}
-  {{range (list "" "organization" "logo" "attendees" "jobs" "managers")}}
-  {{$href := printf "%s/%s" $s .}}{{$key := or (and (eq . "") "dashboard") .}}
-  <a class="nav-link {{if eq $p $href}}nav-link-active{{end}}" {{if eq $p $href}}aria-current="page"{{end}} href="{{$href}}">{{t $.Lang (printf "nav.%s" $key)}}</a>
-  {{end}}
-{{end}}
-
-{{define "volunteer_nav"}}
-  {{with .Vol.Event}}
-  {{$p := $.Path}}{{$base := printf "/%s" .Slug}}{{$home := printf "%s/" $base}}
-  <a class="nav-link {{if eq $p $home}}nav-link-active{{end}}" {{if eq $p $home}}aria-current="page"{{end}} href="{{$home}}">{{t $.Lang "vol.nav.poles"}}</a>
-  <a class="nav-link {{if eq $p (printf "%s/planning" $base)}}nav-link-active{{end}}" {{if eq $p (printf "%s/planning" $base)}}aria-current="page"{{end}} href="{{$base}}/planning">{{t $.Lang "vol.nav.planning"}}</a>
-  {{if $.Vol.Coordinator}}<a class="nav-link {{if hasPrefix $p (printf "%s/volunteers" $base)}}nav-link-active{{end}}" href="{{$base}}/volunteers">{{t $.Lang "vol.nav.coordination"}}</a>{{end}}
-  {{end}}
-{{end}}
-
 {{/* volunteer_tabs is the volunteer navigation on a phone: a bar at the
      bottom of the screen, under the thumb, where the day of the event is
      spent. The header carries the same links on larger screens. */}}
@@ -38,24 +21,24 @@
 </a>
 {{end}}
 
-{{define "admin_nav"}}
-  <a class="nav-link {{if eq .Nav "pipeline"}}nav-link-active{{end}}" {{if eq .Nav "pipeline"}}aria-current="page"{{end}} href="/admin/">Pipeline</a>
-  <a class="nav-link" href="/admin/volunteers">Bénévoles</a>
-  <a class="nav-link {{if eq .Nav "partners"}}nav-link-active{{end}}" {{if eq .Nav "partners"}}aria-current="page"{{end}} href="/admin/organizations">Partenaires</a>
-  <a class="nav-link {{if eq .Nav "people"}}nav-link-active{{end}}" {{if eq .Nav "people"}}aria-current="page"{{end}} href="/admin/people">Personnes</a>
-  <a class="nav-link {{if eq .Nav "editions"}}nav-link-active{{end}}" {{if eq .Nav "editions"}}aria-current="page"{{end}} href="/admin/editions">Éditions</a>
-  <a class="nav-link" href="/jobs">Jobs publics</a>
+{{/* edition_switch names the edition looked at, and lets one switch to
+     another when there is a choice. Expects the Page. */}}
+{{define "edition_switch"}}
+{{$nav := .SiteNav}}
+{{if $nav.Editions}}
+<details class="relative" data-menu>
+  <summary class="flex cursor-pointer list-none items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-100 [&::-webkit-details-marker]:hidden" aria-haspopup="menu" aria-label="{{t .Lang "nav.edition"}} : {{$nav.Event.Name}}">
+    <span class="max-w-36 truncate sm:max-w-48">{{$nav.Event.Name}}</span>
+    <svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M5.2 7.7a.75.75 0 0 1 1.06.04L10 11.7l3.74-3.96a.75.75 0 1 1 1.1 1.02l-4.3 4.55a.75.75 0 0 1-1.1 0l-4.3-4.55a.75.75 0 0 1 .06-1.06z"/></svg>
+  </summary>
+  <div class="absolute left-0 z-30 mt-2 w-64 rounded-lg bg-surface p-1 shadow-lg ring-1 ring-gray-200" role="menu">
+    <p class="px-3 pt-2 pb-1 text-xs font-medium text-gray-500">{{t .Lang "nav.edition"}}</p>
+    {{range $nav.Editions}}<a href="{{.URL}}" class="menu-item {{if .On}}font-semibold text-gray-900{{end}}" role="menuitem" {{if .On}}aria-current="page"{{end}}>{{.Label}}{{if .On}} <span class="ml-auto text-brand-600" aria-hidden="true">✓</span>{{end}}</a>{{end}}
+  </div>
+</details>
+{{else}}
+<span class="max-w-36 truncate rounded-md sm:max-w-48 px-2 py-1 text-sm font-medium text-gray-700 ring-1 ring-gray-200">{{$nav.Event.Name}}</span>
 {{end}}
-
-{{/* edition_tabs puts the two sides of an edition side by side for the
-     staff: its partners (this administration) and its volunteers (the
-     coordination pages, shared with the coordinators). Expects Event and
-     Active ("partners" or "volunteers"). */}}
-{{define "edition_tabs"}}
-<nav class="mb-4 flex gap-1 border-b border-gray-200" aria-label="{{.Event.Name}}">
-  <a href="/{{.Event.Slug}}/partners/" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq .Active "partners"}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq .Active "partners"}}aria-current="page"{{end}}>Partenaires</a>
-  <a href="/{{.Event.Slug}}/volunteers" class="-mb-px rounded-t-md border px-4 py-2 text-sm font-medium {{if eq .Active "volunteers"}}border-gray-200 border-b-transparent bg-surface text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if eq .Active "volunteers"}}aria-current="page"{{end}}>Bénévoles</a>
-</nav>
 {{end}}
 
 {{/* status_dot is a partnership status as a coloured dot, named for
@@ -299,12 +282,6 @@
     <a href="{{.URL}}" class="menu-item" role="menuitem">
       <svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M11.3 1.5a1 1 0 0 0-2.6 0l-.2 1.2a7 7 0 0 0-1.7.7l-1-.7a1 1 0 0 0-1.8 1.8l.7 1a7 7 0 0 0-.7 1.7l-1.2.2a1 1 0 0 0 0 2.6l1.2.2c.1.6.4 1.2.7 1.7l-.7 1a1 1 0 0 0 1.8 1.8l1-.7c.5.3 1.1.6 1.7.7l.2 1.2a1 1 0 0 0 2.6 0l.2-1.2a7 7 0 0 0 1.7-.7l1 .7a1 1 0 0 0 1.8-1.8l-.7-1c.3-.5.6-1.1.7-1.7l1.2-.2a1 1 0 0 0 0-2.6l-1.2-.2a7 7 0 0 0-.7-1.7l.7-1a1 1 0 0 0-1.8-1.8l-1 .7a7 7 0 0 0-1.7-.7zM10 13a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
       {{t $l "vol.manage.menu" .Name}}
-    </a>
-    {{end}}
-    {{range .Spaces}}
-    <a href="{{.URL}}" class="menu-item" role="menuitem">
-      <svg viewBox="0 0 20 20" class="h-4 w-4 text-gray-400" fill="currentColor" aria-hidden="true"><path d="M3 4a1 1 0 0 1 1-1h5v6H3zm8-1h5a1 1 0 0 1 1 1v3h-6zM3 11h6v6H4a1 1 0 0 1-1-1zm8-2h6v7a1 1 0 0 1-1 1h-5z"/></svg>
-      {{t $l .Label}}
     </a>
     {{end}}
     <div class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700">

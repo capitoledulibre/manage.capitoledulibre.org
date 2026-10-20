@@ -524,15 +524,10 @@ func (s *Server) adminPipeline(w http.ResponseWriter, r *http.Request) error {
 		ordered = append(ordered, col)
 	}
 
-	events, err := s.store.ListEvents(ctx)
-	if err != nil {
-		return err
-	}
-
 	sort.SliceStable(due, func(i, j int) bool { return due[i].P.FollowupAt.Before(*due[j].P.FollowupAt) })
 
 	p := s.page(r, e.Name)
-	p.D = map[string]any{"E": e, "Events": events, "Levels": levels, "Columns": ordered, "Totals": totals, "Count": len(partnerships), "Mine": mine,
+	p.D = map[string]any{"E": e, "Levels": levels, "Columns": ordered, "Totals": totals, "Count": len(partnerships), "Mine": mine,
 		"Due": due}
 
 	return s.render(w, r, "admin/pipeline", p)

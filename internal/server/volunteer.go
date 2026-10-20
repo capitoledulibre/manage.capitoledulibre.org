@@ -987,39 +987,3 @@ func (s *Server) volunteerNav(r *http.Request) *volunteerNav {
 
 	return nav
 }
-
-// space is another space of the signed-in person, linked from their menu.
-type space struct {
-	Label string // i18n key
-	URL   string
-}
-
-// spaces lists the spaces of the signed-in person other than current: a
-// partner contact who volunteers, or the other way round, goes from one to
-// the other through their menu.
-func (s *Server) spaces(r *http.Request, current string) []space {
-	c := rc(r)
-	if c.Person == nil {
-		return nil
-	}
-
-	var out []space
-
-	if current != "partner" {
-		if managers, err := s.store.ManagersByEmail(r.Context(), c.Person.Email); err == nil && len(managers) > 0 {
-			out = append(out, space{Label: "space.partners", URL: "/partners/"})
-		}
-	}
-
-	if current != "volunteer" {
-		if ok, err := s.store.IsVolunteer(r.Context(), c.Person.ID); err == nil && ok {
-			out = append(out, space{Label: "space.volunteers", URL: "/volunteers/"})
-		}
-	}
-
-	if c.Admin != nil {
-		out = append(out, space{Label: "space.admin", URL: "/admin/"})
-	}
-
-	return out
-}

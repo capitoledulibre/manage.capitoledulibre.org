@@ -154,9 +154,10 @@ func TestDayOfEventNavigation(t *testing.T) {
 
 	nina := e.loginAs("nina@example.org")
 
-	// The home tab comes first; with no slot, the planning shows them all.
+	// The volunteers section leads home; with no slot, the planning shows
+	// them all.
 	_, body := e.get(nina, planning)
-	mustContain(t, body, ">Accueil", `aria-current="page">Tout`)
+	mustContain(t, body, `href="/`+f.event.Slug+`/">Bénévoles</a>`, `aria-current="page" href="`+planning+`">Planning</a>`, `aria-current="page">Tout`)
 
 	// With a slot, the planning opens on hers.
 	mustOK(t, e.st.ForceSignup(ctx, f.morning.ID, p.ID))

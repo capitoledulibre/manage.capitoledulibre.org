@@ -1,6 +1,6 @@
 {{define "content"}}
 {{$d := .D}}{{$l := .Lang}}{{$e := $d.Event}}{{$base := printf "/%s/volunteers" $e.Slug}}
-{{if $d.Staff}}{{template "edition_tabs" (dict "Event" $e "Active" "volunteers")}}{{end}}
+
 <div class="mb-6 flex flex-wrap items-center gap-4">
   {{with $e.LogoFile}}<img src="/volunteer-images/{{.}}" alt="" class="h-14 w-14 rounded-lg object-contain">{{end}}
   <div class="flex-1">

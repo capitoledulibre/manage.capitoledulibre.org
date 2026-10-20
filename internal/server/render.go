@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -42,10 +41,7 @@ type Page struct {
 	PartnerSpace string
 	// Theme is "system", "light" or "dark".
 	Theme string
-	// Nav is the active admin section: "pipeline", "partners", "people",
-	// "editions" or "profile".
-	Nav string
-	Dev bool
+	Dev   bool
 
 	Manager *store.Manager
 	// Person is who is signed in with an e-mail link (or, on volunteer
@@ -63,9 +59,8 @@ type Page struct {
 	// StaffPerson is set when Person comes from the staff login, not from
 	// an e-mail link: logging out then ends the staff session.
 	StaffPerson bool
-	// Spaces are the other spaces of the signed-in person, linked from
-	// their menu.
-	Spaces []space
+	// SiteNav is the navigation of the site, for a signed-in person.
+	SiteNav *siteNav
 
 	// D holds page-specific data.
 	D any
@@ -104,7 +99,6 @@ func (s *Server) page(r *http.Request, title string) *Page {
 		PartnerSpace:  partnerSpace,
 		Theme:         detectTheme(r),
 		Site:          s.site,
-		Nav:           adminNav(r.URL.Path),
 		Dev:           s.cfg.Dev,
 		Manager:       c.Manager,
 		Person:        c.Person,
@@ -113,41 +107,29 @@ func (s *Server) page(r *http.Request, title string) *Page {
 		Impersonating: c.Impersonating,
 	}
 
-	switch area {
-	case "volunteer":
+	if area == "volunteer" {
 		p.Vol = s.volunteerNav(r)
 		p.StaffPerson = c.personToken == "" && c.Admin != nil
-		p.Spaces = s.spaces(r, "volunteer")
-	case "partner":
-		if !c.Impersonating {
-			p.Spaces = s.spaces(r, "partner")
-		}
 	}
+
+	p.SiteNav = s.siteNav(r)
 
 	return p
 }
 
-var (
-	pipelinePath    = regexp.MustCompile(`^/[^/]+/partners/$`)
-	partnershipPath = regexp.MustCompile(`^/[^/]+/partners/[^/]+`)
-)
-
-// adminNav maps a staff path to its menu section.
-func adminNav(path string) string {
+// Home is where the logo leads: the first section of the navigation, else
+// the entry of the area.
+func (p *Page) Home() string {
 	switch {
-	case path == "/admin/" || pipelinePath.MatchString(path):
-		return "pipeline"
-	case strings.HasPrefix(path, "/admin/organizations") || partnershipPath.MatchString(path):
-		return "partners"
-	case strings.HasPrefix(path, "/admin/editions"):
-		return "editions"
-	case strings.HasPrefix(path, "/admin/profile"):
-		return "profile"
-	case strings.HasPrefix(path, "/admin/people"):
-		return "people"
+	case p.SiteNav != nil && len(p.SiteNav.Sections) > 0:
+		return p.SiteNav.Sections[0].URL
+	case p.Area == "partner":
+		return "/partners/"
+	case p.Area == "volunteer":
+		return "/volunteers/"
 	}
 
-	return ""
+	return "/"
 }
 
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *Page) error {

@@ -371,10 +371,21 @@ var messages = map[string][2]string{
 
 	"profile.title": {"Mon profil", "My profile"},
 
-	// Spaces of a person, linked from their menu.
-	"space.partners":   {"Espace partenaire", "Partner area"},
-	"space.volunteers": {"Espace bénévole", "Volunteer area"},
-	"space.admin":      {"Administration", "Administration"},
+	// The navigation of the whole site: sections of an edition, the
+	// administration, and the tabs of a section.
+	"nav.label":               {"Navigation principale", "Main navigation"},
+	"nav.tabs_label":          {"Pages de la section", "Section pages"},
+	"nav.edition":             {"Édition", "Edition"},
+	"nav.partners":            {"Partenaires", "Partners"},
+	"nav.volunteers":          {"Bénévoles", "Volunteers"},
+	"nav.planning":            {"Planning", "Schedule"},
+	"nav.admin":               {"Administration", "Administration"},
+	"nav.vol_home":            {"Accueil", "Home"},
+	"nav.coordination":        {"Coordination", "Coordination"},
+	"nav.admin_editions":      {"Éditions", "Editions"},
+	"nav.admin_organizations": {"Organisations", "Organizations"},
+	"nav.admin_people":        {"Personnes", "People"},
+	"nav.admin_profile":       {"Mon profil", "My profile"},
 
 	// Volunteer space. French punctuation keeps a no-break space before
 	// ":", "!" and "?".
@@ -804,7 +815,6 @@ var messages = map[string][2]string{
 	"flash.vol.volunteer_removed":       {"%s a été retiré·e du créneau et prévenu·e par e-mail. La personne reste dans le pôle.", "%s was taken off the slot and told by email. They stay in the team."},
 
 	// Coordination of an edition.
-	"vol.nav.coordination": {"Édition", "Edition"},
 
 	"vol.status.draft.help":    {"Préparée par la coordination et les responsables, invisible des bénévoles.", "Prepared by the coordination and the team leads, hidden from volunteers."},
 	"vol.status.open.help":     {"Les bénévoles voient l'édition et s'inscrivent.", "Volunteers see the edition and sign up."},
@@ -958,7 +968,6 @@ var messages = map[string][2]string{
 	"vol.planning.edit_slot":    {"Modifier le créneau", "Edit the slot"},
 	"vol.planning.nobody":       {"Personne pour l'instant.", "Nobody yet."},
 	"vol.planning.link_pole":    {"Planning du pôle, à imprimer", "Team schedule, printable"},
-	"vol.nav.planning":          {"Planning", "Schedule"},
 	"vol.tabs.planning":         {"Planning", "Schedule"},
 	"vol.roster.col_time":       {"Horaire", "Time"},
 	"vol.roster.col_slot":       {"Créneau", "Slot"},

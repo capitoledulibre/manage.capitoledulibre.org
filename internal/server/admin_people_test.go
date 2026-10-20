@@ -25,12 +25,19 @@ func TestAdminWelcomeAndTabs(t *testing.T) {
 	f := e.volFixture()
 	mustOK(t, e.st.SaveEvent(context.Background(), &store.Event{ID: f.event.ID, Slug: f.event.Slug, Name: f.event.Name, Year: f.event.Year, IsCurrent: true}))
 
-	// The edition has its two sides, linked both ways.
+	// The header gives the sections of the edition, both ways, and the
+	// administration.
 	_, body = e.get(admin, "/"+f.event.Slug+"/partners/")
-	mustContain(t, body, `href="/`+f.event.Slug+`/volunteers"`, ">Bénévoles</a>", `href="/admin/volunteers"`, `href="/admin/people"`)
+	mustContain(t, body, `aria-current="page" href="/`+f.event.Slug+`/partners/">Partenaires</a>`, `href="/`+f.event.Slug+`/">Bénévoles</a>`,
+		`href="/`+f.event.Slug+`/planning">Planning</a>`, `href="/admin/editions"`)
 
 	_, body = e.get(admin, "/"+f.event.Slug+"/volunteers")
-	mustContain(t, body, `href="/`+f.event.Slug+`/partners/"`, `href="/admin/" class="menu-item"`)
+	mustContain(t, body, `href="/`+f.event.Slug+`/partners/">Partenaires</a>`, `aria-current="page" href="/`+f.event.Slug+`/">Bénévoles</a>`,
+		`href="/`+f.event.Slug+`/volunteers" class="-mb-px`, ">Coordination</a>")
+
+	// The administration has its own tabs.
+	_, body = e.get(admin, "/admin/people")
+	mustContain(t, body, `href="/admin/editions"`, `href="/admin/organizations"`, `href="/admin/people" class="-mb-px shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap border-brand-600`)
 
 	// The menu entry opens the volunteer side of the current edition.
 	_, body = e.get(admin, "/admin/volunteers")

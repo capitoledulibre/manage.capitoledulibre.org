@@ -798,16 +798,20 @@ func TestPartnerFileNavigation(t *testing.T) {
 	_, body = e.get(admin, "/admin/organizations/"+f.acme.Slug)
 	mustContain(t, body, ">Partenaires</a>", "Voir comme le partenaire", "Contacts")
 
-	// The active menu section follows the page.
+	// The active section follows the page.
 	for path, want := range map[string]string{
-		"/" + f.event.Slug + "/partners/":             "pipeline",
-		"/admin/editions/" + f.event.Slug + "/levels": "editions",
+		"/" + f.event.Slug + "/partners/":             "partners",
+		"/admin/editions/" + f.event.Slug + "/levels": "admin",
 		partnershipURL(f.acme, f.event):               "partners",
-		"/admin/organizations":                        "partners",
-		"/admin/profile":                              "profile",
+		"/" + f.event.Slug + "/partner/logo":          "partners",
+		"/" + f.event.Slug + "/planning":              "planning",
+		"/" + f.event.Slug + "/volunteers/list":       "volunteers",
+		"/" + f.event.Slug + "/":                      "volunteers",
+		"/admin/organizations":                        "admin",
+		"/me":                                         "",
 	} {
-		if got := adminNav(path); got != want {
-			t.Errorf("adminNav(%s) = %q, want %q", path, got, want)
+		if got := pathSection(path, f.event); got != want {
+			t.Errorf("pathSection(%s) = %q, want %q", path, got, want)
 		}
 	}
 

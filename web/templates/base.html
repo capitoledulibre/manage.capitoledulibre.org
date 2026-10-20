@@ -24,38 +24,53 @@
   </div>
   {{end}}
   <header class="border-b border-gray-200 bg-surface print:hidden">
-    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-      <a href="{{if eq .Area "admin"}}/admin/{{else if eq .Area "partner"}}/partners/{{else if eq .Area "volunteer"}}/volunteers/{{else}}/{{end}}" class="flex items-center gap-2 font-bold text-gray-900">
+    {{$nav := .SiteNav}}
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:gap-x-4">
+      <a href="{{.Home}}" class="flex items-center gap-2 font-bold text-gray-900">
         {{if .Site.LogoURL}}
           <img src="{{.Site.LogoURL}}" alt="" class="h-8 max-w-24 object-contain">
         {{else}}
           <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-md bg-brand-600 px-1 text-sm text-white">{{.Site.Initials}}</span>
         {{end}}
-        <span>{{.Site.Name}}{{if eq .Area "admin"}} <span class="font-normal text-gray-500">· Admin</span>{{end}}</span>
+        <span class="hidden sm:inline">{{.Site.Name}}</span>
       </a>
-      <nav class="order-last -mx-3 {{if eq .Area "volunteer"}}hidden sm:flex{{else}}flex{{end}} w-full flex-wrap items-center gap-1 sm:order-none sm:mx-0 sm:w-auto sm:flex-1">
-        {{if eq .Area "partner"}}{{template "partner_nav" .}}{{end}}
-        {{if eq .Area "volunteer"}}{{template "volunteer_nav" .}}{{end}}
-        {{if and (eq .Area "admin") .Admin}}{{template "admin_nav" .}}{{end}}
+      {{with $nav}}{{with .Event}}{{template "edition_switch" $}}{{end}}{{end}}
+      {{with $nav}}{{if .Sections}}
+      {{/* On a phone, the volunteer pages have their bar at the bottom. */}}
+      <nav class="order-last -mx-3 w-full flex-wrap items-center gap-1 sm:order-none sm:mx-0 sm:w-auto sm:flex-1 {{if and (eq $.Area "volunteer") $.Vol $.Vol.Event (le (len .Sections) 2)}}hidden sm:flex{{else}}flex{{end}}" aria-label="{{t $.Lang "nav.label"}}">
+        {{range .Sections}}<a class="nav-link {{if .On}}nav-link-active{{end}}" {{if .On}}aria-current="page"{{end}} href="{{.URL}}">{{t $.Lang .Label}}</a>{{end}}
       </nav>
-      <div class="ml-auto flex items-center gap-3 text-sm sm:ml-0">
+      {{end}}{{end}}
+      <div class="ml-auto flex items-center gap-3 text-sm">
+        {{with $nav}}{{with .Admin}}<a class="nav-link inline-flex items-center gap-1.5 {{if .On}}nav-link-active{{end}}" {{if .On}}aria-current="page"{{end}} href="{{.URL}}">
+          <svg viewBox="0 0 20 20" class="h-4 w-4" fill="currentColor" aria-hidden="true"><path d="M11.3 1.5a1 1 0 0 0-2.6 0l-.2 1.2a7 7 0 0 0-1.7.7l-1-.7a1 1 0 0 0-1.8 1.8l.7 1a7 7 0 0 0-.7 1.7l-1.2.2a1 1 0 0 0 0 2.6l1.2.2c.1.6.4 1.2.7 1.7l-.7 1a1 1 0 0 0 1.8 1.8l1-.7c.5.3 1.1.6 1.7.7l.2 1.2a1 1 0 0 0 2.6 0l.2-1.2a7 7 0 0 0 1.7-.7l1 .7a1 1 0 0 0 1.8-1.8l-.7-1c.3-.5.6-1.1.7-1.7l1.2-.2a1 1 0 0 0 0-2.6l-1.2-.2a7 7 0 0 0-.7-1.7l.7-1a1 1 0 0 0-1.8-1.8l-1 .7a7 7 0 0 0-1.7-.7zM10 13a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
+          <span class="hidden sm:inline">{{t $.Lang .Label}}</span><span class="sr-only sm:hidden">{{t $.Lang .Label}}</span></a>{{end}}{{end}}
         {{if ne .Area "admin"}}
-          {{if eq .Lang "fr"}}<a class="link inline-flex items-center gap-1.5" href="/lang/en?next={{.RequestURI}}" hreflang="en" lang="en">{{template "flag" "en"}}English</a>{{else}}<a class="link inline-flex items-center gap-1.5" href="/lang/fr?next={{.RequestURI}}" hreflang="fr" lang="fr">{{template "flag" "fr"}}Français</a>{{end}}
+          {{if eq .Lang "fr"}}<a class="link inline-flex items-center gap-1.5" href="/lang/en?next={{.RequestURI}}" hreflang="en" lang="en">{{template "flag" "en"}}<span class="hidden sm:inline">English</span></a>{{else}}<a class="link inline-flex items-center gap-1.5" href="/lang/fr?next={{.RequestURI}}" hreflang="fr" lang="fr">{{template "flag" "fr"}}<span class="hidden sm:inline">Français</span></a>{{end}}
         {{end}}
         {{if and (eq .Area "admin") .Admin}}
           {{template "user_menu" (dict "Page" . "Admin" .Admin "Name" .Admin.Label "Email" .Admin.Email "Initials" .Admin.Initials
             "ProfileURL" "/admin/profile" "LogoutAction" "/admin/logout")}}
         {{else if and (eq .Area "partner") .Manager (not .Impersonating)}}
           {{template "user_menu" (dict "Page" . "Name" .Manager.Label "Email" .Manager.Email "Initials" .Manager.Initials
-            "ProfileURL" (printf "%s/managers#profile" .PartnerSpace) "LogoutAction" "/logout" "Spaces" .Spaces)}}
+            "ProfileURL" (printf "%s/managers#profile" .PartnerSpace) "LogoutAction" "/logout")}}
         {{else if and (eq .Area "volunteer") .Person}}
           {{template "user_menu" (dict "Page" . "Name" .Person.Label "Email" .Person.Email "Initials" .Person.Initials
-            "ProfileURL" "/me" "LogoutAction" (or (and .StaffPerson "/admin/logout") "/logout") "Spaces" .Spaces "Poles" .Vol.Poles "Avatar" .Person.AvatarFile)}}
+            "ProfileURL" "/me" "LogoutAction" (or (and .StaffPerson "/admin/logout") "/logout") "Poles" .Vol.Poles "Avatar" .Person.AvatarFile)}}
         {{else}}
           {{template "theme_switch" .}}
         {{end}}
       </div>
     </div>
+    {{with $nav}}{{with .Tabs}}
+    {{/* The pages of the section looked at. A volunteer's are in the bottom
+         bar on a phone. */}}
+    <nav class="border-t border-gray-100 {{if eq $.Area "volunteer"}}hidden sm:block{{end}}" aria-label="{{t $.Lang "nav.tabs_label"}}">
+      <div class="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4">
+        {{range .}}<a href="{{.URL}}" class="-mb-px shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap {{if .On}}border-brand-600 text-gray-900{{else}}border-transparent text-gray-500 hover:text-gray-900{{end}}" {{if .On}}aria-current="page"{{end}}>{{t $.Lang .Label}}</a>{{end}}
+      </div>
+    </nav>
+    {{end}}{{end}}
   </header>
   <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8 print:max-w-none print:p-0">
     {{if .FlashText}}
