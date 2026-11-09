@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Vet
+        run: go vet ./...
+
+      # gofmt -l lists unformatted files but always exits 0.
+      - name: Formatting
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+
+      # Builds the CSS first (Tailwind CLI checked against tailwindcss.sha256).
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make build
