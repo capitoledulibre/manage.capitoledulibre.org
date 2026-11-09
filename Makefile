@@ -1,7 +1,7 @@
-TAILWIND_VERSION ?= v4.3.3
-PDFJS_VERSION ?= 6.3.289
+TAILWIND_VERSION ?= v4.3.5
+PDFJS_VERSION ?= 6.5.438
 PDFJS_DIR := web/static/vendor/pdfjs
-HTMX_VERSION ?= 2.0.4
+HTMX_VERSION ?= 2.0.11
 HTMX_DIR := web/static/vendor/htmx
 TAILWIND ?= bin/tailwindcss
 UNAME_S := $(shell uname -s | tr A-Z a-z)

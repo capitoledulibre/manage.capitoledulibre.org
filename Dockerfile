@@ -2,8 +2,8 @@
 
 # Base images are pinned by digest: a rebuild gets exactly the same ones.
 # Refresh the digests on purpose, for a Go or security update.
-FROM golang:1.27-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS build
-ARG TAILWIND_VERSION=v4.3.3
+FROM golang:1.27-alpine@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS build
+ARG TAILWIND_VERSION=v4.3.5
 ARG TARGETARCH
 WORKDIR /src
 # The musl build of the Tailwind CLI links against the C++ runtime.

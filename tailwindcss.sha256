@@ -1,8 +1,8 @@
-# SHA-256 of the Tailwind CLI v4.3.3 binaries (from the release's sha256sums.txt).
+# SHA-256 of the Tailwind CLI v4.3.5 binaries (from the release's sha256sums.txt).
 # Update it with TAILWIND_VERSION in the Makefile and the Dockerfile.
-55fd0b241214eff3de1e8ee4f22796662f2d2e7a49bcfca7477cfd0bac398195  tailwindcss-linux-arm64
-71ea4be79c9de9827545682df3e040053fb535d37c71ed2cfdedf9385a0868e0  tailwindcss-linux-arm64-musl
-dc61b3ac6b8c9ca874c0cc4c57b2409791a64c5540404ca5f5367360babc313a  tailwindcss-linux-x64
-a04d34ceacc8f52cbe8920ad846cdeb61d3d0021dba32db0d1f77c9d9fad7a6c  tailwindcss-linux-x64-musl
-cdf646702987a743464dff4d9c60fd4480d1c1e73dd819a9a67f1078815dce9d  tailwindcss-macos-arm64
-7922e0953f2110c05976e3bf58f14e643d90427575e766b7d433f5f80cbee7e1  tailwindcss-macos-x64
+ffcd0d21dbd7c605dc12743ff0c0b47debc963c86b399674084c1c8f2c96ecad  tailwindcss-linux-arm64
+564dad3028c029b0c69042c66a7a79873ed7289b73fcb7b37973fbf79cb9a32f  tailwindcss-linux-arm64-musl
+e47695cee3f0d90623a91f3939b08bdee610eb5ad99340adff9d4145b284d6cc  tailwindcss-linux-x64
+bb050edd13f15006d872a9bb1772b908618a8df6806d30bf095cba26a09e640b  tailwindcss-linux-x64-musl
+f3f4f5d1727e2b693b8f1c9a1492b5dd87008c86ea286bee1589cb458e6235fc  tailwindcss-macos-arm64
+a63702686a3ed048b3135d84a73be49ea9d47f880c9b20e54b3ef60934ad8cdf  tailwindcss-macos-x64
