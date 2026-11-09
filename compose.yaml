@@ -23,7 +23,7 @@ services:
       - manage-data:/data
       # Optional logo: uncomment, and set MANAGE_SITE_LOGO=/brand/logo.svg
       # in .env. It is read at startup.
-      # - ./logo.svg:/brand/logo.svg:ro
+      # - ./deploy/logo.svg:/brand/logo.svg:ro
     # The server writes nothing outside /data.
     read_only: true
     cap_drop:
