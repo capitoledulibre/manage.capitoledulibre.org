@@ -1,0 +1,40 @@
+# Production deployment: docker compose up -d --build
+#
+# Configuration comes from .env (see .env.example). The server listens on
+# loopback only: put it behind a TLS reverse proxy that forwards to
+# 127.0.0.1:8080, and set MANAGE_BASE_URL to the public https:// URL.
+#
+# The image has no shell, so there is no container healthcheck: point the
+# monitoring at https://<host>/healthz instead.
+
+services:
+  manage:
+    build: .
+    image: manage:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Fixed by the image layout, whatever .env says.
+      MANAGE_DATA_DIR: /data
+      MANAGE_LISTEN: ":8080"
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - manage-data:/data
+      # Optional logo: uncomment, and set MANAGE_SITE_LOGO=/brand/logo.svg
+      # in .env. It is read at startup.
+      # - ./logo.svg:/brand/logo.svg:ro
+    # The server writes nothing outside /data.
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  manage-data:

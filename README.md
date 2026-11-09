@@ -320,6 +320,29 @@ a token.
 
 ## Deployment
 
+With Docker Compose, from a checkout holding the `.env`:
+
+```sh
+docker compose up -d --build
+```
+
+`compose.yaml` publishes the server on `127.0.0.1:8080` only, for the
+reverse proxy, keeps the data in the `manage-data` volume (prefixed with the
+Compose project name), and runs the container read-only, without
+capabilities. To upgrade, back up first, then rebuild:
+
+```sh
+git pull
+docker compose exec manage /manage backup /data/backup-$(date +%F).db
+docker compose up -d --build
+```
+
+The image has no shell, hence no container healthcheck: monitor
+`GET /healthz` through the proxy. A logo is mounted as shown in comments in
+`compose.yaml`.
+
+Without Compose:
+
 ```sh
 docker build -t manage .
 docker run -d --name manage -p 8080:8080 -v manage-data:/data --env-file .env manage
