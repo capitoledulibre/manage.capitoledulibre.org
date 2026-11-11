@@ -49,8 +49,12 @@ type Config struct {
 	SMTPUser     string
 	SMTPPassword string
 	// SMTPTLS is "starttls" (default), "tls" (implicit TLS) or "none".
-	SMTPTLS  string
-	MailFrom string
+	SMTPTLS string
+	// SMTPTLSSkipVerify accepts any certificate from the SMTP server, for a
+	// server whose certificate does not match its name. Anyone on the path
+	// could then read the login links and the SMTP password.
+	SMTPTLSSkipVerify bool
+	MailFrom          string
 	// StaffNotifyEmails receive a notification when a partner changes
 	// something on their dashboard.
 	StaffNotifyEmails []string
@@ -98,6 +102,7 @@ func Load() (*Config, error) {
 		SMTPUser:              env("MANAGE_SMTP_USER", ""),
 		SMTPPassword:          env("MANAGE_SMTP_PASSWORD", ""),
 		SMTPTLS:               env("MANAGE_SMTP_TLS", "starttls"),
+		SMTPTLSSkipVerify:     envBool("MANAGE_SMTP_TLS_SKIP_VERIFY"),
 		SiteName:              env("MANAGE_SITE_NAME", DefaultSiteName),
 		SiteURL:               strings.TrimRight(env("MANAGE_SITE_URL", ""), "/"),
 		ContactEmail:          env("MANAGE_CONTACT_EMAIL", ""),

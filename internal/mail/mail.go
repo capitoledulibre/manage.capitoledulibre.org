@@ -38,6 +38,10 @@ func New(cfg *config.Config) Sender {
 		return logSender{}
 	}
 
+	if cfg.SMTPTLSSkipVerify {
+		slog.Warn("MANAGE_SMTP_TLS_SKIP_VERIFY is set: the SMTP server certificate is not checked")
+	}
+
 	return &smtpSender{cfg: cfg}
 }
 
@@ -60,7 +64,12 @@ func (s *smtpSender) Send(msg Message) error {
 	}
 
 	addr := net.JoinHostPort(s.cfg.SMTPHost, strconv.Itoa(s.cfg.SMTPPort))
-	tlsConfig := &tls.Config{ServerName: s.cfg.SMTPHost, MinVersion: tls.VersionTLS12}
+	tlsConfig := &tls.Config{
+		ServerName: s.cfg.SMTPHost,
+		MinVersion: tls.VersionTLS12,
+		// Opt-in, for a server whose certificate does not match its name.
+		InsecureSkipVerify: s.cfg.SMTPTLSSkipVerify,
+	}
 
 	var conn net.Conn
 	if s.cfg.SMTPTLS == "tls" {

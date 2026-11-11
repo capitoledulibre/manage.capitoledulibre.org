@@ -202,6 +202,7 @@ Everything is configured with environment variables; see
 | `MANAGE_SITE_LOGO` | Optional path to the event logo (SVG, PNG, JPEG, WebP), header and favicon; initials of the name otherwise |
 | `MANAGE_DATA_DIR` | Directory for `manage.db` and uploaded files |
 | `MANAGE_SMTP_*`, `MANAGE_MAIL_FROM` | Outgoing email; `MANAGE_SMTP_HOST` is required outside dev mode |
+| `MANAGE_SMTP_TLS_SKIP_VERIFY` | `1` accepts any certificate from the SMTP server, for one whose certificate does not match its name; anyone on the path could then read login links and the SMTP password, so prefer a `MANAGE_SMTP_HOST` the certificate covers |
 | `MANAGE_STAFF_NOTIFY_EMAILS` | Staff addresses notified of partner changes |
 | `MANAGE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Staff SSO; the redirect URL is `$MANAGE_BASE_URL/admin/callback` |
 | `MANAGE_ADMIN_EMAILS`, `MANAGE_ADMIN_GROUP` | Who may log in as staff; someone taken off the list loses their open staff sessions at once |
