@@ -31,6 +31,8 @@ type planSlot struct {
 	Tasks  []*store.SlotTask
 	Free   int
 	Card   *slotCardData
+	// Referents answer for the slot's role, filled by the planning page.
+	Referents []*store.Person
 }
 
 // planPole is the slots of a pole on a day. Manage tells whether the
@@ -315,9 +317,18 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 
 	fiche := ficheBase(a, e)
 
+	// The referents of each pole's roles, read once per pole.
+	referents := map[int64]map[int64][]*store.Person{}
+
 	for _, d := range days {
 		for _, pp := range d.Poles {
 			pp.Manage = a.ManagesPole(pp.Pole)
+
+			if _, ok := referents[pp.Pole.ID]; !ok {
+				if referents[pp.Pole.ID], err = s.store.RoleReferents(ctx, pp.Pole.ID); err != nil {
+					return err
+				}
+			}
 
 			// In the list, a pole's slots group by time, as on its page;
 			// one's own slots are few enough to stay a plain list.
@@ -329,12 +340,13 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 			cards := make([]*slotCardData, 0, len(pp.Slots))
 
 			for _, ps := range pp.Slots {
+				ps.Referents = roleReferents(ps.Slot, referents[pp.Pole.ID])
 				ps.Card = &slotCardData{
 					Lang: lang, Slot: ps.Slot, Pole: pp.Pole, Member: members[pp.Pole.ID],
 					Locked: e.SignupsLocked(pp.Pole.FreezeAt, now), Waiting: waiting[ps.Slot.ID], Back: back,
 					ShowPeople: true, People: ps.People, Manage: pp.Manage,
 					Tasks: ps.Tasks, CanTick: ps.Slot.Mine || pp.Manage, OpenTasks: q.View == "late", Fiche: fiche,
-					NoTime: layout == layoutTime,
+					NoTime: layout == layoutTime, Referents: ps.Referents,
 				}
 				cards = append(cards, ps.Card)
 			}

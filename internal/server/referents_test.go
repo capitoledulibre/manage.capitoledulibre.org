@@ -150,6 +150,22 @@ func TestRoleReferents(t *testing.T) {
 	_, body = e.get(paul, "/"+f.event.Slug+"/")
 	mustContain(t, body, "En ce moment", "Nina Ref", "référent·e du poste", "responsable du pôle")
 
+	// The planning names them on the cards of their role, and on paper; a
+	// card swapped in there keeps them.
+	planning := planningURL(f.event) + "?" + planURLQuery("all", f.buvette, "all", "")
+
+	_, body = e.get(paul, planning)
+	mustContain(t, body, `<span class="font-medium text-gray-800">Nina Ref</span>`, "Référent·e : Nina Ref")
+
+	_, body = e.hx(paul, slotPage+"/unsignup", url.Values{"back": {planning}})
+	mustContain(t, body, `<span class="font-medium text-gray-800">Nina Ref</span>`)
+
+	// Not on the cards of another role, nor of the whole pole.
+	_, body = e.get(paul, planningURL(f.event)+"?"+planURLQuery("all", f.buvette, dayKey(f.morning.StartsAt), ""))
+	if strings.Contains(body, "Nina Ref") {
+		t.Error("a slot of no role names a referent")
+	}
+
 	// Who leaves the pole stops being one.
 	mustOK(t, e.st.LeavePole(ctx, f.buvette.ID, ninaP.ID))
 

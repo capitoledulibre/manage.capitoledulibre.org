@@ -21,6 +21,9 @@
      Lang, Person, Manage and Fiche. */}}
 {{define "person_name"}}{{if .Fiche}}<a class="link" href="{{.Fiche}}{{.Person.UID}}">{{.Person.Label}}</a>{{else if or .Person.Name .Manage}}{{.Person.Label}}{{else}}{{t .Lang "vol.unnamed"}}{{end}}{{end}}
 
+{{/* person_avatar_xs is person_avatar the size of a line of small text. */}}
+{{define "person_avatar_xs"}}{{if .AvatarFile}}<img src="/avatars/{{.AvatarFile}}" alt="" loading="lazy" class="h-5 w-5 shrink-0 rounded-full object-cover ring-1 ring-gray-200">{{else}}<span class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[10px] font-semibold text-brand-800" aria-hidden="true">{{.Initials}}</span>{{end}}{{end}}
+
 {{define "person_avatar"}}{{if .AvatarFile}}<img src="/avatars/{{.AvatarFile}}" alt="" loading="lazy" class="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-gray-200">{{else}}<span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden="true">{{.Initials}}</span>{{end}}{{end}}
 
 {{/* vol_messages lists notices. Expects Lang and Messages; with Manage
@@ -218,6 +221,9 @@
       {{if and (not .Slot.Mine) (urgent .Slot)}}<span class="badge ml-1 bg-amber-100 text-amber-800">{{t $l "vol.slot.soon"}}</span>{{end}}
       {{/* Whoever runs the pole sees the queue of a full slot. */}}
       {{if .WaitCount}}<span class="badge bg-amber-100 text-amber-800">{{tn $l "vol.slot.wait_count" .WaitCount}}</span>{{end}}
+      {{/* On the planning, whom the role turns to. */}}
+      {{with .Referents}}<p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-600"><span>{{tn $l "vol.pole.referents" (len .)}}</span>
+        {{range .}}<span class="inline-flex items-center gap-1">{{template "person_avatar_xs" .}}<span class="font-medium text-gray-800">{{.Name}}</span></span>{{end}}</p>{{end}}
     </div>
     {{end}}
     <div class="flex items-center gap-2 text-xs text-gray-600">

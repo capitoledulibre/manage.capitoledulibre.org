@@ -109,6 +109,7 @@
         <td class="!align-top font-semibold whitespace-nowrap tabular-nums">{{clock $sl.StartsAt}}–{{clock $sl.EndsAt}}</td>
         <td class="!align-top">
           {{with $sl.LocationName}}<strong>{{.}}</strong>{{end}}{{with $sl.Title}}{{if $sl.LocationName}} · {{end}}{{.}}{{end}}{{if not (or $sl.LocationName $sl.Title)}}<span class="text-gray-400">{{t $l "vol.slot_form.whole_pole"}}</span>{{end}}
+          {{with .Referents}}<p class="mt-1 text-xs text-gray-600">{{tn $l "vol.pole.referents" (len .)}} {{range $i, $p := .}}{{if $i}}, {{end}}{{$p.Name}}{{end}}</p>{{end}}
           {{with .Tasks}}<ul class="mt-1 list-disc pl-4 text-xs text-gray-600">{{range .}}<li>{{.Label}}</li>{{end}}</ul>{{end}}
         </td>
         <td class="!align-top">

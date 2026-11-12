@@ -490,6 +490,9 @@ type slotCardData struct {
 	// pole's page, already shows as its heading.
 	NoTime bool
 	NoRole bool
+	// Referents answer for the slot's role, on the planning, where nothing
+	// else names them.
+	Referents []*store.Person
 	// Group is the group of a card re-rendered by htmx, whose heading is
 	// updated along with it.
 	Group    *slotGroup
@@ -558,7 +561,26 @@ func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting 
 		}
 	}
 
+	if page == planningURL(v.Event) && sl.LocationID != 0 {
+		referents, err := s.store.RoleReferents(r.Context(), v.Pole.ID)
+		if err != nil {
+			slog.Error("slot card", "slot", sl.UID, "err", err)
+		}
+
+		card.Referents = roleReferents(sl, referents)
+	}
+
 	return card
+}
+
+// roleReferents are the referents of a slot's role who gave a name, from
+// those of its pole by role.
+func roleReferents(sl *store.Slot, byRole map[int64][]*store.Person) []*store.Person {
+	if sl.LocationID == 0 {
+		return nil
+	}
+
+	return named(byRole[sl.LocationID])
 }
 
 // groupCard fits a card re-rendered by htmx to the group it sits in, on
