@@ -4,7 +4,7 @@
 # Refresh the digests on purpose, for a Go or security update.
 # The build stage runs on the build platform and cross-compiles for the
 # target, so multi-arch images never emulate the compiler or Tailwind.
-FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:eb61c3873c97416fff0116553fff65d67a3549f72e11d9758849a689cdd8b523 AS build
 ARG TAILWIND_VERSION=v4.3.5
 ARG BUILDARCH
 ARG TARGETOS
