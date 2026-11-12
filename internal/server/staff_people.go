@@ -83,6 +83,7 @@ func (s *Server) sendPersonLink(ctx context.Context, a *access.Actor, p *store.P
 		To:      []string{p.Email},
 		Subject: i18n.T(p.Lang, "mail.link.subject"),
 		Body:    i18n.T(p.Lang, "mail.link.body", s.cfg.BaseURL+"/auth/"+token),
+		Lang:    p.Lang,
 	})
 }
 

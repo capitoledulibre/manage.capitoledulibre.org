@@ -1202,7 +1202,10 @@ var messages = map[string][2]string{
 	"vol.log.when":                        {"Quand", "When"},
 	"vol.log.what":                        {"Quoi", "What"},
 
-	// Emails. Bodies are plain text.
+	// Emails. Bodies are plain text; their HTML version is made from them
+	// (mail.HTML): blank lines between paragraphs, a link alone on its
+	// paragraph for a button, "•" or "-" for a list, indented lines for a
+	// box.
 	"mail.login.subject": {"Votre lien de connexion — {site}", "Your login link — {site}"},
 	"mail.login.body": {
 		"Bonjour,\n\nVoici votre lien de connexion à {site} :\n\n%s\n\nCe lien est valable %d minutes et ne peut être utilisé qu'une fois.\nSi vous n'êtes pas à l'origine de cette demande, ignorez ce message.\n\nL'équipe {site}\n",

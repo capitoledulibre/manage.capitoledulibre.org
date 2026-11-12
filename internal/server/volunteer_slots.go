@@ -417,6 +417,12 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) error {
 	return s.render(w, r, "volunteer/slot", p)
 }
 
+// The reasons a person is a contact of a slot, as i18n keys.
+const (
+	roleReferent = "vol.slot.role_referent"
+	roleLead     = "vol.slot.pole_manager"
+)
+
 // slotContact is a person to turn to about a slot; Role says why, as an
 // i18n key.
 type slotContact struct {
@@ -454,13 +460,13 @@ func contactsFor(sl *store.Slot, managers []*store.Person, referents map[int64][
 	if sl.LocationID != 0 {
 		for _, p := range named(referents[sl.LocationID]) {
 			seen[p.ID] = true
-			out = append(out, slotContact{Person: p, Role: "vol.slot.role_referent"})
+			out = append(out, slotContact{Person: p, Role: roleReferent})
 		}
 	}
 
 	for _, p := range named(managers) {
 		if !seen[p.ID] {
-			out = append(out, slotContact{Person: p, Role: "vol.slot.pole_manager"})
+			out = append(out, slotContact{Person: p, Role: roleLead})
 		}
 	}
 

@@ -175,6 +175,7 @@ func (s *Server) emailReminder(ctx context.Context, org *store.Organization, p *
 			To:      []string{m.Email},
 			Subject: i18n.T(m.Lang, "mail.reminder.subject", org.Name),
 			Body:    i18n.T(m.Lang, "mail.reminder.body", strings.Join(lines, "\n"), s.cfg.BaseURL+"/partners/"),
+			Lang:    m.Lang,
 		})
 		if err != nil {
 			slog.Error("send reminder", "email", m.Email, "err", err)

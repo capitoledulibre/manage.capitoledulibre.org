@@ -60,9 +60,11 @@ func (s *Server) sendVolunteerReminders(ctx context.Context, day time.Time) (int
 	}
 
 	events := map[int64]*store.Event{}
-	// The leads and referents of each pole, read once for everyone.
+	// The leads and referents of each pole, read once for everyone, and
+	// the referents' pictures, made once.
 	managers := map[int64][]*store.Person{}
 	referents := map[int64]map[int64][]*store.Person{}
+	avatars := map[int64]mailAvatar{}
 	sent := 0
 
 	for _, id := range ids {
@@ -129,6 +131,36 @@ func (s *Server) sendVolunteerReminders(ctx context.Context, day time.Time) (int
 			Subject: volSubject(p.Lang, "mail.vol.reminder.subject", dayName(p.Lang, start)),
 			Body:    s.volMail(p, slots[0].EventSlug, s.reminderBody(p, start, slots, contacts)),
 			ReplyTo: s.site.VolunteerContactEmail,
+			Lang:    p.Lang,
+		}
+
+		// In the HTML, each referent shows with their picture.
+		decor := map[string]string{}
+		seen := map[int64]bool{}
+
+		for _, sl := range slots {
+			for _, c := range contacts[sl.ID] {
+				if c.Role != roleReferent {
+					continue
+				}
+
+				a, ok := avatars[c.ID]
+				if !ok {
+					a.html, a.image = s.mailAvatar(c.Person)
+					avatars[c.ID] = a
+				}
+
+				decor[referentText(p.Lang, c)] = a.html
+
+				if a.image != nil && !seen[c.ID] {
+					seen[c.ID] = true
+					msg.Inline = append(msg.Inline, *a.image)
+				}
+			}
+		}
+
+		if len(decor) > 0 {
+			msg.HTML = mail.HTMLWith(msg.Subject, msg.Body, p.Lang, mailBrand(s), decor)
 		}
 
 		if err := s.mailer.Send(msg); err != nil {
@@ -147,9 +179,23 @@ func (s *Server) sendVolunteerReminders(ctx context.Context, day time.Time) (int
 	return sent, nil
 }
 
+// mailAvatar is a referent's picture in a reminder: its HTML, and the
+// image sent with the message (nil for initials).
+type mailAvatar struct {
+	html  string
+	image *mail.Inline
+}
+
+// referentText is a referent among the contacts of a reminder: their name
+// and why, nothing to reach them by; the HTML adds their picture.
+func referentText(lang string, c slotContact) string {
+	return c.Name + " (" + i18n.T(lang, c.Role) + ")"
+}
+
 // reminderBody lists the slots of the day, with whom to call for each, by
-// slot (contactsFor): their name, why, their address and, when they share
-// it, their phone.
+// slot (contactsFor): their name and why; for the leads, their address
+// and, when they share it, their phone. The referents are named only: the
+// volunteers meet them on the spot.
 func (s *Server) reminderBody(p *store.Person, day time.Time, slots []*store.Slot, contacts map[int64][]slotContact) string {
 	var b strings.Builder
 
@@ -168,7 +214,14 @@ func (s *Server) reminderBody(p *store.Person, day time.Time, slots []*store.Slo
 		var who []string
 
 		for _, m := range contacts[sl.ID] {
-			c := m.Name + " (" + i18n.T(p.Lang, m.Role) + "), " + m.Email
+			c := referentText(p.Lang, m)
+			if m.Role == roleReferent {
+				who = append(who, c)
+
+				continue
+			}
+
+			c += ", " + m.Email
 			if m.SharePhone && m.Phone != "" {
 				c += ", " + formatPhone(m.Phone)
 			}

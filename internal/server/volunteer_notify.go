@@ -26,7 +26,7 @@ func (s *Server) notifyPeople(people []*store.Person, subject func(lang string) 
 			continue
 		}
 
-		msgs = append(msgs, mail.Message{To: []string{p.Email}, Subject: subject(p.Lang), Body: body(p), ReplyTo: s.site.VolunteerContactEmail})
+		msgs = append(msgs, mail.Message{To: []string{p.Email}, Subject: subject(p.Lang), Body: body(p), ReplyTo: s.site.VolunteerContactEmail, Lang: p.Lang})
 	}
 
 	if len(msgs) == 0 {

@@ -82,7 +82,8 @@ func New(ctx context.Context, cfg *config.Config, st *store.Store, fs *files.Sto
 
 	i18n.SetSite(cfg.SiteName)
 
-	s := &Server{cfg: cfg, store: st, files: fs, mailer: mailer, tmpl: tmpl, logo: logo, site: newSite(cfg, logo)}
+	s := &Server{cfg: cfg, store: st, files: fs, tmpl: tmpl, logo: logo, site: newSite(cfg, logo)}
+	s.mailer = htmlMailer{next: mailer, brand: mailBrand(s)}
 
 	if s.icons, err = newSiteIcons(s.site, logo); err != nil {
 		return nil, err

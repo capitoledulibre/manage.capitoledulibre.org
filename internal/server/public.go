@@ -222,6 +222,7 @@ func (s *Server) sendLoginLink(ctx context.Context, email, lang, next string) er
 		To:      []string{email},
 		Subject: i18n.T(lang, "mail.login.subject"),
 		Body:    i18n.T(lang, "mail.login.body", link, int(loginTokenTTL.Minutes())),
+		Lang:    lang,
 	})
 }
 
@@ -313,6 +314,7 @@ func (s *Server) sendInvite(ctx context.Context, m *store.Manager, org *store.Or
 		To:      []string{m.Email},
 		Subject: i18n.T(m.Lang, "mail.invite.subject", org.Name),
 		Body:    i18n.T(m.Lang, "mail.invite.body", inviter, org.Name, s.cfg.BaseURL+"/auth/"+token, s.cfg.BaseURL),
+		Lang:    m.Lang,
 	})
 }
 

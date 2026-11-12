@@ -178,6 +178,7 @@ func (s *Server) notifyManagers(ctx context.Context, org *store.Organization, p 
 			Subject: i18n.T(m.Lang, subjectKey, org.Name),
 			Body:    i18n.T(m.Lang, bodyKey, append([]any{s.cfg.BaseURL + path}, args...)...),
 			ReplyTo: replyTo,
+			Lang:    m.Lang,
 		}
 
 		s.background(func() {
