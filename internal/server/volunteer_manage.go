@@ -39,6 +39,8 @@ func (s *Server) poleManageRoutes(mux *router) {
 	m("POST "+base+"/managers/{person}/delete", s.manageManagerRemove)
 	m("POST "+base+"/locations", s.manageLocationAdd)
 	m("POST "+base+"/locations/{location}/delete", s.manageLocationDelete)
+	m("POST "+base+"/locations/{location}/referents", s.manageReferentAdd)
+	m("POST "+base+"/locations/{location}/referents/{person}/delete", s.manageReferentRemove)
 	m("POST "+base+"/messages", s.managePoleMessage)
 	m("POST "+base+"/messages/{message}/delete", s.manageMessageDelete)
 	m("GET "+base+"/slots/new", s.manageSlotNew)
@@ -432,6 +434,35 @@ func (s *Server) manageLocationDelete(w http.ResponseWriter, r *http.Request) er
 	}
 
 	if err := s.deletePlace(r.Context(), act(r), v, r.PathValue("location")); err != nil {
+		return err
+	}
+
+	return s.redirectTab(w, r, v.Pole, "settings")
+}
+
+func (s *Server) manageReferentAdd(w http.ResponseWriter, r *http.Request) error {
+	v, err := s.managedPole(r)
+	if err != nil {
+		return err
+	}
+
+	err = s.addReferent(r.Context(), act(r), v, r.PathValue("location"), r.FormValue("person"))
+	if rf, ok := refused(err); ok {
+		s.flash(w, rf.Key, rf.Args...)
+	} else if err != nil {
+		return err
+	}
+
+	return s.redirectTab(w, r, v.Pole, "settings")
+}
+
+func (s *Server) manageReferentRemove(w http.ResponseWriter, r *http.Request) error {
+	v, err := s.managedPole(r)
+	if err != nil {
+		return err
+	}
+
+	if err := s.removeReferent(r.Context(), act(r), v, r.PathValue("location"), r.PathValue("person")); err != nil {
 		return err
 	}
 

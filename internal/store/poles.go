@@ -679,6 +679,52 @@ func (s *Store) DeleteLocation(ctx context.Context, id int64) error {
 	return err
 }
 
+// RoleReferents returns the referents of the roles of a pole, by location:
+// the members of the pole who answer for a role. Someone who leaves the
+// pole stops being one without being taken off.
+func (s *Store) RoleReferents(ctx context.Context, poleID int64) (map[int64][]*Person, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+peCols+`, lr.location_id
+		FROM location_referents lr
+		JOIN locations l ON l.id = lr.location_id
+		JOIN pole_members pm ON pm.pole_id = l.pole_id AND pm.person_id = lr.person_id
+		JOIN people pe ON pe.id = lr.person_id
+		WHERE l.pole_id = ?
+		ORDER BY pe.name COLLATE NOCASE, pe.email COLLATE NOCASE`, poleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[int64][]*Person{}
+
+	for rows.Next() {
+		var locationID int64
+
+		p, err := scanPerson(rows, &locationID)
+		if err != nil {
+			return nil, err
+		}
+
+		out[locationID] = append(out[locationID], p)
+	}
+
+	return out, rows.Err()
+}
+
+// AddRoleReferent makes a person a referent of a role.
+func (s *Store) AddRoleReferent(ctx context.Context, locationID, personID int64) error {
+	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO location_referents (location_id, person_id) VALUES (?, ?)`, locationID, personID)
+
+	return err
+}
+
+// RemoveRoleReferent takes a person off the referents of a role.
+func (s *Store) RemoveRoleReferent(ctx context.Context, locationID, personID int64) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM location_referents WHERE location_id = ? AND person_id = ?`, locationID, personID)
+
+	return err
+}
+
 // --- coverage -------------------------------------------------------------
 
 // PoleCoverage sums up how well the slots of a pole are staffed.

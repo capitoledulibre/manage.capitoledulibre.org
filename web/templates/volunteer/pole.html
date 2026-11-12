@@ -254,9 +254,26 @@
         <h2 class="card-title">{{t $l "vol.manage.locations"}}</h2>
         <p class="help mb-3">{{t $l "vol.manage.locations_help"}}</p>
         <ul class="mb-3 space-y-2">
-          {{range $d.Locations}}
-          <li class="flex items-center justify-between gap-2 text-sm">{{.Name}}
-            <form method="post" action="{{$pole.ManageURL}}/locations/{{.UID}}/delete" data-confirm="{{t $l "vol.manage.location_delete_confirm" .Name}}"><button class="btn-danger btn-sm">{{t $l "vol.delete"}}</button></form></li>
+          {{range $loc := $d.Locations}}
+          <li class="rounded-md p-3 ring-1 ring-gray-200">
+            <div class="flex items-center justify-between gap-2 text-sm"><strong>{{$loc.Name}}</strong>
+              <form method="post" action="{{$pole.ManageURL}}/locations/{{$loc.UID}}/delete" data-confirm="{{t $l "vol.manage.location_delete_confirm" $loc.Name}}"><button class="btn-danger btn-sm">{{t $l "vol.delete"}}</button></form></div>
+            {{/* Its referents: whom the volunteers on its slots turn to. */}}
+            {{with index $d.Referents $loc.ID}}
+            <ul class="mt-2 flex flex-wrap gap-2" aria-label="{{t $l "vol.manage.referents_of" $loc.Name}}">
+              {{range .}}<li class="flex items-center gap-1.5 rounded-full bg-gray-100 py-0.5 pr-1 pl-0.5 text-xs">{{template "person_avatar" .}}<span>{{.Label}}</span>
+                <form method="post" action="{{$pole.ManageURL}}/locations/{{$loc.UID}}/referents/{{.UID}}/delete"><button class="rounded-full px-1 text-gray-400 hover:bg-red-50 hover:text-red-700" aria-label="{{t $l "vol.manage.referent_remove" .Label}}">×</button></form></li>{{end}}
+            </ul>
+            {{end}}
+            <form method="post" action="{{$pole.ManageURL}}/locations/{{$loc.UID}}/referents" class="mt-2 flex gap-2">
+              <label for="ref-{{$loc.UID}}" class="sr-only">{{t $l "vol.manage.referent_for" $loc.Name}}</label>
+              <select id="ref-{{$loc.UID}}" class="input py-1 text-sm" name="person" required>
+                <option value="">{{t $l "vol.manage.referent_pick"}}</option>
+                {{range $d.Members}}<option value="{{.Person.UID}}">{{.Person.Label}}</option>{{end}}
+              </select>
+              <button class="btn-secondary btn-sm shrink-0">{{t $l "vol.manage.referent_add"}}</button>
+            </form>
+          </li>
           {{else}}<li class="text-sm text-gray-500">{{t $l "vol.manage.no_locations"}}</li>{{end}}
         </ul>
         <form method="post" action="{{$pole.ManageURL}}/locations" class="space-y-2">

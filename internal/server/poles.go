@@ -116,6 +116,56 @@ func (s *Server) addPlaces(ctx context.Context, a *access.Actor, v *poleView, na
 	return nil
 }
 
+// addReferent makes a member of a pole the actor runs a referent of one of
+// its roles: a contact for the volunteers on its slots, with no rights.
+func (s *Server) addReferent(ctx context.Context, a *access.Actor, v *poleView, roleUID, personUID string) error {
+	l, who, err := s.roleAndPerson(ctx, a, v, roleUID, personUID)
+	if err != nil {
+		return err
+	}
+
+	member, err := s.store.IsPoleMember(ctx, v.Pole.ID, who.ID)
+	if err != nil {
+		return err
+	}
+
+	if !member {
+		return refuse("vol.err.referent_member")
+	}
+
+	return s.store.AddRoleReferent(ctx, l.ID, who.ID)
+}
+
+// removeReferent takes a person off the referents of a role of a pole the
+// actor runs.
+func (s *Server) removeReferent(ctx context.Context, a *access.Actor, v *poleView, roleUID, personUID string) error {
+	l, who, err := s.roleAndPerson(ctx, a, v, roleUID, personUID)
+	if err != nil {
+		return err
+	}
+
+	return s.store.RemoveRoleReferent(ctx, l.ID, who.ID)
+}
+
+// roleAndPerson reads a role of a pole the actor runs, and a person.
+func (s *Server) roleAndPerson(ctx context.Context, a *access.Actor, v *poleView, roleUID, personUID string) (*store.Location, *store.Person, error) {
+	if err := runs(a, v, nil); err != nil {
+		return nil, nil, err
+	}
+
+	l, err := s.store.GetLocationByUID(ctx, v.Pole.ID, roleUID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	who, err := s.store.GetPersonByUID(ctx, personUID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return l, who, nil
+}
+
 // deletePlace deletes a place of a pole the actor runs.
 func (s *Server) deletePlace(ctx context.Context, a *access.Actor, v *poleView, uid string) error {
 	if err := runs(a, v, nil); err != nil {

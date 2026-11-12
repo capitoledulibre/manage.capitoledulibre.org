@@ -307,6 +307,7 @@
       {{if not $sub}}<span class="h-6 w-1.5 rounded-full" style="background: var(--pole)" aria-hidden="true"></span>{{end}}
       <span class="{{if $sub}}text-base font-semibold{{else}}text-lg font-bold{{end}} text-gray-900{{if eq $layout "time"}} tabular-nums{{end}}">{{if eq $layout "time"}}{{clock .StartsAt}}<span class="text-gray-400"> – </span>{{clock .EndsAt}}{{else}}{{.Role}}{{end}}</span>
       {{template "slot_group_status" (dict "Lang" $l "Group" .)}}
+      {{with .Referents}}<span class="w-full text-sm text-gray-600">{{tn $l "vol.pole.referents" (len .)}} {{range $i, $p := .}}{{if $i}}, {{end}}<strong class="font-medium text-gray-800">{{$p.Name}}</strong>{{end}}</span>{{end}}
     </div>
     <div class="space-y-2">{{range .Cards}}{{template "slot_card" .}}{{end}}</div>
   </div>

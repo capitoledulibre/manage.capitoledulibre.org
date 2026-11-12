@@ -94,6 +94,19 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 		d["Recipients"] = len(members)
 	case "settings":
 		d["CanRestrict"], d["Modes"], d["MaxImage"] = act(r).CanRestrict(v.Pole), store.PoleModes, maxPoleImageSize
+
+		// The referents of each role are picked among the members.
+		members, err := s.store.ListPoleMembers(ctx, v.Pole.ID)
+		if err != nil {
+			return err
+		}
+
+		referents, err := s.store.RoleReferents(ctx, v.Pole.ID)
+		if err != nil {
+			return err
+		}
+
+		d["Members"], d["Referents"] = members, referents
 	case "history":
 		lp := logPage(r)
 
@@ -205,8 +218,22 @@ func (s *Server) poleSlots(w http.ResponseWriter, r *http.Request, v *poleView, 
 		})
 	}
 
+	var referents map[int64][]*store.Person
+
+	if layout == layoutRole {
+		if referents, err = s.store.RoleReferents(ctx, v.Pole.ID); err != nil {
+			return err
+		}
+	}
+
 	for _, day := range days {
 		day.Groups = groupSlots(day.Cards, layout)
+
+		for _, g := range day.Groups {
+			if id := g.Cards[0].Slot.LocationID; id != 0 && referents != nil {
+				g.Referents = named(referents[id])
+			}
+		}
 	}
 
 	if layout != "" {
@@ -369,8 +396,10 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	// Whom to call when something comes up: for the people of the pole only.
-	var contacts []*store.Person
+	// Whom to call when something comes up, for the people of the pole
+	// only: the referents of the slot's role, closest to it, then the
+	// pole's leads.
+	var contacts []slotContact
 
 	if v.Member || v.Manage {
 		managers, err := s.store.ListPoleManagers(ctx, v.Pole.ID)
@@ -378,7 +407,29 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		contacts = named(managers)
+		var referents []*store.Person
+
+		if sl.LocationID != 0 {
+			byRole, err := s.store.RoleReferents(ctx, v.Pole.ID)
+			if err != nil {
+				return err
+			}
+
+			referents = byRole[sl.LocationID]
+		}
+
+		seen := map[int64]bool{}
+
+		for _, p := range named(referents) {
+			seen[p.ID] = true
+			contacts = append(contacts, slotContact{Person: p, Role: "vol.slot.role_referent"})
+		}
+
+		for _, p := range named(managers) {
+			if !seen[p.ID] {
+				contacts = append(contacts, slotContact{Person: p, Role: "vol.slot.pole_manager"})
+			}
+		}
 	}
 
 	p := s.page(r, "vol.slot.title")
@@ -389,6 +440,13 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return s.render(w, r, "volunteer/slot", p)
+}
+
+// slotContact is a person to turn to about a slot; Role says why, as an
+// i18n key.
+type slotContact struct {
+	*store.Person
+	Role string
 }
 
 // slotCardData is what the slot_card partial shows. Back is carried through

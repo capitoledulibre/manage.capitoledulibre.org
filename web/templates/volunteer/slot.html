@@ -43,7 +43,7 @@
   <ul class="space-y-3">
     {{range .}}
     <li class="flex items-start gap-3 text-sm">{{template "person_avatar" .}}
-      <span><strong>{{.Name}}</strong> <span class="text-gray-500">{{t $l "vol.slot.pole_manager"}}</span><br>
+      <span><strong>{{.Name}}</strong> <span class="text-gray-500">{{t $l .Role}}</span><br>
         <a class="link" href="mailto:{{.Email}}">{{.Email}}</a>{{if and .SharePhone .Phone}} · <a class="link" href="tel:{{telHref .Phone}}">{{phone .Phone}}</a>{{end}}</span>
     </li>
     {{end}}

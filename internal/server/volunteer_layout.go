@@ -43,6 +43,8 @@ type slotGroup struct {
 	Missing  int
 	Mine     bool
 	Cards    []*slotCardData
+	// Referents are those who answer for the group's role, by role.
+	Referents []*store.Person
 }
 
 // slotRole is what a slot staffs, as its card names it: its role (its
