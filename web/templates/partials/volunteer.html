@@ -194,17 +194,22 @@
 <article id="slot-{{.Slot.UID}}" class="slot-card pole-c{{.Pole.Color}}{{if .Slot.Mine}} slot-mine{{else if .Slot.IsFull}} slot-full{{end}}">
   <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
     {{if not .Compact}}
-    <div class="w-28 shrink-0 font-semibold tabular-nums">{{clock .Slot.StartsAt}}<span class="text-gray-400"> – </span>{{clock .Slot.EndsAt}}</div>
+    {{/* On the pole's page, the group heading already gives the time or
+         the role: the card leaves it out, and the time links to the slot
+         when the role is not there to. */}}
+    {{if not .NoTime}}<div class="w-28 shrink-0 font-semibold tabular-nums">{{if .NoRole}}<a href="{{.Slot.URL}}" class="text-gray-900 hover:underline">{{end}}{{clock .Slot.StartsAt}}<span class="text-gray-400"> – </span>{{clock .Slot.EndsAt}}{{if .NoRole}}</a>{{end}}</div>{{end}}
     {{/* At least 12rem for the title, so on a phone the places and the
          button go to their own line rather than squeezing it. */}}
-    <div class="min-w-0 flex-1 basis-48">
+    <div class="min-w-0 flex-1 {{if not .NoRole}}basis-48{{end}}">
       {{/* Every card sits under its pole: the title names what tells the
            slots apart, the title or else the location. */}}
+      {{if not .NoRole}}
       <a href="{{.Slot.URL}}" class="inline-flex items-center gap-2 font-medium text-gray-900 hover:underline">
         {{- if .Slot.Title}}{{.Slot.Title}}
         {{- else if .Slot.LocationName}}{{.Slot.LocationName}}
         {{- else}}{{.Pole.Name}}{{end -}}
       </a>
+      {{end}}
       {{if and .Slot.LocationName .Slot.Title}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{.Slot.LocationName}}</span>{{end}}
       {{/* A slot still short of people that starts within two days is the
            one worth a look; every slot not yet full would drown it. */}}

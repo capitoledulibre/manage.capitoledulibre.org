@@ -53,24 +53,32 @@
 {{end}}
 {{if and $d.Deadline (not $v.Locked)}}<p class="help mb-4">{{t $l "vol.pole.deadline" (deadline $l $d.Deadline)}}</p>{{end}}
 
-{{if or $d.Locations $d.Total}}
+{{if $d.Total}}
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-<nav class="flex flex-wrap items-center gap-2 text-sm" aria-label="{{t $l "vol.pole.filters"}}">
-  {{if $d.Locations}}
-  <a href="{{$pole.URL}}{{if $d.OnlyOpen}}?open=1{{end}}" class="filter {{if not $d.Filter}}filter-on{{end}}" {{if not $d.Filter}}aria-current="true"{{end}}>{{t $l "vol.pole.all_locations"}}</a>
-  {{range $d.Locations}}<a href="{{$pole.URL}}?location={{.UID}}{{if $d.OnlyOpen}}&amp;open=1{{end}}" class="filter {{if eq .UID $d.Filter}}filter-on{{end}}" {{if eq .UID $d.Filter}}aria-current="true"{{end}}>{{.Name}}</a>{{end}}
-  <span class="text-gray-400" aria-hidden="true">·</span>
+<div class="flex flex-wrap items-center gap-3">
+  {{with $d.Layouts}}
+  <nav class="inline-flex gap-1 rounded-lg bg-gray-100 p-1" aria-label="{{t $l "vol.pole.layout"}}">
+    {{range .}}<a href="{{.URL}}" class="rounded-md px-3 py-1.5 text-sm font-medium {{if .On}}bg-surface text-gray-900 shadow-sm{{else}}text-gray-600 hover:text-gray-900{{end}}" {{if .On}}aria-current="true"{{end}}>{{t $l .Label}}</a>{{end}}
+  </nav>
   {{end}}
-  <a href="{{$pole.URL}}?{{with $d.Filter}}location={{.}}&amp;{{end}}{{if not $d.OnlyOpen}}open=1{{end}}" class="filter {{if $d.OnlyOpen}}filter-on{{end}}" {{if $d.OnlyOpen}}aria-current="true"{{end}}>{{t $l "vol.pole.only_open"}}</a>
-</nav>
-{{if and $v.Manage $d.Total}}<p class="flex flex-wrap gap-x-4 gap-y-1 text-sm"><a class="link" href="/{{$e.Slug}}/planning?pole={{$pole.Slug}}&amp;day=all">{{t $l "vol.planning.link_pole"}}</a><a class="link" href="{{$pole.ManageURL}}/signups.csv">{{t $l "vol.planning.csv"}}</a></p>{{end}}
+  <nav class="flex flex-wrap items-center gap-2 text-sm" aria-label="{{t $l "vol.pole.filters"}}">
+    {{with $d.LocationLinks}}
+    {{range .}}<a href="{{.URL}}" class="filter {{if .On}}filter-on{{end}}" {{if .On}}aria-current="true"{{end}}>{{if .Label}}{{t $l .Label}}{{else}}{{.Name}}{{end}}</a>{{end}}
+    <span class="text-gray-400" aria-hidden="true">·</span>
+    {{end}}
+    <a href="{{$d.OpenURL}}" class="filter {{if $d.OnlyOpen}}filter-on{{end}}" {{if $d.OnlyOpen}}aria-current="true"{{end}}>{{t $l "vol.pole.only_open"}}</a>
+  </nav>
+</div>
+{{if $v.Manage}}<p class="flex flex-wrap gap-x-4 gap-y-1 text-sm"><a class="link" href="/{{$e.Slug}}/planning?pole={{$pole.Slug}}&amp;day=all">{{t $l "vol.planning.link_pole"}}</a><a class="link" href="{{$pole.ManageURL}}/signups.csv">{{t $l "vol.planning.csv"}}</a></p>{{end}}
 </div>
 {{end}}
 
 {{range $d.Days}}
-<section class="mb-6">
-  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-    <h2 class="text-sm font-semibold text-gray-700 first-letter:uppercase">{{dayKeyName $l .Day}}</h2>
+<section class="mb-10">
+  {{/* The day stays at the top while its slots scroll by: on a long
+       pole, which day a card belongs to is otherwise lost. */}}
+  <div class="sticky top-0 z-10 -mx-4 mb-4 flex flex-wrap items-center justify-between gap-2 border-b-2 border-gray-300 bg-gray-50/95 px-4 py-2 backdrop-blur sm:mx-0 sm:px-0">
+    <h2 class="text-xl font-bold tracking-tight text-gray-900 first-letter:uppercase">{{dayKeyName $l .Day}}</h2>
     {{if $v.Manage}}
     <details class="relative" data-menu>
       <summary class="btn-secondary btn-sm list-none">{{t $l "vol.manage.copy_day"}}</summary>
@@ -84,7 +92,24 @@
     </details>
     {{end}}
   </div>
+  {{if $d.Layout}}
+  {{/* The group names once what its cards share: the time they run, or
+       the role they staff; what they still need sits by it. */}}
+  <div class="pole-c{{$pole.Color}} space-y-6">
+    {{range .Groups}}
+    <div>
+      <h3 class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span class="h-6 w-1.5 rounded-full" style="background: var(--pole)" aria-hidden="true"></span>
+        <span class="text-lg font-bold text-gray-900 {{if eq $d.Layout "time"}}tabular-nums{{end}}">{{if eq $d.Layout "time"}}{{clock .StartsAt}}<span class="text-gray-400"> – </span>{{clock .EndsAt}}{{else}}{{.Role}}{{end}}</span>
+        <span class="text-sm {{if .Missing}}text-amber-800{{else}}text-green-800{{end}}">{{if .Missing}}{{tn $l "vol.pole.missing" .Missing}}{{else}}{{t $l "vol.pole.complete"}}{{end}}</span>
+      </h3>
+      <div class="space-y-2">{{range .Cards}}{{template "slot_card" .}}{{end}}</div>
+    </div>
+    {{end}}
+  </div>
+  {{else}}
   <div class="space-y-2">{{range .Cards}}{{template "slot_card" .}}{{end}}</div>
+  {{end}}
 </section>
 {{else}}
 {{if and $v.Manage (not $d.Total)}}<div class="card text-sm text-gray-700">{{t $l "vol.manage.no_slots"}} <a class="link" href="{{$pole.ManageURL}}/generate">{{t $l "vol.gen.first"}}</a></div>
