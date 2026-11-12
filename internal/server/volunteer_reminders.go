@@ -152,12 +152,8 @@ func (s *Server) reminderBody(p *store.Person, day time.Time, slots []*store.Slo
 	for _, sl := range slots {
 		fmt.Fprintf(&b, "  • %s – %s  %s", clock(sl.StartsAt), clock(sl.EndsAt), sl.PoleName)
 
-		if sl.LocationName != "" {
-			b.WriteString(" / " + sl.LocationName)
-		}
-
-		if sl.Title != "" {
-			b.WriteString(" — " + sl.Title)
+		if label := sl.Label(); label != "" {
+			b.WriteString(" – " + label)
 		}
 
 		fmt.Fprintf(&b, "\n    %s\n", s.slotURL(sl))

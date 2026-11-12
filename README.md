@@ -68,9 +68,9 @@ when they first use their link, while an edition takes volunteers):
 - personal calendar subscription link that follows changes, returning
   volunteers offered last year's poles
 - one page per pole: its shifts for everyone; for its leads, tabs for
-  members (search, add by address), messages, settings (picture, places,
-  freeze date) and history, and a slot generator (days, hours per day,
-  places, with a preview)
+  members (search, add by address), messages, settings (picture, roles
+  such as the welcome desk or the bar, freeze date) and history, and a
+  slot generator (days, hours per day, roles, with a preview)
 - the edition, for its coordinators: coverage of every pole, volunteer list
   with the hours each signed up for and CSV export, messages to all,
   volunteer status (draft, open, frozen, archived), coordinators, an

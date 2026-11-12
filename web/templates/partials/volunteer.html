@@ -135,7 +135,7 @@
           <label for="ms-{{$uid}}" class="sr-only">{{t $l "vol.manage.signup_on"}}</label>
           <select id="ms-{{$uid}}" class="input" name="slot" required>
             <option value="" disabled selected>{{t $l "vol.manage.pick_slot"}}</option>
-            {{range .}}<option value="{{.UID}}">{{dayName $l .StartsAt}} {{clock .StartsAt}}–{{clock .EndsAt}}{{with .Title}} · {{.}}{{end}} ({{.Filled}}/{{.Capacity}})</option>{{end}}
+            {{range .}}<option value="{{.UID}}">{{dayName $l .StartsAt}} {{clock .StartsAt}}–{{clock .EndsAt}}{{with .Label}} · {{.}}{{end}} ({{.Filled}}/{{.Capacity}})</option>{{end}}
           </select>
           <button class="btn btn-sm">{{t $l "vol.manage.signup_submit"}}</button>
         </form>
@@ -159,8 +159,7 @@
   <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
     <div class="w-28 shrink-0 font-semibold tabular-nums">{{clock .Slot.StartsAt}}<span class="text-gray-400"> – </span>{{clock .Slot.EndsAt}}</div>
     <div class="min-w-0 flex-1">
-      <a class="font-medium text-gray-900 hover:underline" href="{{.Slot.URL}}">{{.Slot.PoleName}}{{with .Slot.Title}} – {{.}}{{end}}</a>
-      {{with .Slot.LocationName}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{.}}</span>{{end}}
+      <a class="font-medium text-gray-900 hover:underline" href="{{.Slot.URL}}">{{.Slot.PoleName}}{{with .Slot.Label}} – {{.}}{{end}}</a>
       {{if .ShowDay}}<p class="text-xs text-gray-500 first-letter:uppercase">{{dayName .Lang .Slot.StartsAt}}</p>{{end}}
     </div>
     {{if .Badge}}<span class="badge bg-amber-100 text-amber-800">{{.Badge}}</span>
@@ -203,16 +202,17 @@
     {{/* At least 12rem for the title, so on a phone the places and the
          button go to their own line rather than squeezing it. */}}
     <div class="min-w-0 flex-1 {{if not .NoRole}}basis-48{{end}}">
-      {{/* Every card sits under its pole: the title names what tells the
-           slots apart, the title or else the location. */}}
+      {{/* Every card sits under its pole: it is named by its role, or
+           else its title, or else the pole; a title beside a role is its
+           detail. */}}
       {{if not .NoRole}}
       <a href="{{.Slot.URL}}" class="inline-flex items-center gap-2 font-medium text-gray-900 hover:underline">
-        {{- if .Slot.Title}}{{.Slot.Title}}
-        {{- else if .Slot.LocationName}}{{.Slot.LocationName}}
+        {{- if .Slot.LocationName}}{{.Slot.LocationName}}
+        {{- else if .Slot.Title}}{{.Slot.Title}}
         {{- else}}{{.Pole.Name}}{{end -}}
       </a>
       {{end}}
-      {{if and .Slot.LocationName .Slot.Title}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{.Slot.LocationName}}</span>{{end}}
+      {{if and .Slot.LocationName .Slot.Title}}<span class="badge ml-1 bg-gray-100 text-gray-700">{{.Slot.Title}}</span>{{end}}
       {{/* A slot still short of people that starts within two days is the
            one worth a look; every slot not yet full would drown it. */}}
       {{if and (not .Slot.Mine) (urgent .Slot)}}<span class="badge ml-1 bg-amber-100 text-amber-800">{{t $l "vol.slot.soon"}}</span>{{end}}
@@ -284,7 +284,7 @@
   {{if .Overlaps}}
   <div class="mt-3 rounded-md bg-amber-50 px-3 py-3 text-sm text-amber-900" role="alert">
     <p>{{t $l "vol.overlap.intro"}}
-      {{range .Overlaps}}<strong>{{.PoleName}}{{with .Title}} – {{.}}{{end}} ({{clock .StartsAt}}–{{clock .EndsAt}})</strong> {{end}}</p>
+      {{range .Overlaps}}<strong>{{.PoleName}}{{with .Label}} – {{.}}{{end}} ({{clock .StartsAt}}–{{clock .EndsAt}})</strong> {{end}}</p>
     <div class="mt-3 flex flex-wrap gap-2">
       {{template "slot_action" (dict "Lang" $l "Card" . "Action" "signup" "Force" true "Label" (t $l "vol.overlap.confirm") "Class" "btn btn-sm")}}
       <a href="{{.Back}}" class="btn-secondary btn-sm" hx-get="{{.Back}}" hx-select="#slot-{{.Slot.UID}}" hx-target="#slot-{{.Slot.UID}}" hx-swap="outerHTML">{{t $l "confirm.cancel"}}</a>

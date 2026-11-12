@@ -47,19 +47,15 @@ func volSubject(lang, key string, args ...any) string {
 	return "[" + i18n.Site() + "] " + i18n.T(lang, key, args...)
 }
 
-// slotLine renders a slot as a line of an e-mail: "Accueil, samedi 14
-// novembre de 14:00 à 18:00 (Hall) — Badges".
+// slotLine renders a slot as a line of an e-mail: "Logistique – Accueil ·
+// Badges, samedi 14 novembre de 14:00 à 18:00".
 func slotLine(lang string, pole *store.Pole, sl *store.Slot) string {
-	line := pole.Name + ", " + slotWhen(lang, sl.StartsAt, sl.EndsAt)
-	if sl.LocationName != "" {
-		line += " (" + sl.LocationName + ")"
+	line := pole.Name
+	if label := sl.Label(); label != "" {
+		line += " – " + label
 	}
 
-	if sl.Title != "" {
-		line += " — " + sl.Title
-	}
-
-	return line
+	return line + ", " + slotWhen(lang, sl.StartsAt, sl.EndsAt)
 }
 
 // volMail wraps a message body with the greeting and the signature.

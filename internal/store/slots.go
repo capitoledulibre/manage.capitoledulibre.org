@@ -42,6 +42,20 @@ func (s *Slot) ManageURL() string {
 	return "/" + s.EventSlug + "/poles/" + s.PoleSlug + "/manage/slots/" + s.UID
 }
 
+// Label names what tells the slot apart within its pole: its role (its
+// location), then the detail of its title; empty for a slot of the whole
+// pole with no title.
+func (s *Slot) Label() string {
+	switch {
+	case s.LocationName != "" && s.Title != "":
+		return s.LocationName + " · " + s.Title
+	case s.LocationName != "":
+		return s.LocationName
+	default:
+		return s.Title
+	}
+}
+
 // PoleColor is the palette index of the slot's pole, as Pole.Color.
 func (s *Slot) PoleColor() int { return int(s.PoleID % 8) }
 

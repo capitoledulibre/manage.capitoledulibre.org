@@ -67,7 +67,7 @@ type slotFieldsIn struct {
 	EndsAt         string   `json:"ends_at,omitempty" jsonschema:"end, as YYYY-MM-DDTHH:MM, event time (Paris)"`
 	Capacity       int      `json:"capacity,omitempty" jsonschema:"how many people the slot wants"`
 	Title          *string  `json:"title,omitempty" jsonschema:"a title, empty for none"`
-	Place          *string  `json:"place,omitempty" jsonschema:"the name of one of the pole's places, empty for the whole pole"`
+	Place          *string  `json:"place,omitempty" jsonschema:"the name of one of the pole's places, its roles such as the welcome desk or the bar; empty for the whole pole"`
 	Tasks          []string `json:"tasks,omitempty" jsonschema:"the checklist of a new slot"`
 	ConfirmOutside bool     `json:"confirm_outside,omitempty" jsonschema:"create or move the slot even outside the edition's dates"`
 }

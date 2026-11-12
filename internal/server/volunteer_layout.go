@@ -45,14 +45,14 @@ type slotGroup struct {
 	Cards    []*slotCardData
 }
 
-// slotRole is what a slot staffs, as its card names it: its title, or else
-// its location, or else the pole.
+// slotRole is what a slot staffs, as its card names it: its role (its
+// location), or else its title, or else the pole.
 func slotRole(sl *store.Slot, pole *store.Pole) string {
 	switch {
-	case sl.Title != "":
-		return sl.Title
 	case sl.LocationName != "":
 		return sl.LocationName
+	case sl.Title != "":
+		return sl.Title
 	default:
 		return pole.Name
 	}

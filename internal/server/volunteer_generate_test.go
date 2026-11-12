@@ -57,7 +57,7 @@ func TestSlotGenerator(t *testing.T) {
 
 	_, body = e.post(lead, gen, form)
 	mustContain(t, body, "48 créneaux, 96 places à pourvoir", "Créer les 48 créneaux", "samedi 14 novembre",
-		"6 horaires × 8 emplacements, un créneau par case.", ">Salle 8 <span class=\"badge bg-green-100 font-normal text-green-800\">nouveau</span></th>", ">09:00 – 12:00</th>",
+		"6 horaires × 8 postes, un créneau par case.", ">Salle 8 <span class=\"badge bg-green-100 font-normal text-green-800\">nouveau</span></th>", ">09:00 – 12:00</th>",
 		`name="keep" value="2026-11-14.540-720.Salle 1"`, `name="cap.2026-11-14.540-720.Salle 1" value="2"`)
 
 	// A timetable per day: three ranges down, eight rooms across, each cell

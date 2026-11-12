@@ -509,18 +509,14 @@ func (s *Server) calendarFor(r *http.Request, person *store.Person, e *store.Eve
 
 	for _, sl := range slots {
 		summary := sl.PoleName
-		if sl.Title != "" {
-			summary += " – " + sl.Title
+		if label := sl.Label(); label != "" {
+			summary += " – " + label
 		}
 
 		b.WriteString("BEGIN:VEVENT\r\n")
 		fmt.Fprintf(&b, "UID:%s-%s@manage\r\nDTSTAMP:%s\r\n", sl.UID, person.UID, stamp)
 		fmt.Fprintf(&b, "DTSTART:%s\r\nDTEND:%s\r\n", sl.StartsAt.UTC().Format("20060102T150405Z"), sl.EndsAt.UTC().Format("20060102T150405Z"))
 		fmt.Fprintf(&b, "SUMMARY:%s\r\n", esc(summary))
-
-		if sl.LocationName != "" {
-			fmt.Fprintf(&b, "LOCATION:%s\r\n", esc(sl.LocationName))
-		}
 
 		fmt.Fprintf(&b, "URL:%s%s\r\n", s.cfg.BaseURL, sl.URL())
 		b.WriteString("END:VEVENT\r\n")
