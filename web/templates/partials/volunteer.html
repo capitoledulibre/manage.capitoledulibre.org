@@ -191,6 +191,8 @@
 {{/* The card is replaced in place, which announces nothing: the outcome
      goes to the live region of the layout. */}}
 {{if .Announce}}<div id="announcer" class="sr-only" role="status" aria-live="polite" hx-swap-oob="true">{{.Announce}}</div>{{end}}
+{{/* The heading of the card's group counts its places too. */}}
+{{with .Group}}{{template "slot_group_status" (dict "Lang" $l "Group" . "OOB" true)}}{{end}}
 <article id="slot-{{.Slot.UID}}" class="slot-card pole-c{{.Pole.Color}}{{if .Slot.Mine}} slot-mine{{else if .Slot.IsFull}} slot-full{{end}}">
   <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
     {{if not .Compact}}
@@ -290,6 +292,37 @@
   </div>
   {{end}}
 </article>
+{{end}}
+
+{{/* slot_groups lists the groups of a day's cards under their headings:
+     the time they run or the role they staff, with what they still need
+     and whether the person is on one. Expects Lang, Groups and Layout,
+     and Sub for groups under a pole's own heading, on the planning. */}}
+{{define "slot_groups"}}
+{{$l := .Lang}}{{$layout := .Layout}}{{$sub := .Sub}}
+<div class="{{if $sub}}space-y-4{{else}}space-y-6{{end}}">
+  {{range .Groups}}
+  <div>
+    <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1" role="heading" aria-level="{{if $sub}}4{{else}}3{{end}}">
+      {{if not $sub}}<span class="h-6 w-1.5 rounded-full" style="background: var(--pole)" aria-hidden="true"></span>{{end}}
+      <span class="{{if $sub}}text-base font-semibold{{else}}text-lg font-bold{{end}} text-gray-900{{if eq $layout "time"}} tabular-nums{{end}}">{{if eq $layout "time"}}{{clock .StartsAt}}<span class="text-gray-400"> – </span>{{clock .EndsAt}}{{else}}{{.Role}}{{end}}</span>
+      {{template "slot_group_status" (dict "Lang" $l "Group" .)}}
+    </div>
+    <div class="space-y-2">{{range .Cards}}{{template "slot_card" .}}{{end}}</div>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{/* slot_group_status is what a group still needs, and whether the
+     person is on one of its slots. With OOB, htmx swaps it in by its id
+     along with a card. */}}
+{{define "slot_group_status"}}
+{{$l := .Lang}}{{$g := .Group}}
+<span id="{{$g.ID}}" class="flex flex-wrap items-center gap-2 text-sm"{{if .OOB}} hx-swap-oob="true"{{end}}>
+  <span class="{{if $g.Missing}}text-amber-800{{else}}text-green-800{{end}}">{{if $g.Missing}}{{tn $l "vol.pole.missing" $g.Missing}}{{else}}{{t $l "vol.pole.complete"}}{{end}}</span>
+  {{if $g.Mine}}<span class="badge bg-green-100 text-green-800">✓ {{t $l "vol.slot.signed_up"}}</span>{{end}}
+</span>
 {{end}}
 
 {{/* slot_action is one button acting on a slot: a plain form, which htmx

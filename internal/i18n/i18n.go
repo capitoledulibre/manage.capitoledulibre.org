@@ -553,6 +553,7 @@ var messages = map[string][2]string{
 	"vol.pole.layout":                {"Affichage", "View"},
 	"vol.pole.layout_time":           {"Par créneau", "By time"},
 	"vol.pole.layout_role":           {"Par poste", "By role"},
+	"vol.pole.days":                  {"Aller au jour", "Go to day"},
 	"vol.pole.all_filled":            {"Tous les créneaux sont pourvus, merci\u00a0!", "All slots are filled, thank you!"},
 	"vol.pole.none_yet":              {"Aucun créneau n'a encore été publié dans ce pôle.", "No slot has been published in this team yet."},
 	"vol.pole.leave_title":           {"Quitter ce pôle", "Leave this team"},

@@ -46,16 +46,19 @@
   {{end}}
 
   {{range $d.Days}}
-  <section class="mb-8">
-    <h2 class="mb-3 text-lg font-semibold"><span class="inline-block first-letter:uppercase {{if eq .Day $d.Today}}text-brand-700{{end}}">{{dayKeyName $l .Day}}{{if eq .Day $d.Today}} · {{t $l "vol.me.today"}}{{end}}</span>
+  <section class="mb-10">
+    {{/* The day stays at the top while its poles scroll by, as on a
+         pole's page. */}}
+    <h2 class="sticky top-0 z-10 -mx-4 mb-4 border-b-2 border-gray-300 bg-gray-50/95 px-4 py-2 backdrop-blur sm:mx-0 sm:px-0"><span class="inline-block text-xl font-bold tracking-tight first-letter:uppercase {{if eq .Day $d.Today}}text-brand-700{{end}}">{{dayKeyName $l .Day}}{{if eq .Day $d.Today}} · {{t $l "vol.me.today"}}{{end}}</span>
       <span class="text-sm font-normal text-gray-500">· {{t $l "vol.coord.day_filled" .Filled .Capacity}}</span></h2>
     {{range .Poles}}
-    <div class="pole-c{{.Pole.Color}} mb-5">
-      <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold">
-        <span class="h-4 w-1 rounded-full" style="background: var(--pole)" aria-hidden="true"></span>
+    <div class="pole-c{{.Pole.Color}} mb-8">
+      <h3 class="mb-3 flex items-center gap-2 text-lg font-bold">
+        <span class="h-6 w-1.5 rounded-full" style="background: var(--pole)" aria-hidden="true"></span>
         <a class="text-gray-900 hover:underline" href="{{.Pole.URL}}">{{.Pole.Name}}</a>
       </h3>
       {{if $d.Grid}}{{template "slot_grid" (dict "Lang" $l "Grid" .Grid "Label" .Pole.Name)}}
+      {{else if .Layout}}{{template "slot_groups" (dict "Lang" $l "Groups" .Groups "Layout" .Layout "Sub" true)}}
       {{else}}<div class="space-y-2">{{range .Slots}}{{template "slot_card" .Card}}{{end}}</div>{{end}}
     </div>
     {{end}}

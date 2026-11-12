@@ -73,8 +73,16 @@
 </div>
 {{end}}
 
+{{/* With several days, a jump to each: the days of a busy pole are a
+     long scroll apart. */}}
+{{if gt (len $d.Days) 1}}
+<nav class="mb-6 flex flex-wrap items-center gap-2 text-sm" aria-label="{{t $l "vol.pole.days"}}">
+  {{range $d.Days}}<a href="#day-{{.Day}}" class="filter first-letter:uppercase">{{dayKeyName $l .Day}}</a>{{end}}
+</nav>
+{{end}}
+
 {{range $d.Days}}
-<section class="mb-10">
+<section id="day-{{.Day}}" class="mb-10 scroll-mt-2">
   {{/* The day stays at the top while its slots scroll by: on a long
        pole, which day a card belongs to is otherwise lost. */}}
   <div class="sticky top-0 z-10 -mx-4 mb-4 flex flex-wrap items-center justify-between gap-2 border-b-2 border-gray-300 bg-gray-50/95 px-4 py-2 backdrop-blur sm:mx-0 sm:px-0">
@@ -92,21 +100,7 @@
     </details>
     {{end}}
   </div>
-  {{if $d.Layout}}
-  {{/* The group names once what its cards share: the time they run, or
-       the role they staff; what they still need sits by it. */}}
-  <div class="pole-c{{$pole.Color}} space-y-6">
-    {{range .Groups}}
-    <div>
-      <h3 class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span class="h-6 w-1.5 rounded-full" style="background: var(--pole)" aria-hidden="true"></span>
-        <span class="text-lg font-bold text-gray-900 {{if eq $d.Layout "time"}}tabular-nums{{end}}">{{if eq $d.Layout "time"}}{{clock .StartsAt}}<span class="text-gray-400"> – </span>{{clock .EndsAt}}{{else}}{{.Role}}{{end}}</span>
-        <span class="text-sm {{if .Missing}}text-amber-800{{else}}text-green-800{{end}}">{{if .Missing}}{{tn $l "vol.pole.missing" .Missing}}{{else}}{{t $l "vol.pole.complete"}}{{end}}</span>
-      </h3>
-      <div class="space-y-2">{{range .Cards}}{{template "slot_card" .}}{{end}}</div>
-    </div>
-    {{end}}
-  </div>
+  {{if $d.Layout}}{{template "slot_groups" (dict "Lang" $l "Groups" .Groups "Layout" $d.Layout)}}
   {{else}}
   <div class="space-y-2">{{range .Cards}}{{template "slot_card" .}}{{end}}</div>
   {{end}}

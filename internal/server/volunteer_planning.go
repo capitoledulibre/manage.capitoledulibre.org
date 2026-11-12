@@ -41,6 +41,12 @@ type planPole struct {
 	Slots  []*planSlot
 	// Grid is the day of the pole as a timetable, in the grid layout.
 	Grid *bulkGrid
+	// MultiRole tells whether the pole's slots, over the whole edition,
+	// staff more than one role; Groups is its day grouped by time then,
+	// in the list layout, as on the pole's page, when Layout says so.
+	MultiRole bool
+	Layout    string
+	Groups    []*slotGroup
 }
 
 type planDay struct {
@@ -147,6 +153,13 @@ func (s *Server) planning(ctx context.Context, a *access.Actor, e *store.Event, 
 		byID[p.ID], order[p.ID] = p, i
 	}
 
+	// Grouping a pole's slots goes by all of them, as on its page, not by
+	// those the filters leave.
+	byPole := map[int64][]*store.Slot{}
+	for _, sl := range slots {
+		byPole[sl.PoleID] = append(byPole[sl.PoleID], sl)
+	}
+
 	now := time.Now()
 
 	for _, sl := range slots {
@@ -183,7 +196,7 @@ func (s *Server) planning(ctx context.Context, a *access.Actor, e *store.Event, 
 		}
 
 		if pp == nil {
-			pp = &planPole{Pole: byID[sl.PoleID]}
+			pp = &planPole{Pole: byID[sl.PoleID], MultiRole: multiRole(byPole[sl.PoleID], byID[sl.PoleID])}
 			d.Poles = append(d.Poles, pp)
 		}
 
@@ -306,14 +319,27 @@ func (s *Server) planningPage(w http.ResponseWriter, r *http.Request) error {
 		for _, pp := range d.Poles {
 			pp.Manage = a.ManagesPole(pp.Pole)
 
+			// In the list, a pole's slots group by time, as on its page;
+			// one's own slots are few enough to stay a plain list.
+			layout := ""
+			if pp.MultiRole && q.Layout == "" && q.View != "mine" {
+				layout = layoutTime
+			}
+
+			cards := make([]*slotCardData, 0, len(pp.Slots))
+
 			for _, ps := range pp.Slots {
 				ps.Card = &slotCardData{
 					Lang: lang, Slot: ps.Slot, Pole: pp.Pole, Member: members[pp.Pole.ID],
 					Locked: e.SignupsLocked(pp.Pole.FreezeAt, now), Waiting: waiting[ps.Slot.ID], Back: back,
 					ShowPeople: true, People: ps.People, Manage: pp.Manage,
 					Tasks: ps.Tasks, CanTick: ps.Slot.Mine || pp.Manage, OpenTasks: q.View == "late", Fiche: fiche,
+					NoTime: layout == layoutTime,
 				}
+				cards = append(cards, ps.Card)
 			}
+
+			pp.Layout, pp.Groups = layout, groupSlots(cards, layout)
 		}
 	}
 

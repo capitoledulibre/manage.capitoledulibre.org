@@ -146,8 +146,62 @@ func TestPoleLayouts(t *testing.T) {
 		t.Error("the re-rendered card names the role its group already shows")
 	}
 
+	// Its group's heading follows: the places it still needs, and that
+	// the person is on one of its slots.
+	group := groupID(f.accueil, groupKey(badges, f.accueil, layoutRole))
+	mustContain(t, body, `id="`+group+`"`, `hx-swap-oob="true"`, "il manque 1 bénévole", "✓ Inscrit·e")
+
 	_, body = e.hx(nina, slotURL+"/unsignup", url.Values{"back": {page + "?layout=time"}})
 	if strings.Contains(body, "w-28 shrink-0") {
 		t.Error("the re-rendered card shows the time its group already shows")
+	}
+
+	mustContain(t, body, `id="`+groupID(f.accueil, groupKey(badges, f.accueil, layoutTime))+`"`, "il manque 3 bénévoles")
+
+	if strings.Contains(body, "✓ Inscrit·e") {
+		t.Error("the group still shows the person on it")
+	}
+
+	// The layout chosen is remembered, on any pole, until another is.
+	_, body = e.get(nina, page)
+	mustContain(t, body, `name="back" value="`+page+`?layout=role"`)
+
+	_, body = e.get(nina, page+"?layout=time")
+	mustContain(t, body, `name="back" value="`+page+`?layout=time"`)
+
+	_, body = e.get(nina, page)
+	mustContain(t, body, `name="back" value="`+page+`?layout=time"`)
+
+	// One day: no jump to it. Two: a jump to each.
+	if strings.Contains(body, `href="#day-`) {
+		t.Error("a single day offers a jump to it")
+	}
+
+	later := start.Add(24 * time.Hour)
+	mustOK(t, e.st.CreateSlot(ctx, &store.Slot{PoleID: f.accueil.ID, StartsAt: later, EndsAt: later.Add(time.Hour), Capacity: 1, Title: "Badges"}))
+
+	_, body = e.get(nina, page)
+	mustContain(t, body, `href="#day-`+dayKey(start)+`"`, `href="#day-`+dayKey(later)+`"`, `id="day-`+dayKey(later)+`"`)
+
+	// The planning groups the pole by time too, and a card swapped in
+	// there follows it; one's own slots stay a plain list.
+	planning := planningURL(f.event)
+	back := planning + "?" + planURLQuery("all", f.accueil, "all", "")
+
+	_, body = e.get(nina, back)
+	mustContain(t, body, `role="heading" aria-level="4"`, ">Badges</a>", ">Vestiaire</a>")
+
+	_, body = e.hx(nina, slotURL+"/signup", url.Values{"back": {back}})
+	mustContain(t, body, `hx-swap-oob="true"`, "✓ Inscrit·e")
+
+	if strings.Contains(body, "w-28 shrink-0") {
+		t.Error("the planning's card shows the time its group already shows")
+	}
+
+	_, body = e.get(nina, planning+"?"+planURLQuery("mine", nil, "all", ""))
+	mustContain(t, body, "w-28 shrink-0")
+
+	if strings.Contains(body, `aria-level="4"`) {
+		t.Error("one's own slots are grouped")
 	}
 }

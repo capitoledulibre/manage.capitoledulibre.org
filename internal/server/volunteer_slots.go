@@ -68,7 +68,7 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 
 	switch tab {
 	case "slots":
-		if err := s.poleSlots(r, v, locations, d); err != nil {
+		if err := s.poleSlots(w, r, v, locations, d); err != nil {
 			return err
 		}
 	case "members":
@@ -110,7 +110,7 @@ func (s *Server) polePage(w http.ResponseWriter, r *http.Request) error {
 
 // poleSlots fills in the slots tab: the cards, filtered by place or to the
 // slots still to fill, by day, then grouped by time or by role.
-func (s *Server) poleSlots(r *http.Request, v *poleView, locations []*store.Location, d map[string]any) error {
+func (s *Server) poleSlots(w http.ResponseWriter, r *http.Request, v *poleView, locations []*store.Location, d map[string]any) error {
 	ctx := r.Context()
 	person := rc(r).Person
 
@@ -133,25 +133,19 @@ func (s *Server) poleSlots(r *http.Request, v *poleView, locations []*store.Loca
 
 	var mine, missing int
 
-	roles := map[string]bool{}
-
 	for _, sl := range slots {
 		if sl.Mine {
 			mine++
 		}
 
 		missing += sl.Missing()
-		roles[slotRole(sl, v.Pole)] = true
 	}
 
 	// The slots are grouped by the time they run, or by the role they
-	// staff; with a single role, either grouping would only add headings.
+	// staff, as last chosen.
 	layout := ""
-	if len(roles) > 1 {
-		layout = layoutTime
-		if r.URL.Query().Get("layout") == layoutRole {
-			layout = layoutRole
-		}
+	if multiRole(slots, v.Pole) {
+		layout = s.chosenLayout(w, r)
 	}
 
 	filterUID := ""
@@ -217,7 +211,7 @@ func (s *Server) poleSlots(r *http.Request, v *poleView, locations []*store.Loca
 
 	if layout != "" {
 		d["Layouts"] = []planLink{
-			{Label: "vol.pole.layout_time", URL: poleSlotsURL(v.Pole, filterUID, onlyOpen, ""), On: layout == layoutTime},
+			{Label: "vol.pole.layout_time", URL: poleSlotsURL(v.Pole, filterUID, onlyOpen, layoutTime), On: layout == layoutTime},
 			{Label: "vol.pole.layout_role", URL: poleSlotsURL(v.Pole, filterUID, onlyOpen, layoutRole), On: layout == layoutRole},
 		}
 	}
@@ -237,109 +231,6 @@ func (s *Server) poleSlots(r *http.Request, v *poleView, locations []*store.Loca
 	d["Deadline"] = v.Event.SignupDeadline(v.Pole.FreezeAt)
 
 	return nil
-}
-
-// The layouts of a pole's slots: grouped by the time they run, or by the
-// role they staff.
-const (
-	layoutTime = "time"
-	layoutRole = "role"
-)
-
-// slotDay is a day of a pole's slots, its cards in groups: one group with
-// no heading when the slots are not grouped.
-type slotDay struct {
-	Day    string
-	Cards  []*slotCardData
-	Groups []*slotGroup
-}
-
-// slotGroup is the slots of a day that run at the same time, or that staff
-// the same role; Missing is the people they still need.
-type slotGroup struct {
-	Role     string
-	StartsAt time.Time
-	EndsAt   time.Time
-	Missing  int
-	Cards    []*slotCardData
-}
-
-// slotRole is what a slot staffs, as its card names it: its title, or else
-// its location, or else the pole.
-func slotRole(sl *store.Slot, pole *store.Pole) string {
-	switch {
-	case sl.Title != "":
-		return sl.Title
-	case sl.LocationName != "":
-		return sl.LocationName
-	default:
-		return pole.Name
-	}
-}
-
-// groupSlots groups the cards of a day, in the order of the time they run.
-// Slots group by the exact same start and end: two slots that only overlap
-// are two groups. Roles come in the order they first run.
-func groupSlots(cards []*slotCardData, layout string) []*slotGroup {
-	if layout == "" {
-		return []*slotGroup{{Cards: cards}}
-	}
-
-	var groups []*slotGroup
-
-	index := map[string]*slotGroup{}
-
-	for _, c := range cards {
-		key := slotRole(c.Slot, c.Pole)
-		if layout == layoutTime {
-			key = c.Slot.StartsAt.String() + "/" + c.Slot.EndsAt.String()
-		}
-
-		g := index[key]
-		if g == nil {
-			g = &slotGroup{Role: slotRole(c.Slot, c.Pole), StartsAt: c.Slot.StartsAt, EndsAt: c.Slot.EndsAt}
-			index[key] = g
-			groups = append(groups, g)
-		}
-
-		g.Missing += c.Slot.Missing()
-		g.Cards = append(g.Cards, c)
-	}
-
-	if layout == layoutTime {
-		slices.SortStableFunc(groups, func(a, b *slotGroup) int {
-			if c := a.StartsAt.Compare(b.StartsAt); c != 0 {
-				return c
-			}
-
-			return a.EndsAt.Compare(b.EndsAt)
-		})
-	}
-
-	return groups
-}
-
-// poleSlotsURL is the slots of a pole, filtered and laid out.
-func poleSlotsURL(pole *store.Pole, location string, onlyOpen bool, layout string) string {
-	q := url.Values{}
-
-	if location != "" {
-		q.Set("location", location)
-	}
-
-	if onlyOpen {
-		q.Set("open", "1")
-	}
-
-	if layout != "" {
-		q.Set("layout", layout)
-	}
-
-	if len(q) == 0 {
-		return pole.URL()
-	}
-
-	return pole.URL() + "?" + q.Encode()
 }
 
 // poleInvite is the page an invitation link of a private pole leads to.
@@ -515,8 +406,11 @@ type slotCardData struct {
 	Compact bool
 	// NoTime and NoRole leave out what the group of the card, on the
 	// pole's page, already shows as its heading.
-	NoTime   bool
-	NoRole   bool
+	NoTime bool
+	NoRole bool
+	// Group is the group of a card re-rendered by htmx, whose heading is
+	// updated along with it.
+	Group    *slotGroup
 	Error    string
 	Announce string
 	Overlaps []*store.Slot
@@ -549,14 +443,12 @@ func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting 
 
 	// A card of the planning or of the pole's page shows who is on the
 	// slot, which an action on it has just changed.
-	page, query, _ := strings.Cut(back, "?")
-	if page == v.Pole.URL() {
-		layout := ""
-		if q, err := url.ParseQuery(query); err == nil {
-			layout = q.Get("layout")
-		}
+	page, _, _ := strings.Cut(back, "?")
 
-		card.NoTime, card.NoRole = layout == layoutTime, layout == layoutRole
+	// Swapped into a group, the card leaves out what the group's heading
+	// shows, and brings that heading's figures up to date.
+	if isHX(r) {
+		s.groupCard(r, v, card)
 	}
 
 	if (page == planningURL(v.Event) || page == v.Pole.URL()) && (v.Member || v.Pole.IsOpen() || v.Manage) {
@@ -585,6 +477,45 @@ func (s *Server) slotCard(r *http.Request, v *poleView, sl *store.Slot, waiting 
 	}
 
 	return card
+}
+
+// groupCard fits a card re-rendered by htmx to the group it sits in, on
+// the page it goes back to, with the group's figures after the action.
+func (s *Server) groupCard(r *http.Request, v *poleView, card *slotCardData) {
+	layout := cardLayout(card.Back, v.Event, v.Pole)
+	if layout == "" {
+		return
+	}
+
+	var personID int64
+	if p := rc(r).Person; p != nil {
+		personID = p.ID
+	}
+
+	slots, err := s.store.ListSlots(r.Context(), v.Pole.ID, personID)
+	if err != nil {
+		slog.Error("slot card", "slot", card.Slot.UID, "err", err)
+
+		return
+	}
+
+	if !multiRole(slots, v.Pole) {
+		return
+	}
+
+	card.NoTime, card.NoRole = layout == layoutTime, layout == layoutRole
+
+	key := groupKey(card.Slot, v.Pole, layout)
+	g := &slotGroup{ID: groupID(v.Pole, key)}
+
+	for _, sl := range slots {
+		if groupKey(sl, v.Pole, layout) == key {
+			g.Missing += sl.Missing()
+			g.Mine = g.Mine || sl.Mine
+		}
+	}
+
+	card.Group = g
 }
 
 // respondSlot answers a slot action: the card for htmx, a redirect back to
