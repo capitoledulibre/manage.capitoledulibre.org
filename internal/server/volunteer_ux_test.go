@@ -100,8 +100,10 @@ func TestLeadSlotTools(t *testing.T) {
 	_, body = e.post(lead, manage+"/slots", form)
 	mustContain(t, body, "Créneau créé.")
 
-	// Within the dates, no question.
-	_, body = e.post(lead, manage+"/slots", url.Values{"starts_at": {"2026-11-14T09:00"}, "ends_at": {"2026-11-14T11:00"}, "capacity": {"2"}, "title": {"Ouverture"}, "tasks": {"Ouvrir"}})
+	// Within the dates, no question. On the half hour: the fixture's slots
+	// start on the hour, from now, and one at 09:00 on the day copied to
+	// would be taken for this one and skipped.
+	_, body = e.post(lead, manage+"/slots", url.Values{"starts_at": {"2026-11-14T09:30"}, "ends_at": {"2026-11-14T11:30"}, "capacity": {"2"}, "title": {"Ouverture"}, "tasks": {"Ouvrir"}})
 	mustContain(t, body, "Créneau créé.")
 
 	// A day is copied to another, tasks included, nobody signed up.
@@ -118,7 +120,7 @@ func TestLeadSlotTools(t *testing.T) {
 		}
 	}
 
-	if copied == nil || copied.TaskCount != 1 || copied.Filled != 0 || clock(copied.StartsAt) != "09:00" {
+	if copied == nil || copied.TaskCount != 1 || copied.Filled != 0 || clock(copied.StartsAt) != "09:30" {
 		t.Fatalf("copied day: %+v", copied)
 	}
 
