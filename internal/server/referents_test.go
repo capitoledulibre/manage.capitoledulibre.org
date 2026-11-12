@@ -71,6 +71,32 @@ func TestRoleReferents(t *testing.T) {
 	_, body = e.get(paul, page+"?layout=role")
 	mustContain(t, body, "Référent·e :", `<strong class="font-medium text-gray-800">Nina Ref</strong>`)
 
+	// The eve's reminder names the referent first, with why.
+	_, err = e.st.Signup(ctx, sl.ID, paulP.ID)
+	mustOK(t, err)
+
+	n, err := e.app.sendVolunteerReminders(ctx, sl.StartsAt)
+	if err != nil || n != 1 {
+		t.Fatalf("reminders: %d %v", n, err)
+	}
+
+	mails := e.mailer.mailTo("paul@example.org")
+	mail := mails[len(mails)-1]
+	mustContain(t, mail, "Nina Ref (référent·e du poste), nina@example.org", "Lou Lead (responsable du pôle)")
+
+	if strings.Index(mail, "Nina Ref") > strings.Index(mail, "Lou Lead") {
+		t.Error("the reminder does not name the referent first")
+	}
+
+	// On the day, the home page's slot of the moment names them too.
+	now := time.Now()
+	current := &store.Slot{PoleID: f.buvette.ID, LocationID: bar.ID, StartsAt: now.Add(-10 * time.Minute), EndsAt: now.Add(50 * time.Minute), Capacity: 2}
+	mustOK(t, e.st.CreateSlot(ctx, current))
+	mustOK(t, e.st.ForceSignup(ctx, current.ID, paulP.ID))
+
+	_, body = e.get(paul, "/"+f.event.Slug+"/")
+	mustContain(t, body, "En ce moment", "Nina Ref", "référent·e du poste", "responsable du pôle")
+
 	// Who leaves the pole stops being one.
 	mustOK(t, e.st.LeavePole(ctx, f.buvette.ID, ninaP.ID))
 

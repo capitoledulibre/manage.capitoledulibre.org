@@ -44,7 +44,7 @@ func TestVolunteerReminders(t *testing.T) {
 	mails := e.mailer.mailTo("nina@example.org")
 	body := mails[len(mails)-1]
 	mustContain(t, body, "Vos créneaux de", "Voici vos créneaux de bénévolat", "Buvette", f.tomorrow.URL(),
-		"Contact : Lou Lead, lead@conf.test, 06 11 22 33 44", "/"+f.event.Slug+"/planning?view=mine")
+		"Contact : Lou Lead (responsable du pôle), lead@conf.test, 06 11 22 33 44", "/"+f.event.Slug+"/planning?view=mine")
 
 	if e.mailer.count("omar@example.org") != 0 {
 		t.Fatal("a draft edition's slot was recalled")

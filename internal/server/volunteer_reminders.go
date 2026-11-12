@@ -60,7 +60,9 @@ func (s *Server) sendVolunteerReminders(ctx context.Context, day time.Time) (int
 	}
 
 	events := map[int64]*store.Event{}
-	contacts := map[int64][]*store.Person{}
+	// The leads and referents of each pole, read once for everyone.
+	managers := map[int64][]*store.Person{}
+	referents := map[int64]map[int64][]*store.Person{}
 	sent := 0
 
 	for _, id := range ids {
@@ -106,15 +108,20 @@ func (s *Server) sendVolunteerReminders(ctx context.Context, day time.Time) (int
 			continue
 		}
 
+		contacts := map[int64][]slotContact{}
+
 		for _, sl := range slots {
-			if _, ok := contacts[sl.PoleID]; !ok {
-				managers, err := s.store.ListPoleManagers(ctx, sl.PoleID)
-				if err != nil {
+			if _, ok := managers[sl.PoleID]; !ok {
+				if managers[sl.PoleID], err = s.store.ListPoleManagers(ctx, sl.PoleID); err != nil {
 					return sent, err
 				}
 
-				contacts[sl.PoleID] = named(managers)
+				if referents[sl.PoleID], err = s.store.RoleReferents(ctx, sl.PoleID); err != nil {
+					return sent, err
+				}
 			}
+
+			contacts[sl.ID] = contactsFor(sl, managers[sl.PoleID], referents[sl.PoleID])
 		}
 
 		msg := mail.Message{
@@ -140,10 +147,10 @@ func (s *Server) sendVolunteerReminders(ctx context.Context, day time.Time) (int
 	return sent, nil
 }
 
-// reminderBody lists the slots of the day, with whom to call for each pole:
-// its leads who gave a name, their address and, when they share it, their
-// phone.
-func (s *Server) reminderBody(p *store.Person, day time.Time, slots []*store.Slot, contacts map[int64][]*store.Person) string {
+// reminderBody lists the slots of the day, with whom to call for each, by
+// slot (contactsFor): their name, why, their address and, when they share
+// it, their phone.
+func (s *Server) reminderBody(p *store.Person, day time.Time, slots []*store.Slot, contacts map[int64][]slotContact) string {
 	var b strings.Builder
 
 	b.WriteString(i18n.T(p.Lang, "mail.vol.reminder.intro", dayName(p.Lang, day)))
@@ -160,8 +167,8 @@ func (s *Server) reminderBody(p *store.Person, day time.Time, slots []*store.Slo
 
 		var who []string
 
-		for _, m := range contacts[sl.PoleID] {
-			c := m.Name + ", " + m.Email
+		for _, m := range contacts[sl.ID] {
+			c := m.Name + " (" + i18n.T(p.Lang, m.Role) + "), " + m.Email
 			if m.SharePhone && m.Phone != "" {
 				c += ", " + formatPhone(m.Phone)
 			}

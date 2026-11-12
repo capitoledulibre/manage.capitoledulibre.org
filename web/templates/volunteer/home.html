@@ -34,7 +34,7 @@
     <div>
       <h3 class="mb-2 text-sm font-semibold">{{t $l "vol.slot.contacts"}}</h3>
       <ul class="space-y-2 text-sm">
-        {{range .}}<li class="flex items-center gap-2">{{template "person_avatar" .}}<span><strong>{{.Name}}</strong>{{if and .SharePhone .Phone}} · <a class="link" href="tel:{{telHref .Phone}}">{{phone .Phone}}</a>{{else}} · <a class="link" href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</span></li>{{end}}
+        {{range .}}<li class="flex items-center gap-2">{{template "person_avatar" .Person}}<span><strong>{{.Name}}</strong> <span class="text-gray-500">{{t $l .Role}}</span><br>{{if and .SharePhone .Phone}}<a class="link" href="tel:{{telHref .Phone}}">{{phone .Phone}}</a>{{else}}<a class="link" href="mailto:{{.Email}}">{{.Email}}</a>{{end}}</span></li>{{end}}
       </ul>
     </div>
     {{end}}

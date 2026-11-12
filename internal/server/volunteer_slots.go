@@ -402,33 +402,8 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) error {
 	var contacts []slotContact
 
 	if v.Member || v.Manage {
-		managers, err := s.store.ListPoleManagers(ctx, v.Pole.ID)
-		if err != nil {
+		if contacts, err = s.slotContacts(ctx, sl); err != nil {
 			return err
-		}
-
-		var referents []*store.Person
-
-		if sl.LocationID != 0 {
-			byRole, err := s.store.RoleReferents(ctx, v.Pole.ID)
-			if err != nil {
-				return err
-			}
-
-			referents = byRole[sl.LocationID]
-		}
-
-		seen := map[int64]bool{}
-
-		for _, p := range named(referents) {
-			seen[p.ID] = true
-			contacts = append(contacts, slotContact{Person: p, Role: "vol.slot.role_referent"})
-		}
-
-		for _, p := range named(managers) {
-			if !seen[p.ID] {
-				contacts = append(contacts, slotContact{Person: p, Role: "vol.slot.pole_manager"})
-			}
 		}
 	}
 
@@ -447,6 +422,49 @@ func (s *Server) slotPage(w http.ResponseWriter, r *http.Request) error {
 type slotContact struct {
 	*store.Person
 	Role string
+}
+
+// slotContacts reads whom to turn to about a slot (contactsFor).
+func (s *Server) slotContacts(ctx context.Context, sl *store.Slot) ([]slotContact, error) {
+	managers, err := s.store.ListPoleManagers(ctx, sl.PoleID)
+	if err != nil {
+		return nil, err
+	}
+
+	var referents map[int64][]*store.Person
+
+	if sl.LocationID != 0 {
+		if referents, err = s.store.RoleReferents(ctx, sl.PoleID); err != nil {
+			return nil, err
+		}
+	}
+
+	return contactsFor(sl, managers, referents), nil
+}
+
+// contactsFor lists whom to turn to about a slot, from its pole's leads and
+// the referents of the pole's roles: the referents of the slot's role
+// first, closest to it, then the leads; only those who gave a name, each
+// once.
+func contactsFor(sl *store.Slot, managers []*store.Person, referents map[int64][]*store.Person) []slotContact {
+	var out []slotContact
+
+	seen := map[int64]bool{}
+
+	if sl.LocationID != 0 {
+		for _, p := range named(referents[sl.LocationID]) {
+			seen[p.ID] = true
+			out = append(out, slotContact{Person: p, Role: "vol.slot.role_referent"})
+		}
+	}
+
+	for _, p := range named(managers) {
+		if !seen[p.ID] {
+			out = append(out, slotContact{Person: p, Role: "vol.slot.pole_manager"})
+		}
+	}
+
+	return out
 }
 
 // slotCardData is what the slot_card partial shows. Back is carried through

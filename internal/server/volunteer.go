@@ -384,7 +384,7 @@ type dayFocus struct {
 	Slot     *store.Slot
 	Ongoing  bool
 	Tasks    []*store.SlotTask
-	Contacts []*store.Person
+	Contacts []slotContact
 }
 
 // dayFocus picks, among the person's slots, the one to put first on the
@@ -418,12 +418,9 @@ func (s *Server) dayFocus(r *http.Request, mine []*store.Slot, now time.Time) (*
 		return nil, err
 	}
 
-	managers, err := s.store.ListPoleManagers(ctx, f.Slot.PoleID)
-	if err != nil {
+	if f.Contacts, err = s.slotContacts(ctx, f.Slot); err != nil {
 		return nil, err
 	}
-
-	f.Contacts = named(managers)
 
 	return f, nil
 }
